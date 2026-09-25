@@ -294,16 +294,6 @@ export function defaultToolbarCommands(): ToolbarCommand[] {
   ];
 }
 
-/** How many entries the list holds once submenus are opened up. */
-export function countToolbarEntries(commands: ToolbarCommand[]): number {
-  let total = 0;
-  for (const cmd of commands) {
-    total += 1;
-    if (cmd.children) total += countToolbarEntries(cmd.children);
-  }
-  return total;
-}
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 

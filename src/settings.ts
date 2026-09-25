@@ -15,33 +15,13 @@ import { applyTooltip } from "./utils/tooltip";
 import { commandName } from "./utils/commands";
 import { DIAGRAM_KINDS } from "./core/kinds";
 import {
-  backgroundColorEntry,
-  countToolbarEntries,
   defaultToolbarCommands,
-  fontColorEntry,
-  focusModeEntry,
   isGroupLabel,
   isSubmenu,
-  TEXT_ALIGN_MENU_ID,
-  TEXT_TOOLS_MENU_ID,
-  textAlignSubmenu,
-  textToolsSubmenu,
   type ToolbarCommand,
 } from "./core/toolbar-commands";
-import {
-  DEFAULT_CUSTOM_COLORS,
-  FONT_COLOR_ICON,
-  FONT_COLOR_TOOL_ID,
-  sanitizeCustomColors,
-} from "./core/font-color";
-import {
-  BACKGROUND_COLOR_ICON,
-  BACKGROUND_COLOR_TOOL_ID,
-  DEFAULT_BACKGROUND_CUSTOM,
-  sanitizeBackgroundCustom,
-} from "./core/background-color";
-import { FOCUS_MODE_ICON, FOCUS_MODE_TOOL_ID } from "./core/focus-mode";
-import { normalizeHex, normalizeColor } from "./core/color-span";
+import { DEFAULT_CUSTOM_COLORS, sanitizeCustomColors } from "./core/font-color";
+import { DEFAULT_BACKGROUND_CUSTOM, sanitizeBackgroundCustom } from "./core/background-color";
 import type { EmptyFolderHandling } from "./features/attachment-paths";
 import { resolveDuplicateSeparator, stripExtension } from "./features/attachment-paths";
 import type { FlowDirection, MindmapLayout } from "./core/model";
@@ -329,9 +309,23 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   /* -------------------------------------------------------------- toolbar */
 
   /*
-   * The tab is laid out the way the Editing Toolbar plugin lays out its own: a
-   * destructive block, then one card that both explains and performs "add", and
-   * only then the list.
+   * The tab is two things: one card that both explains and performs "add", and
+   * the list itself.
+   *
+   * The "clear all" block that used to sit above the card is gone as well. It
+   * was the only caller of the confirmation modal, and the list it emptied is
+   * the same list whose rows each carry their own delete action, so the way out
+   * of a toolbar somebody regrets building is to remove the rows — not to throw
+   * the whole thing away behind a prompt.
+   *
+   * The per-feature shortcut cards that used to sit between the card and the
+   * list are gone. Every entry they offered — the text tools, the alignment
+   * submenu, the two colour buttons, the focus-mode button — is a registered
+   * command, so "Add command" reaches all of them from one place rather than
+   * six, and there is no second list of bundled entries to keep in step with
+   * the command table. The custom swatch editors went with them: the two
+   * palettes still draw whatever the settings hold, which is the default set
+   * for anyone who never changed it.
    *
    * `replaceChildren()` is what makes the re-render safe. Appending a second
    * copy of the page on every edit is what the first version did, so the intro
@@ -341,17 +335,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     host.replaceChildren();
     const commands = this.plugin.settings.toolbarCommands;
 
-    // Counting entries, not top-level rows: a toolbar of five submenus holds
-    // far more than five things, and "remove 5" would be wrong.
-    host.appendChild(this.buildClearAll(host, countToolbarEntries(commands)));
     host.appendChild(this.buildAddCard(host));
-    host.appendChild(this.buildTextToolsCard(host));
-    host.appendChild(this.buildTextAlignCard(host));
-    host.appendChild(this.buildFontColorCard(host));
-    host.appendChild(this.buildFontColorSlots());
-    host.appendChild(this.buildBackgroundColorCard(host));
-    host.appendChild(this.buildBackgroundColorSlots());
-    host.appendChild(this.buildFocusModeCard(host));
 
     const list = h("ul", { cls: "mtk-toolbar-cmd-list" });
     if (commands.length === 0) {
@@ -364,35 +348,15 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     host.appendChild(list);
   }
 
-  /** The destructive block: one button, and the confirmation it opens. */
-  private buildClearAll(host: HTMLElement, count: number): HTMLElement {
-    const box = h("div", { cls: "mtk-toolbar-danger" });
-    const clearBtn = h("button", {
-      cls: "mtk-btn mtk-btn-danger",
-      text: t("settings.toolbar.clearAll"),
-      attr: { type: "button" },
-    }) as HTMLButtonElement;
-    // Nothing to clear is not an error state worth a notice; it is simply off.
-    clearBtn.disabled = count === 0;
-    clearBtn.addEventListener("click", () => {
-      new ConfirmModal(
-        this.app,
-        t("settings.toolbar.clearConfirmTitle"),
-        t("settings.toolbar.clearConfirm", { count: String(count) }),
-        t("settings.toolbar.confirm"),
-        () => {
-          this.plugin.settings.toolbarCommands = [];
-          this.applyToolbarChange();
-          new Notice(t("settings.toolbar.clearDone"));
-          this.renderToolbar(host);
-        }
-      ).open();
-    });
-    box.appendChild(clearBtn);
-    return box;
-  }
-
-  /** The card that carries both the instructions and the two "add" buttons. */
+  /**
+   * The card that carries both the instructions and the two "add" buttons.
+   *
+   * The third button — "add a section heading" — is gone. A heading is still a
+   * row type the bundled submenus emit (the text tools group their entries
+   * under one), so those render and edit exactly as before; what is gone is the
+   * only way to conjure a *new* one, which dropped a title row into the toolbar
+   * with nothing under it.
+   */
   private buildAddCard(host: HTMLElement): HTMLElement {
     const card = h("div", { cls: "mtk-toolbar-add" });
 
@@ -425,277 +389,8 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     });
     actions.appendChild(submenuBtn);
 
-    // The same dialog the bundled submenu's headings are edited with, offered
-    // here so the row type is not something only the defaults can produce.
-    const headingBtn = h("button", {
-      cls: "clickable-icon mtk-toolbar-add-btn mtk-toolbar-add-sub",
-      attr: { type: "button", "aria-label": t("settings.toolbar.addGroupLabel") },
-    });
-    setIcon(headingBtn, "heading");
-    applyTooltip(headingBtn, t("settings.toolbar.addGroupLabel"));
-    headingBtn.addEventListener("click", () => {
-      this.openSubmenuModal(host, this.plugin.settings.toolbarCommands, null, true);
-    });
-    actions.appendChild(headingBtn);
-
     card.appendChild(actions);
     return card;
-  }
-
-  /**
-   * The one-click way to get one of the bundled entries into a toolbar that
-   * already exists.
-   *
-   * A default list only ever reaches a fresh install — an existing `data.json`
-   * is the user's, and rewriting it on upgrade would reorder a toolbar they
-   * arranged themselves. So each bundled entry is offered as a button instead:
-   * one press, and it is appended where they can drag it.
-   *
-   * The strings arrive already translated rather than as one key stem to
-   * interpolate: that keeps every key a literal in the caller, which is what
-   * the i18n checker needs to see in order to count the reference.
-   */
-  private buildInsertCard(
-    host: HTMLElement,
-    bundled: {
-      title: string;
-      desc: string;
-      insert: string;
-      exists: string;
-      done: string;
-      icon: string;
-      /** Detects the entry once it is already on the toolbar. */
-      id: string;
-      entry: () => ToolbarCommand;
-      /**
-       * Whether to expand what landed. True for a submenu, whose arrival is
-       * otherwise one unremarkable row; false for a single button, which has
-       * nothing to expand.
-       */
-      open?: boolean;
-    }
-  ): HTMLElement {
-    const card = h("div", { cls: "mtk-toolbar-add" });
-
-    const copy = h("div", { cls: "mtk-toolbar-add-copy" });
-    copy.appendChild(h("div", { cls: "mtk-toolbar-add-title", text: bundled.title }));
-    copy.appendChild(h("p", { cls: "mtk-toolbar-add-desc", text: bundled.desc }));
-    card.appendChild(copy);
-
-    const actions = h("div", { cls: "mtk-toolbar-add-actions" });
-    const btn = h("button", {
-      cls: "clickable-icon mtk-toolbar-add-btn",
-      attr: { type: "button", "aria-label": bundled.insert },
-    });
-    setIcon(btn, bundled.icon);
-    applyTooltip(btn, bundled.insert);
-    btn.addEventListener("click", () => {
-      const list = this.plugin.settings.toolbarCommands;
-      if (list.some((entry) => entry.id === bundled.id)) {
-        new Notice(bundled.exists);
-        return;
-      }
-      list.push(bundled.entry());
-      if (bundled.open !== false) this.openSubmenus.add(bundled.id);
-      this.applyToolbarChange();
-      this.renderToolbar(host);
-      new Notice(bundled.done);
-    });
-    actions.appendChild(btn);
-    card.appendChild(actions);
-    return card;
-  }
-
-  /** The bundled 文本工具 submenu, offered as a button. */
-  private buildTextToolsCard(host: HTMLElement): HTMLElement {
-    return this.buildInsertCard(host, {
-      title: t("settings.toolbar.textTools.title"),
-      desc: t("settings.toolbar.textTools.desc"),
-      insert: t("settings.toolbar.textTools.insert"),
-      exists: t("settings.toolbar.textTools.exists"),
-      done: t("settings.toolbar.textTools.done"),
-      icon: "box",
-      id: TEXT_TOOLS_MENU_ID,
-      entry: textToolsSubmenu,
-    });
-  }
-
-  /** The bundled 文本对齐 submenu, offered as a button. */
-  private buildTextAlignCard(host: HTMLElement): HTMLElement {
-    return this.buildInsertCard(host, {
-      title: t("settings.toolbar.textAlign.title"),
-      desc: t("settings.toolbar.textAlign.desc"),
-      insert: t("settings.toolbar.textAlign.insert"),
-      exists: t("settings.toolbar.textAlign.exists"),
-      done: t("settings.toolbar.textAlign.done"),
-      icon: "align-center",
-      id: TEXT_ALIGN_MENU_ID,
-      entry: textAlignSubmenu,
-    });
-  }
-
-  /** The bundled 字体颜色 button, offered the same way. */
-  private buildFontColorCard(host: HTMLElement): HTMLElement {
-    return this.buildInsertCard(host, {
-      title: t("settings.toolbar.fontColor.title"),
-      desc: t("settings.toolbar.fontColor.desc"),
-      insert: t("settings.toolbar.fontColor.insert"),
-      exists: t("settings.toolbar.fontColor.exists"),
-      done: t("settings.toolbar.fontColor.done"),
-      icon: FONT_COLOR_ICON,
-      id: FONT_COLOR_TOOL_ID,
-      entry: fontColorEntry,
-      // A single button, not a menu: there is nothing inside it to unfold.
-      open: false,
-    });
-  }
-
-  /** The bundled 背景颜色 button, offered the same way. */
-  private buildBackgroundColorCard(host: HTMLElement): HTMLElement {
-    return this.buildInsertCard(host, {
-      title: t("settings.toolbar.backgroundColor.title"),
-      desc: t("settings.toolbar.backgroundColor.desc"),
-      insert: t("settings.toolbar.backgroundColor.insert"),
-      exists: t("settings.toolbar.backgroundColor.exists"),
-      done: t("settings.toolbar.backgroundColor.done"),
-      icon: BACKGROUND_COLOR_ICON,
-      id: BACKGROUND_COLOR_TOOL_ID,
-      entry: backgroundColorEntry,
-      open: false,
-    });
-  }
-
-  /**
-   * The bundled 全屏专注模式 button, offered the same way.
-   *
-   * The one entry whose arrival changes something outside the toolbar, which is
-   * why its description says what the mode does rather than how to press it.
-   */
-  private buildFocusModeCard(host: HTMLElement): HTMLElement {
-    return this.buildInsertCard(host, {
-      title: t("settings.toolbar.focusMode.title"),
-      desc: t("settings.toolbar.focusMode.desc"),
-      insert: t("settings.toolbar.focusMode.insert"),
-      exists: t("settings.toolbar.focusMode.exists"),
-      done: t("settings.toolbar.focusMode.done"),
-      icon: FOCUS_MODE_ICON,
-      id: FOCUS_MODE_TOOL_ID,
-      entry: focusModeEntry,
-      open: false,
-    });
-  }
-
-  /** The five font colours, edited in place. */
-  private buildFontColorSlots(): HTMLElement {
-    return this.buildColorSlots({
-      title: t("settings.fontColor.custom.title"),
-      desc: t("settings.fontColor.custom.desc"),
-      slotLabel: (n) => t("settings.fontColor.custom.slot", { n }),
-      values: this.plugin.settings.fontColorCustom,
-      // Hex only, which is the same policy the font panel and `applyColor`
-      // work to: a value this page accepted but the feature refused would be a
-      // swatch that does nothing when it is pressed.
-      normalize: normalizeHex,
-      commit: (next) => {
-        this.plugin.settings.fontColorCustom = sanitizeCustomColors(next);
-      },
-    });
-  }
-
-  /** The five background colours, edited in place. */
-  private buildBackgroundColorSlots(): HTMLElement {
-    return this.buildColorSlots({
-      title: t("settings.backgroundColor.custom.title"),
-      desc: t("settings.backgroundColor.custom.desc"),
-      slotLabel: (n) => t("settings.backgroundColor.custom.slot", { n }),
-      values: this.plugin.settings.backgroundColorCustom,
-      // This palette's extra spelling: half of it is written with an alpha
-      // channel, and no hex code can say `rgba(140,140,140,0.12)`.
-      normalize: normalizeColor,
-      commit: (next) => {
-        this.plugin.settings.backgroundColorCustom = sanitizeBackgroundCustom(next);
-      },
-    });
-  }
-
-  /**
-   * One palette's editable swatches.
-   *
-   * Text boxes rather than a colour input: the panel draws exactly what is
-   * stored, so a box that accepts the same spellings the panel writes is the
-   * honest control. A rejected value is marked on the field itself instead of
-   * being saved and silently replaced, which is what a `?? default` in the save
-   * path would do.
-   *
-   * The two palettes differ in exactly two things — which spellings a slot
-   * accepts, and how the list is stored — so those are the arguments, and both
-   * arrive as the very functions the rest of the plugin uses. The list is
-   * rewritten whole on every edit rather than assigned onto the settings object
-   * one cell at a time, so a `data.json` that had drifted out of shape is put
-   * back to exactly its full length as soon as any one field is touched.
-   */
-  private buildColorSlots(options: {
-    title: string;
-    desc: string;
-    /** The accessible name of one slot, given its 1-based number. */
-    slotLabel: (n: string) => string;
-    values: readonly string[];
-    normalize: (value: string) => string | null;
-    commit: (next: string[]) => void;
-  }): HTMLElement {
-    const wrap = h("div", { cls: "mtk-color-slots" });
-    wrap.appendChild(h("div", { cls: "mtk-toolbar-add-title", text: options.title }));
-    wrap.appendChild(h("p", { cls: "mtk-toolbar-add-desc", text: options.desc }));
-
-    const row = h("div", { cls: "mtk-color-slot-row" });
-    const hint = h("p", { cls: "mtk-field-hint" });
-
-    const mark = (bad: boolean): void => {
-      hint.textContent = bad ? t("color.panel.invalid") : "";
-    };
-
-    // Built from the stored list, so the number of boxes is the number of
-    // swatches the panel will draw.
-    for (let index = 0; index < options.values.length; index += 1) {
-      const slot = h("label", { cls: "mtk-color-slot" });
-      const chip = h("span", { cls: "mtk-color-slot-chip" });
-      chip.style.backgroundColor = options.values[index];
-      const input = h("input", {
-        cls: "mtk-color-slot-input",
-        attr: {
-          type: "text",
-          value: options.values[index],
-          spellcheck: "false",
-          autocomplete: "off",
-          "aria-label": options.slotLabel(String(index + 1)),
-        },
-      });
-
-      input.addEventListener("change", () => {
-        const color = options.normalize(input.value);
-        if (!color) {
-          input.classList.add("is-invalid");
-          mark(true);
-          return;
-        }
-        input.classList.remove("is-invalid");
-        input.value = color;
-        chip.style.backgroundColor = color;
-        const next = [...options.values];
-        next[index] = color;
-        options.commit(next);
-        void this.plugin.saveSettings();
-        mark(false);
-      });
-
-      slot.appendChild(chip);
-      slot.appendChild(input);
-      row.appendChild(slot);
-    }
-
-    wrap.appendChild(row);
-    wrap.appendChild(hint);
-    return wrap;
   }
 
   /**
@@ -1982,64 +1677,6 @@ class CommandPickerModal extends FuzzySuggestModal<Command> {
 
   onChooseItem(command: Command): void {
     this.onChoose(command);
-  }
-}
-
-/**
- * Confirmation for an action the UI cannot undo.
- *
- * A destructive button that acts on the first click sits one mis-click away
- * from throwing away a list somebody assembled by hand, so this one asks.
- */
-class ConfirmModal extends Modal {
-  private readonly heading: string;
-  private readonly message: string;
-  private readonly confirmLabel: string;
-  private readonly onConfirm: () => void;
-
-  constructor(
-    app: App,
-    heading: string,
-    message: string,
-    confirmLabel: string,
-    onConfirm: () => void
-  ) {
-    super(app);
-    this.heading = heading;
-    this.message = message;
-    this.confirmLabel = confirmLabel;
-    this.onConfirm = onConfirm;
-  }
-
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.appendChild(h("h3", { text: this.heading }));
-    contentEl.appendChild(h("p", { cls: "mtk-settings-note", text: this.message }));
-
-    const actions = h("div", { cls: "mtk-modal-actions" });
-    const cancel = h("button", {
-      cls: "mtk-btn",
-      text: t("settings.toolbar.cancel"),
-      attr: { type: "button" },
-    });
-    cancel.addEventListener("click", () => this.close());
-    const confirm = h("button", {
-      cls: "mtk-btn mtk-btn-danger",
-      text: this.confirmLabel,
-      attr: { type: "button" },
-    });
-    confirm.addEventListener("click", () => {
-      this.close();
-      this.onConfirm();
-    });
-    actions.appendChild(cancel);
-    actions.appendChild(confirm);
-    contentEl.appendChild(actions);
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
   }
 }
 

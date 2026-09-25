@@ -1025,33 +1025,10 @@ body.is-mobile .mtk-embed .mtk-embed-code {
   background: var(--interactive-accent-hover);
 }
 
-/*
- * Destructive. A doubled class on top of the panel prefix, so it out-specifies
- * the neutral `.mtk-tab-panels .mtk-btn` background declared just above.
- */
-.modal .mtk-btn.mtk-btn-danger,
-.mtk-tab-panels .mtk-btn.mtk-btn-danger {
-  background: var(--text-error);
-  border-color: var(--text-error);
-  color: var(--text-on-accent);
-}
-.modal .mtk-btn.mtk-btn-danger:hover,
-.mtk-tab-panels .mtk-btn.mtk-btn-danger:hover {
-  background: var(--color-red, var(--text-error));
-  border-color: var(--color-red, var(--text-error));
-}
 .modal .mtk-btn:disabled,
 .mtk-tab-panels .mtk-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* ---- toolbar tab: destructive block ---- */
-.mtk-toolbar-danger {
-  padding: 12px 14px;
-  margin-bottom: 18px;
-  background: var(--background-secondary);
-  border-radius: var(--radius-m);
 }
 
 /* ---- toolbar tab: the "add" card ---- */
@@ -1754,41 +1731,6 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 }
 .mtk-color-hint:empty {
   display: none;
-}
-
-/* ---- settings tab: the five editable swatches ---- */
-.mtk-color-slots {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-}
-.mtk-color-slot-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.mtk-color-slot {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.mtk-color-slot-chip {
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-.mtk-color-slot-input {
-  width: 86px;
-  font-family: var(--font-monospace);
-  font-size: var(--font-ui-smaller);
-}
-.mtk-color-slot-input.is-invalid {
-  border-color: var(--text-error);
 }
 
 /* ---- fullscreen focus mode ---- */

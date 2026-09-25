@@ -8,6 +8,6 @@ download-log.txt
 
 # 本地开发/审计用的临时工作目录与笔记，不属于插件产物
 # （.workbuddy/memory/ 是项目笔记，仍纳入版本控制）
-.workbuddy/tmp/
+.workbuddy/
 tools/
 prototypes/
