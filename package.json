@@ -1,0 +1,30 @@
+{
+  "name": "markdown-toolkit",
+  "version": "0.18.0",
+  "description": "Edit diagrams, mind maps and flowcharts visually inside fenced code blocks, written back as plain text.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "mindmap",
+    "flowchart",
+    "diagram",
+    "mermaid",
+    "gantt",
+    "sequence-diagram"
+  ],
+  "author": "hellokunzai",
+  "license": "MIT",
+  "dependencies": {
+    "@dagrejs/dagre": "^1.1.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.20.2",
+    "obsidian": "^1.12.3",
+    "typescript": "^5.4.5"
+  }
+}

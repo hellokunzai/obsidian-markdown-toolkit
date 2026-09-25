@@ -1,0 +1,1804 @@
+/* ==========================================================================
+   MarkdownEditorPlus — styles
+   Conventions used throughout:
+   - Custom <button>s always carry a two-class selector (ancestor prefix or a
+     doubled class) so they out-specify Obsidian's own
+     `button:not(.clickable-icon)` rule, and always declare `height: auto`
+     because a bare `button` rule in the app sets `height: var(--input-height)`.
+   - Values computed in TypeScript arrive as `--mtk-*` custom properties; no
+     literal is ever assigned to `style.*` from code.
+   ========================================================================== */
+
+.mtk-editor,
+.mtk-embed {
+  --mtk-node-fill: #e8f1fe;
+  --mtk-node-stroke: #77aaf0;
+  --mtk-node-text: #123a6b;
+  --mtk-root-fill: #efeaff;
+  --mtk-root-stroke: #8f79ff;
+  --mtk-root-text: #3a2a8c;
+  --mtk-edge: #98a2ae;
+  --mtk-edge-text: #6b7480;
+  --mtk-accent: #7c5cff;
+  --mtk-surface: var(--background-primary);
+}
+
+.theme-dark .mtk-editor,
+.theme-dark .mtk-embed {
+  --mtk-node-fill: #233450;
+  --mtk-node-stroke: #5b93d6;
+  --mtk-node-text: #d6e8ff;
+  --mtk-root-fill: #332a58;
+  --mtk-root-stroke: #9d86ff;
+  --mtk-root-text: #e6dfff;
+  --mtk-edge: #6c7684;
+  --mtk-edge-text: #a9b3c0;
+  --mtk-accent: #9d86ff;
+}
+
+/* ------------------------------------------------------------ editor shell */
+
+.mtk-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  outline: none;
+}
+
+.modal.mtk-modal-shell {
+  width: min(1120px, 94vw);
+  height: min(780px, 88vh);
+  max-width: 94vw;
+  max-height: 88vh;
+}
+
+.modal.mtk-modal-shell .modal-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.mtk-view-host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.mtk-view-host .view-content {
+  height: 100%;
+  padding: 0;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.mtk-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.mtk-editor .mtk-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
+.mtk-editor .mtk-mode {
+  font-family: var(--font-monospace);
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.mtk-editor .mtk-spacer {
+  flex: 1 1 auto;
+}
+
+.mtk-header .mtk-btn {
+  appearance: none;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.mtk-header .mtk-btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.mtk-header .mtk-save {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+.mtk-header .mtk-save:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+/* ----------------------------------------------------------------- toolbar */
+
+.mtk-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+.mtk-editor .mtk-tb {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 9px;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.mtk-editor .mtk-tb:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.mtk-editor .mtk-tb.is-on {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+.mtk-editor .mtk-tb:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mtk-editor .mtk-tb-icon {
+  display: inline-flex;
+  align-items: center;
+  --icon-size: 14px;
+}
+
+.mtk-editor .mtk-tb-label {
+  line-height: 1.2;
+}
+
+.mtk-editor .mtk-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background-color: var(--background-modifier-border);
+}
+
+.mtk-editor .mtk-group-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 0 2px;
+}
+
+.mtk-editor .mtk-zoom-value {
+  min-width: 42px;
+  text-align: center;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.mtk-editor .mtk-status {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  max-width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ------------------------------------------------------------------ canvas */
+
+.mtk-editor .mtk-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--background-secondary);
+  touch-action: none;
+  cursor: grab;
+}
+
+.mtk-editor .mtk-canvas.is-panning {
+  cursor: grabbing;
+}
+
+.mtk-editor .mtk-canvas .mtk-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: radial-gradient(var(--background-modifier-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.mtk-editor .mtk-svg,
+.mtk-embed .mtk-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.mtk-node-interactive {
+  cursor: move;
+}
+
+.mtk-node-label {
+  pointer-events: none;
+  user-select: none;
+}
+
+.mtk-port {
+  cursor: crosshair;
+}
+
+.mtk-editor .mtk-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  max-width: 320px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.mtk-editor .mtk-empty.is-visible {
+  display: block;
+}
+
+/* Inline rename. Position and size come from TypeScript as custom properties. */
+.mtk-editor .mtk-inline {
+  position: absolute;
+  left: var(--mtk-inline-x, 0);
+  top: var(--mtk-inline-y, 0);
+  width: var(--mtk-inline-w, 140px);
+  display: none;
+  z-index: 5;
+}
+
+.mtk-editor .mtk-inline.is-open {
+  display: block;
+}
+
+.mtk-editor .mtk-inline-input {
+  width: 100%;
+  height: var(--mtk-inline-h, 34px);
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--interactive-accent);
+  border-radius: 8px;
+  box-shadow: none;
+  outline: none;
+}
+
+/* ------------------------------------------------------------------- hints */
+
+.mtk-hints {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.mtk-hint::before {
+  content: "·";
+  margin-right: 6px;
+  opacity: 0.6;
+}
+
+.mtk-hint:first-child::before {
+  content: none;
+}
+
+body.is-mobile .mtk-editor .mtk-tb-label,
+body.is-mobile .mtk-editor .mtk-group-label,
+body.is-mobile .mtk-editor .mtk-divider {
+  display: none;
+}
+
+body.is-mobile .mtk-editor .mtk-tb {
+  padding: 6px 9px;
+}
+
+body.is-mobile .mtk-toolbar {
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+body.is-mobile .mtk-editor .mtk-title {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.is-mobile .mtk-editor .mtk-mode {
+  display: none;
+}
+
+body.is-mobile .mtk-editor .mtk-status {
+  max-width: 46%;
+}
+
+body.is-mobile .mtk-hints {
+  gap: 4px 10px;
+  padding: 5px 9px;
+}
+
+/* ------------------------------------------------------- the chart canvases */
+
+/*
+ * The nine chart canvases put their property panel *beside* the drawing, not
+ * under the toolbar. Every one of them is edited the same way — pick something
+ * on the canvas, then change a field — and a panel that has to be scrolled to
+ * is a panel that gets missed. Only the layout differs from the node editor;
+ * the header, toolbar, canvas and hints are the same elements.
+ */
+.mtk-chart-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mtk-chart-body .mtk-canvas {
+  min-width: 0;
+}
+
+.mtk-editor .mtk-props {
+  flex: 0 0 auto;
+  width: 250px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  border-left: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+}
+
+.mtk-editor .mtk-props-head {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.mtk-editor .mtk-prop {
+  display: block;
+  margin: 0 0 12px;
+}
+
+.mtk-editor .mtk-prop-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mtk-editor .mtk-prop-input {
+  width: 100%;
+  height: auto;
+  min-height: 30px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text-normal);
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.mtk-editor .mtk-prop-input:focus {
+  border-color: var(--interactive-accent);
+  box-shadow: none;
+}
+
+/*
+ * A list field is one entry per line, and the entries are syntax — class
+ * members, entity fields — so it gets the monospace face. It is also the one
+ * control here whose height the user controls.
+ */
+.mtk-editor .mtk-prop-area {
+  min-height: 64px;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.mtk-editor .mtk-prop-note {
+  margin: 0 0 12px;
+  padding: 7px 9px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  background-color: var(--background-secondary);
+  border-radius: 6px;
+}
+
+.mtk-editor .mtk-prop-btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 30px;
+  margin: 0 0 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.mtk-editor .mtk-prop-btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.mtk-editor .mtk-prop-btn .mtk-tb-icon {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+/*
+ * The cursors the chart specs draw from. A grip names one and `paintChart`
+ * copies it onto the elements that grip marked, so a gantt bar and its right
+ * edge offer visibly different affordances — "move this" versus "make it
+ * longer" — instead of looking identical under the pointer.
+ */
+.mtk-editor .mtk-svg [data-mtk-cursor="move"] {
+  cursor: move;
+}
+
+.mtk-editor .mtk-svg [data-mtk-cursor="ew-resize"] {
+  cursor: ew-resize;
+}
+
+.mtk-editor .mtk-svg [data-mtk-cursor="ns-resize"] {
+  cursor: ns-resize;
+}
+
+.mtk-editor .mtk-svg [data-mtk-cursor="pointer"] {
+  cursor: pointer;
+}
+
+.mtk-editor .mtk-svg [data-mtk-cursor="grab"] {
+  cursor: grab;
+}
+
+.mtk-editor .mtk-svg [data-mtk-cursor="grabbing"] {
+  cursor: grabbing;
+}
+
+/*
+ * A pane too narrow to hold both moves the panel under the canvas.
+ *
+ * Measured, not guessed — `tools/harness/probe.mjs` mounts this panel in a real
+ * browser and reports what the layout engine decided. The panel is a fixed
+ * 250px, so a 300px Obsidian sidebar left the drawing 50px wide: present, and
+ * useless. The breakpoint sits where the drawing would fall below ~270px, which
+ * is inside the range every sidebar lands in and leaves the split untouched
+ * from 700px up.
+ *
+ * Keyed on the container rather than the viewport: a sidebar pane is about a
+ * third of the window, so a media query reads the wrong number entirely. The
+ * declarations match the phone rule below, which stays as the platform-driven
+ * fallback for engines without container queries.
+ */
+.mtk-editor.mtk-chart-editor {
+  container-type: inline-size;
+}
+
+@container (max-width: 520px) {
+  .mtk-editor .mtk-chart-body {
+    flex-direction: column;
+  }
+
+  .mtk-editor .mtk-props {
+    width: 100%;
+    max-height: 42%;
+    border-left: none;
+    border-top: 1px solid var(--background-modifier-border);
+  }
+}
+
+/*
+ * On a phone the panel would leave the drawing about 60px wide, so it moves
+ * under the canvas instead and keeps the canvas full width.
+ */
+body.is-mobile .mtk-editor .mtk-chart-body {
+  flex-direction: column;
+}
+
+body.is-mobile .mtk-editor .mtk-props {
+  width: 100%;
+  max-height: 42%;
+  border-left: none;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* ------------------------------------------------------- block in the note */
+
+.mtk-embed-host {
+  margin: 1em 0;
+}
+
+.mtk-embed {
+  position: relative;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background-color: var(--background-secondary);
+  overflow: hidden;
+}
+
+/*
+ * The height is published by the framing maths as `--mtk-canvas-h`, so the frame
+ * follows the drawing instead of the drawing being squeezed into the frame. A
+ * fixed height here is what made every diagram the same size and left a
+ * fourteen-node mind map rendering at 7.6px labels to fit inside it.
+ *
+ * 260px is only the value used before the first measurement lands, and for
+ * blocks that never get measured at all.
+ */
+.mtk-embed .mtk-canvas-static {
+  position: relative;
+  height: var(--mtk-canvas-h, 260px);
+}
+
+/* A block that failed to parse shows its source instead of a drawing, so the
+   measured height that keeps diagrams from jumping is the wrong thing here. */
+.mtk-embed .mtk-canvas-static.mtk-canvas-hug {
+  height: auto;
+  padding: 12px 14px;
+}
+
+.mtk-embed .mtk-embed-meta {
+  position: absolute;
+  right: 10px;
+  bottom: 7px;
+  font-size: 11px;
+  color: var(--text-faint);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mtk-embed:hover .mtk-embed-meta,
+body.is-mobile .mtk-embed .mtk-embed-meta {
+  opacity: 1;
+}
+
+.mtk-embed .mtk-embed-pill {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 15px;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.mtk-embed:hover .mtk-embed-pill,
+.mtk-embed .mtk-embed-pill:focus-visible,
+body.is-mobile .mtk-embed .mtk-embed-pill {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.mtk-embed .mtk-embed-pill:hover {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* Centre "edit" entry, shown only inside the Live Preview (source) editor. */
+.mtk-embed .mtk-embed-edit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.mtk-embed:hover .mtk-embed-edit,
+.mtk-embed .mtk-embed-edit:focus-visible,
+body.is-mobile .mtk-embed .mtk-embed-edit {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.mtk-embed .mtk-embed-edit:hover {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* Corner "code" entry: hands the block back to its fenced source. */
+.mtk-embed .mtk-embed-code {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  color: var(--text-muted);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.mtk-embed:hover .mtk-embed-code,
+.mtk-embed .mtk-embed-code:focus-visible,
+body.is-mobile .mtk-embed .mtk-embed-code {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mtk-embed .mtk-embed-code:hover {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+.mtk-embed .mtk-embed-code svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Full-screen, read-only preview of the diagram (reading view only). */
+.mtk-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vmin;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.mtk-lightbox-canvas {
+  position: relative;
+  width: min(92vw, 1100px);
+  height: min(86vh, 820px);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-l);
+  overflow: hidden;
+}
+
+.mtk-lightbox-canvas .mtk-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mtk-lightbox .mtk-lightbox-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+  opacity: 0.92;
+}
+
+.mtk-lightbox .mtk-lightbox-close:hover {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+.mtk-lightbox .mtk-lightbox-close .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.mtk-embed-error {
+  padding: 10px 12px;
+}
+
+/*
+ * Both of these are shared with the pass-through host, which is a sibling of
+ * `.mtk-embed` rather than inside it — hence the second selector on each rule.
+ * They are also the reason the centred host needs `text-align: left`: a failure
+ * message and a stack of source lines read badly in the middle of the page.
+ */
+.mtk-embed .mtk-embed-message,
+.mtk-embed-host .mtk-embed-message {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.mtk-embed .mtk-embed-source {
+  margin-top: 8px;
+}
+
+.mtk-embed .mtk-embed-source summary {
+  font-size: 12.5px;
+  color: var(--text-accent);
+  cursor: pointer;
+}
+
+.mtk-embed .mtk-embed-pre,
+.mtk-embed-host .mtk-embed-pre {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  white-space: pre;
+  overflow: auto;
+}
+
+/* ------------------------------- mermaid blocks outside our kind table */
+
+/*
+ * A mermaid block we have no kind for — a `quadrantChart`, an `xychart` — is
+ * drawn by mermaid itself. It deliberately gets no chrome: no border, no fixed
+ * canvas, no edit pill. It is somebody else's diagram, and the only job here is
+ * to keep a wide one from pushing the note sideways.
+ */
+.mtk-embed-host.mtk-embed-mermaid {
+  text-align: center;
+}
+
+.mtk-embed-host.mtk-embed-mermaid > svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* -------------------------------------------------------------- settings */
+
+.mtk-settings-note {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.55;
+}
+
+/* A description made of several note lines reads as one paragraph: the lines
+   sit flush, without the blank row each `.mtk-settings-note` carries on its
+   own. Single-line notes keep their normal bottom spacing. */
+.mtk-note-lines > .mtk-settings-note {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------- the kinds reference */
+
+/*
+ * A settings page, not a spreadsheet: the table keeps only the rules that make
+ * the columns readable and drops the outer frame, so it sits in the page rather
+ * than on top of it. The keyword goes in the monospace face because it is
+ * something you type.
+ */
+.mtk-kinds {
+  margin: 0 0 26px;
+}
+
+.mtk-kinds .mtk-kinds-title {
+  margin: 0 0 6px;
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+}
+
+.mtk-kinds .mtk-kinds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-ui-smaller);
+}
+
+.mtk-kinds .mtk-kinds-table th {
+  padding: 0 12px 6px 0;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  white-space: nowrap;
+}
+
+.mtk-kinds .mtk-kinds-table td {
+  padding: 6px 12px 6px 0;
+  vertical-align: top;
+  color: var(--text-normal);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.mtk-kinds .mtk-kinds-table tr > *:last-child {
+  padding-right: 0;
+}
+
+.mtk-kinds .mtk-kinds-table .mtk-kind-keyword {
+  font-family: var(--font-monospace);
+  font-size: 11.5px;
+  color: var(--text-accent);
+  white-space: nowrap;
+}
+
+.mtk-kinds .mtk-kinds-table .mtk-kind-scene {
+  color: var(--text-muted);
+}
+
+/*
+ * The one column someone reads to find out why a gantt chart has no edit
+ * button, so the two answers have to be told apart at a glance.
+ */
+.mtk-kinds .mtk-kinds-table .mtk-kind-can-edit {
+  color: var(--text-accent);
+  white-space: nowrap;
+}
+
+.mtk-kinds .mtk-kinds-table .mtk-kind-cannot-edit {
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   0.4.0 — editor-explorer features (toolbar, hidden rules, manual order,
+   attachment settings). Conventions: custom buttons carry a doubled class or
+   an ancestor prefix so they out-specify Obsidian's `button:not(.clickable-icon)`
+   rule, and always declare `height: auto` because app.css locks bare buttons to
+   `height: var(--input-height)`.
+   ========================================================================== */
+
+/* ---- settings tabs ---- */
+.mtk-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.mtk-tab.settings-tab {
+  height: auto;
+  min-height: 0;
+  margin: 0 0 -1px 0;
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-s) var(--radius-s) 0 0;
+}
+.mtk-tab.settings-tab:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+.mtk-tab.settings-tab.is-active {
+  color: var(--interactive-accent);
+  border-bottom-color: var(--interactive-accent);
+}
+
+/* ---- generic buttons (panels + modal) ---- */
+.modal .mtk-btn,
+.mtk-tab-panels .mtk-btn {
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  color: var(--text-normal);
+  font-size: 13px;
+  cursor: pointer;
+}
+.modal .mtk-btn:hover,
+.mtk-tab-panels .mtk-btn:hover {
+  background: var(--background-modifier-hover);
+}
+.mtk-btn.mtk-btn-primary {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.mtk-btn.mtk-btn-primary:hover {
+  background: var(--interactive-accent-hover);
+}
+
+/*
+ * Destructive. A doubled class on top of the panel prefix, so it out-specifies
+ * the neutral `.mtk-tab-panels .mtk-btn` background declared just above.
+ */
+.modal .mtk-btn.mtk-btn-danger,
+.mtk-tab-panels .mtk-btn.mtk-btn-danger {
+  background: var(--text-error);
+  border-color: var(--text-error);
+  color: var(--text-on-accent);
+}
+.modal .mtk-btn.mtk-btn-danger:hover,
+.mtk-tab-panels .mtk-btn.mtk-btn-danger:hover {
+  background: var(--color-red, var(--text-error));
+  border-color: var(--color-red, var(--text-error));
+}
+.modal .mtk-btn:disabled,
+.mtk-tab-panels .mtk-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- toolbar tab: destructive block ---- */
+.mtk-toolbar-danger {
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-m);
+}
+
+/* ---- toolbar tab: the "add" card ---- */
+.mtk-toolbar-add {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.mtk-toolbar-add-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mtk-toolbar-add-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+.mtk-toolbar-add-desc {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.55;
+}
+/*
+ * Carries `clickable-icon` so Obsidian's `button:not(.clickable-icon)` rule
+ * never applies, which is also why it is the one place that has to undo that
+ * class's own padding and icon opacity by hand.
+ */
+.mtk-tab-panels .mtk-toolbar-add-btn {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-m);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.mtk-tab-panels .mtk-toolbar-add-btn:hover {
+  background: var(--interactive-accent-hover);
+  color: var(--text-on-accent);
+}
+.mtk-tab-panels .mtk-toolbar-add-btn svg {
+  opacity: 1;
+}
+.mtk-toolbar-add-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/*
+ * The submenu button sits next to the accent "add" button, so it is drawn as
+ * the quieter of the two: same square, no fill.
+ */
+.mtk-tab-panels .mtk-toolbar-add-btn.mtk-toolbar-add-sub {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+}
+.mtk-tab-panels .mtk-toolbar-add-btn.mtk-toolbar-add-sub:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* ---- toolbar tab: the command list ---- */
+.mtk-toolbar-cmd-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+.mtk-toolbar-cmd-empty {
+  padding: 14px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.mtk-toolbar-cmd {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 7px 4px;
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+}
+.mtk-toolbar-cmd:last-child {
+  border-bottom: none;
+}
+
+/*
+ * A submenu wraps its own header row and the list of rows inside it, so the
+ * header cannot use `.mtk-toolbar-cmd`'s border: the divider belongs below the
+ * whole group, not between a submenu and its own contents.
+ */
+.mtk-toolbar-cmd-group {
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.mtk-toolbar-cmd-group:last-child {
+  border-bottom: none;
+}
+/*
+ * The dragged row lifts where it stands: same element, same box, same size. It
+ * is drawn above its neighbours so the shadow is not painted over, and it keeps
+ * an opaque background of its own so the rows sliding underneath it cannot show
+ * through — which is the one part of this that is not decoration.
+ *
+ * Everything else here is decoration, and deliberately so: a stylesheet that
+ * does not know this class costs the lift and nothing else. The row is never
+ * positioned, sized or layered by CSS, so the drag works either way.
+ *
+ * The outline sits inside the row's own bounds (`outline-offset: -1px`) and the
+ * shadow is shallow, because the list clips its corners.
+ */
+.mtk-toolbar-cmd.is-drag-lift,
+.mtk-toolbar-cmd-group.is-drag-lift {
+  position: relative;
+  z-index: 1;
+  background: var(--background-primary);
+  outline: 1px solid var(--interactive-accent);
+  outline-offset: -1px;
+  border-radius: var(--radius-s);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16), 0 1px 4px rgba(0, 0, 0, 0.1);
+  will-change: transform;
+}
+/* A submenu's rows sit on the secondary surface, so a lifted one has to as well. */
+.mtk-toolbar-cmd.is-child.is-drag-lift {
+  background: var(--background-secondary);
+}
+.mtk-toolbar-cmd-group > .mtk-toolbar-cmd.is-parent {
+  border-bottom: none;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+}
+/* Keeps a submenu's own rows visually inside it. */
+.mtk-toolbar-cmd.is-child {
+  padding-left: 30px;
+  background: transparent;
+}
+
+/*
+ * Stands in for the icon button on a row that has no icon to pick — a section
+ * heading. Same box, so the headings still line up with the commands around
+ * them; nothing drawn, because there is nothing for the icon to do.
+ */
+.mtk-toolbar-cmd-iconbtn-spacer {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+}
+
+/* A heading is a label, not a command: muted, and never the row you click. */
+.mtk-toolbar-cmd.is-group .mtk-toolbar-cmd-name {
+  color: var(--text-muted);
+}
+.mtk-toolbar-cmd-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--background-secondary);
+  border-top: 1px solid var(--background-modifier-border);
+}
+.mtk-toolbar-cmd-children[hidden],
+.mtk-toolbar-add-child[hidden] {
+  display: none;
+}
+.mtk-toolbar-cmd-child-empty {
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+/*
+ * The handle is a plain span rather than a button: it is the only grip in the
+ * page, and a real `<button>` would inherit the theme's fixed 30px height.
+ * `touch-action: none` is what lets a touch drag survive instead of scrolling
+ * the settings panel out from under the pointer.
+ */
+.mtk-toolbar-cmd-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 30px;
+  color: var(--text-faint);
+  border-radius: var(--radius-s);
+  cursor: grab;
+  touch-action: none;
+}
+.mtk-toolbar-cmd-grip:hover {
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+}
+.mtk-toolbar-cmd-grip:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.mtk-toolbar-cmd-grip svg {
+  width: 14px;
+  height: 14px;
+}
+/*
+ * A short halo where the row landed, so a drop that moves the row back to
+ * almost the same place still reads as "it went here". `transparent` is
+ * interpolated premultiplied in Chromium, so the halo fades out instead of
+ * passing through black.
+ */
+@keyframes mtk-toolbar-landed {
+  from {
+    box-shadow: 0 0 0 0 var(--interactive-accent);
+  }
+  to {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+.mtk-toolbar-cmd.is-landed,
+.mtk-toolbar-cmd-group.is-landed {
+  animation: mtk-toolbar-landed 240ms ease-out;
+  border-radius: var(--radius-s);
+}
+
+/*
+ * While a row is being dragged, the list holds still and the rows are drawn
+ * where they are about to go: the engine writes one `translateY` per row, and
+ * this is what turns that write into a slide. Losing it costs the animation
+ * and nothing else — without the transition the rows take up their new places
+ * at once, and they end up in the same order either way.
+ */
+.mtk-toolbar-cmd-list.is-reordering {
+  cursor: grabbing;
+  /*
+   * A drag that starts on a row and keeps going would otherwise select the
+   * labels it passes over, and a selection is something the browser is willing
+   * to drag on its own — which would take the pointer away from us.
+   */
+  user-select: none;
+}
+.mtk-toolbar-cmd-list.is-reordering > li {
+  transition: transform 80ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  will-change: transform;
+}
+/* The row under the pointer follows the finger with no easing, so the drag
+   reads as holding the row rather than as a lagging preview. */
+.mtk-toolbar-cmd-list.is-reordering > li.is-drag-lift {
+  transition: none;
+}
+
+/* The icon doubles as the button that replaces it. */
+.clickable-icon.mtk-toolbar-cmd-iconbtn {
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  color: var(--icon-color);
+}
+.clickable-icon.mtk-toolbar-cmd-iconbtn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--icon-color-hover);
+}
+
+/* ---- toolbar tab: submenu header extras ---- */
+.mtk-toolbar-cmd-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mtk-toolbar-cmd-head .mtk-toolbar-cmd-name {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.mtk-toolbar-cmd-badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+.clickable-icon.mtk-toolbar-cmd-toggle {
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 0;
+  color: var(--text-muted);
+}
+.clickable-icon.mtk-toolbar-cmd-toggle:hover {
+  color: var(--text-normal);
+}
+.mtk-toolbar-cmd-toggle svg {
+  transition: transform 120ms ease;
+}
+.mtk-toolbar-cmd-group.is-open > .mtk-toolbar-cmd.is-parent .mtk-toolbar-cmd-toggle svg {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mtk-toolbar-cmd-toggle svg {
+    transition: none;
+  }
+  /*
+   * The engine already skips the slide and the pulse when this is set, so only
+   * the transitions that were left are switched off here.
+   */
+  .mtk-toolbar-cmd-list.is-reordering > li {
+    transition: none;
+  }
+  .mtk-toolbar-cmd.is-landed,
+  .mtk-toolbar-cmd-group.is-landed {
+    animation: none;
+  }
+}
+
+/* ---- toolbar tab: "add a command to this submenu" strip ---- */
+.mtk-toolbar-add-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 8px 30px;
+  background: var(--background-secondary);
+}
+.mtk-toolbar-add-child-desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.clickable-icon.mtk-toolbar-add-child-btn {
+  flex: 0 0 auto;
+  padding: 0;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 0;
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+}
+.clickable-icon.mtk-toolbar-add-child-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.mtk-toolbar-cmd-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.mtk-toolbar-cmd-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+}
+.mtk-toolbar-cmd-id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: 11px;
+}
+.clickable-icon.mtk-toolbar-cmd-edit,
+.clickable-icon.mtk-toolbar-cmd-del {
+  padding: 0;
+  width: 28px;
+  height: 28px;
+}
+.clickable-icon.mtk-toolbar-cmd-del {
+  color: var(--text-error);
+}
+.clickable-icon.mtk-toolbar-cmd-del:hover {
+  color: var(--text-error);
+  background: var(--background-modifier-error);
+}
+
+/* ---- icon picker ---- */
+.mtk-icon-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.clickable-icon.mtk-icon-preview {
+  flex: 0 0 auto;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  color: var(--icon-color);
+}
+.clickable-icon.mtk-icon-preview:hover {
+  background: var(--background-modifier-hover);
+  color: var(--icon-color-hover);
+}
+.mtk-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 3px;
+  max-height: 320px;
+  margin-top: 12px;
+  padding: 2px;
+  overflow-y: auto;
+}
+.clickable-icon.mtk-icon-cell {
+  padding: 0;
+  width: 100%;
+  height: 36px;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--icon-color);
+}
+.clickable-icon.mtk-icon-cell:hover {
+  background: var(--background-modifier-hover);
+  color: var(--icon-color-hover);
+}
+.clickable-icon.mtk-icon-cell.is-active {
+  border-color: var(--interactive-accent);
+  color: var(--interactive-accent);
+}
+.mtk-icon-hint {
+  margin-top: 12px;
+}
+.mtk-icon-hint:empty {
+  display: none;
+}
+
+/* ---- modal fields ---- */
+.mtk-field {
+  margin-bottom: 14px;
+}
+.mtk-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.mtk-input {
+  width: 100%;
+  height: var(--input-height);
+  padding: 0 10px;
+  font-size: 13px;
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+}
+.mtk-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* Explains a field's format; says nothing when there is nothing to explain. */
+.mtk-field-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+.mtk-field-hint:empty {
+  display: none;
+}
+
+/* A rejected value, shown in the dialog rather than in a notice that fades. */
+.mtk-modal-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-error);
+}
+.mtk-modal-error:empty {
+  display: none;
+}
+
+/* ---- editor toolbar (pinned above the active Markdown editor) ---- */
+.mtk-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  overflow-x: auto;
+}
+.mtk-editor-toolbar.is-empty {
+  display: none;
+}
+.mtk-toolbar-btn {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--icon-color);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mtk-toolbar-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--icon-color-hover);
+}
+.mtk-toolbar-btn svg {
+  width: 16px;
+  height: 16px;
+}
+/*
+ * A button that opens a menu looks exactly like a button that runs a command,
+ * so the corner caret is the only thing telling them apart at a glance.
+ */
+.mtk-toolbar-btn.is-menu::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-bottom: 3px solid currentColor;
+  opacity: 0.75;
+}
+
+/* ---- file explorer: hide & order ---- */
+.mtk-explorer-hidden {
+  display: none !important;
+}
+.mtk-order-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 16px;
+  margin-right: 2px;
+  color: var(--text-faint);
+  cursor: grab;
+  flex-shrink: 0;
+}
+.mtk-order-handle:active {
+  cursor: grabbing;
+}
+.mtk-dragging {
+  opacity: 0.6;
+  pointer-events: none;
+  background: var(--background-modifier-hover);
+}
+
+/* ---- format painter (格式刷) ---- */
+/* While the brush is armed the editor content borrows a precision cursor and
+   the brush button lights up; both hang off the body class the brush toggles,
+   so no re-render is involved. */
+body.mtk-format-brush-cursor .cm-content {
+  cursor: crosshair;
+}
+body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
+  background-color: var(--background-modifier-hover);
+}
+
+/* ---- font colour (字体颜色色板) ---- */
+/* Fixed rather than absolute: the panel is parented to the body so the
+   toolbar's `overflow-x: auto` cannot clip it, and fixed positioning is what
+   makes the coordinates the placement code computes mean viewport pixels. */
+.mtk-color-panel {
+  position: fixed;
+  z-index: var(--layer-popover);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  width: max-content;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+  outline: none;
+}
+/* Placed from its measured size, so the first frame must not be painted at the
+   corner of the window while that measurement is being taken. */
+.mtk-color-panel.is-measuring {
+  visibility: hidden;
+}
+.mtk-color-band {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mtk-color-caption {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+/* Ten columns for every band, so the five custom swatches line up under the
+   first five of the rows above instead of stretching across the panel. */
+.mtk-color-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 16px);
+  gap: 2px;
+}
+.mtk-color-swatch {
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.mtk-color-swatch:hover {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+.mtk-color-swatch:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+/* The background palette instead: the reference plugin draws its highlighters
+   as pen caps, so five circles to a row, twice the size of a theme swatch, and
+   a row pitch that is the same as the column pitch. */
+.mtk-color-panel.is-round .mtk-color-grid {
+  grid-template-columns: repeat(5, 26px);
+  gap: 6px;
+}
+.mtk-color-panel.is-round .mtk-color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+.mtk-color-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 2px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.mtk-color-tool {
+  width: 24px;
+  height: 24px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mtk-color-tool svg {
+  width: 14px;
+  height: 14px;
+}
+.mtk-color-hex {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+.mtk-color-hex.is-hidden {
+  display: none;
+}
+.mtk-color-hex-input {
+  width: 90px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.mtk-color-hex-input.is-invalid {
+  border-color: var(--text-error);
+}
+.mtk-color-hex-apply {
+  font-size: var(--font-ui-smaller);
+  padding: 2px 8px;
+}
+.mtk-color-hint {
+  margin: 0;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-error);
+}
+.mtk-color-hint:empty {
+  display: none;
+}
+
+/* ---- settings tab: the five editable swatches ---- */
+.mtk-color-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+.mtk-color-slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mtk-color-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mtk-color-slot-chip {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.mtk-color-slot-input {
+  width: 86px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.mtk-color-slot-input.is-invalid {
+  border-color: var(--text-error);
+}
+
+/* ---- fullscreen focus mode ---- */
+/* The element fullscreen focus mode blows up is Obsidian's tab container, which
+   draws no background of its own: the editor panes inside it do. A fullscreen
+   element is painted over the UA's own black backdrop, so without this the
+   rounded corners of the panes and the 1px seam between them would show it
+   through. Nothing else is needed here — everything the mode leaves out (title
+   bar, ribbon, sidebars, tab strip, status bar) is left out by the browser, not
+   by a rule. */
+.workspace-tab-container:fullscreen {
+  background-color: var(--background-primary);
+}
