@@ -40,10 +40,23 @@ import type { WorkspaceLeaf } from "obsidian";
  *
  * The vault-root folder row matches too — it is a `.nav-folder` like any other.
  * It never hides itself, because its path is empty and so its name is: see the
- * empty-name guard in `HideRules.apply`.
+ * empty-name guard in `HideRules.apply`. (Measured on a live 1.12.7 explorer:
+ * that version renders no root row at all — there is no `.mod-root` inside
+ * `.nav-files-container`, and the row count equals the folder count. The guard
+ * above stays because it costs nothing and a version that does render one needs
+ * it; `isExplorerRoot` is a no-op there rather than a mistake.)
  */
 export const EXPLORER_ITEM_SELECTOR =
   ".nav-files-container .nav-file, .nav-files-container .nav-folder";
+
+/**
+ * The folder rows alone.
+ *
+ * A folder row is a superset of the folder *wrapper*: `.nav-folder` carries the
+ * whole subtree of the folder it names, and it is the element that occupies the
+ * row's slot in the layout, which is what both decorating and hit-testing want.
+ */
+export const EXPLORER_FOLDER_SELECTOR = ".nav-files-container .nav-folder";
 
 /**
  * The element an explorer renders its rows into.
@@ -78,10 +91,56 @@ export function itemName(item: HTMLElement): string {
   return itemPath(item).split("/").pop() ?? "";
 }
 
+/**
+ * Whether an item is the vault root.
+ *
+ * The root is drawn as an ordinary `.nav-folder` row — it is the one row that is
+ * not *inside* anything, and its path is the vault's own, so it can be neither
+ * hidden nor reordered. Read off `.mod-root` rather than off the path: which
+ * path the root's row carries has never been worth relying on (its title is
+ * written with the root folder's own path, and the root's name is the empty
+ * string, so every path-shaped test either fails open or accidentally passes).
+ * The class is what the explorer puts on it, and it is checked on both the
+ * wrapper and the title because the two are built separately and only one of
+ * them is guaranteed to carry it.
+ */
+export function isExplorerRoot(item: HTMLElement): boolean {
+  return item.classList.contains("mod-root") || itemTitle(item).classList.contains("mod-root");
+}
+
 /** The vault path of the folder a `.nav-folder-children` container belongs to. */
 export function containerFolderPath(container: HTMLElement): string {
   const folder = container.closest<HTMLElement>(".nav-folder");
   return folder ? itemPath(folder) : "";
+}
+
+/**
+ * The element a row shares with its siblings — the parent, by definition.
+ *
+ * It is **not** `.nav-folder-children`, and that distinction cost a round of
+ * work: only rows nested inside a folder sit in one of those. The top-level rows
+ * hang off an anonymous scroll div, which is the *only* child of
+ * `.nav-files-container`:
+ *
+ *     .nav-files-container.node-insert-event
+ *       └─ <div class="">                      <- every top-level row lives here
+ *            ├─ .tree-item.nav-folder          (measured: l56 r332 t86 b356)
+ *            │    ├─ .tree-item-self.nav-folder-title[data-path]
+ *            │    └─ .tree-item-children.nav-folder-children   (nested rows)
+ *            └─ .tree-item.nav-file
+ *
+ * Read from a live 1.12.7 explorer over CDP, not from the asar template: the
+ * template shows what a row is built from, and says nothing about where the
+ * tree puts it. What follows is that `closest(".nav-folder-children")` answers
+ * null for every top-level folder, and a caller that treats that as "no
+ * container" refuses every drag of one, without a sound or a pixel to say so.
+ *
+ * The parent is also the better box to measure against: it spans the rows and
+ * nothing else, where `.nav-files-container` carries the sidebar's padding and
+ * whatever height the panel happens to have.
+ */
+export function rowContainer(row: HTMLElement): HTMLElement | null {
+  return row.parentElement;
 }
 
 /**

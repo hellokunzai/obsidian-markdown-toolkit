@@ -298,10 +298,11 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
 
   async loadSettings(): Promise<void> {
     const saved = (await this.loadData()) as Partial<MarkdownEditorPlusSettings> | null;
-    // The custom order changed shape in 0.19.0: one mixed list per folder became
-    // two, one per kind, and the vault root's key went from "" to "/". Both are
+    // The custom order has changed shape twice, and both older shapes are
     // converted here rather than at the point of use, so the rest of the code
-    // only ever sees the current shape.
+    // only ever sees the current one: the vault root's key went from "" to "/",
+    // one mixed list per folder became one list per kind, and then the file list
+    // was retired altogether — only subfolders are ordered now.
     const orders = migrateOrders(saved?.orderMap);
     /* The reorder switch was renamed in 0.20.0. It used to mean "manual sorting
        is on" — handles on every row, drags allowed — and it now means "the

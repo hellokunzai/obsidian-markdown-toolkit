@@ -1613,26 +1613,28 @@ body.is-mobile .mtk-embed .mtk-embed-code {
 /* The row being carried. Styled on the title rather than on the wrapper, because
    a folder's wrapper takes in its whole subtree and painting that reads as the
    folder having been selected. */
-.nav-files-container .mtk-order-dragging > .nav-file-title,
 .nav-files-container .mtk-order-dragging > .nav-folder-title {
   background-color: var(--background-modifier-hover);
   border-radius: var(--radius-s, 4px);
   opacity: 0.7;
 }
 
-/* Where the row would land.
+/* Where the folder would land.
  *
- * Drawn on the `.tree-item`, which for a folder wraps its children too — so
- * "after" points below everything the folder contains, which is where the row
- * will actually end up. Drawn on the title row instead, the line would fall
- * between a folder and its first child and read as "into this folder".
+ * Anchored to the title, not to the `.tree-item`. A folder's wrapper takes in
+ * its whole subtree, so a line drawn on it settles at the far end of that
+ * subtree — measured 116px below the pointer on a folder with three children,
+ * which reads as the drag having done nothing at all. The title is the strip the
+ * drop position is measured against, so anchoring there puts the line where the
+ * pointer is (5.9px on the same fixture).
  *
- * `position: relative` is set on the marked row alone rather than on every tree
- * item, so nothing else in the explorer changes its positioning context. */
-.nav-files-container .tree-item[data-mtk-order-drop] {
+ * `position: relative` is stated rather than assumed: the app's own stylesheet
+ * already makes a title relative, and saying so here means this rule goes on
+ * working if that ever changes, without anything else having to notice. */
+.nav-files-container .nav-folder-title[data-mtk-order-drop] {
   position: relative;
 }
-.nav-files-container .tree-item[data-mtk-order-drop]::after {
+.nav-files-container .nav-folder-title[data-mtk-order-drop]::after {
   content: "";
   position: absolute;
   left: 0;
@@ -1642,10 +1644,10 @@ body.is-mobile .mtk-embed .mtk-embed-code {
   background-color: var(--color-accent);
   pointer-events: none;
 }
-.nav-files-container .tree-item[data-mtk-order-drop="before"]::after {
+.nav-files-container .nav-folder-title[data-mtk-order-drop="before"]::after {
   top: 0;
 }
-.nav-files-container .tree-item[data-mtk-order-drop="after"]::after {
+.nav-files-container .nav-folder-title[data-mtk-order-drop="after"]::after {
   bottom: 0;
 }
 

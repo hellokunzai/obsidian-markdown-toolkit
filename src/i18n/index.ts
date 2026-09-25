@@ -288,11 +288,11 @@ const en: Dict = {
   "hideRules.ribbon.show": "Show the configured entries",
   "hideRules.ribbon.hide": "Hide the configured entries",
   "settings.order.intro":
-    "Reordering lives behind a button in the file explorer's toolbar, at the end of the row of icons. Press it and every row grows a handle: drag a handle to set that entry's place among the entries of its own kind in the same folder — order is stored per folder, and folders and files are ordered as two separate groups. Anything you have not dragged still follows the sort menu.",
+    "Reordering lives behind a button in the file explorer's toolbar, at the end of the row of icons. Press it and every folder grows a handle: drag a handle to set that folder's place among the folders beside it, inside the same parent folder. Order is stored per folder, and notes are left to the sort menu — a folder you have not dragged still follows it as well.",
   "settings.order.button.name": "Show the reorder button",
   "settings.order.button.desc":
     "Whether that button is there at all. Hiding it does not take back an order you have already set — an arranged tree stays arranged, the button is only how you go on arranging it.",
-  "settings.order.button.start": "Rearrange entries",
+  "settings.order.button.start": "Rearrange folders",
   "settings.order.button.stop": "Done rearranging",
   "settings.order.count": "Custom order is stored for {{count}} folders.",
   "settings.order.handleHint": "Drag to reorder",
@@ -815,11 +815,11 @@ const zhCn: Dict = {
   "hideRules.ribbon.show": "显示被隐藏的条目",
   "hideRules.ribbon.hide": "隐藏配置的条目",
   "settings.order.intro":
-    "调整顺序的入口是文件列表顶部工具栏最右边的一个按钮。点一下，每一行都会出现拖拽手柄；拖动它就能决定这一项在同层同类条目中的位置。顺序按文件夹分别保存，文件夹和文件各自成一组：没拖过的条目，仍然按 Obsidian 自己的排序菜单排列。",
+    "调整顺序的入口是文件列表顶部工具栏最右边的一个按钮。点一下，每个文件夹行都会出现拖拽手柄；拖动它就能决定这个文件夹在同层其它文件夹中的位置。顺序按文件夹分别保存；笔记仍然按 Obsidian 自己的排序菜单排列，没拖过的文件夹也一样。",
   "settings.order.button.name": "显示排序按钮",
   "settings.order.button.desc":
     "控制工具栏上那个按钮显示与否。关掉它不会撤销已经调好的顺序——排好的列表照样保持原样，按钮只是继续调整它的方式。",
-  "settings.order.button.start": "调整条目顺序",
+  "settings.order.button.start": "调整文件夹顺序",
   "settings.order.button.stop": "完成调整",
   "settings.order.count": "当前有 {{count}} 个文件夹保存了自定义顺序。",
   "settings.order.handleHint": "拖动调整顺序",

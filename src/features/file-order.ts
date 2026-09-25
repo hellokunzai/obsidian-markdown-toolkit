@@ -4,7 +4,7 @@
  * Where the order itself lives, and the rules that keep it true, are in
  * `order-store.ts`. Where the explorer's sorting is reached is in
  * `explorer-sort.ts`. What is left — and what this file is — is the wiring:
- * installing the patch, growing a handle on every row, and running one drag.
+ * installing the patch, growing a handle on every folder, and running one drag.
  *
  * The patch is what makes the drag simple. Nothing here reorders a row: the
  * explorer asks the patched sorter for a folder's children, gets them back in
@@ -22,14 +22,19 @@
  * The one thing the DOM *is* used for is working out where the pointer is
  * pointing, which is a question about pixels and nothing else.
  *
+ * Only folders get a handle. A note keeps whatever place the sort menu gives it
+ * — see decision 2 in `order-store.ts` for why — so the handles on screen are
+ * exactly the rows a drag can move, and there is no such thing here as picking
+ * up a note.
+ *
  * The way in is a button in the explorer's own toolbar, and what it switches is
- * a mode: pressing it grows a handle on every row, pressing it again puts them
- * away. The setting behind that button decides whether the button is on screen
- * at all. What it deliberately does *not* decide is whether the recorded order
- * still holds — a tree that has been arranged stays arranged with the button
- * hidden, because hiding it takes away the ability to change the order rather
- * than the order itself. That is why the patch outlives the switch: it is only
- * released once there is nothing left for it to apply.
+ * a mode: pressing it grows a handle on every folder, pressing it again puts
+ * them away. The setting behind that button decides whether the button is on
+ * screen at all. What it deliberately does *not* decide is whether the recorded
+ * order still holds — a tree that has been arranged stays arranged with the
+ * button hidden, because hiding it takes away the ability to change the order
+ * rather than the order itself. That is why the patch outlives the switch: it is
+ * only released once there is nothing left for it to apply.
  *
  * Drags run on pointer events rather than on the HTML5 drag-and-drop API,
  * because HTML5 drag is already spoken for: Obsidian uses it for "drop this
@@ -51,17 +56,19 @@ import { t } from "../i18n";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
 import {
-  EXPLORER_ITEM_SELECTOR,
+  EXPLORER_FOLDER_SELECTOR,
   explorerNavBar,
   explorerRootEl,
+  isExplorerRoot,
   itemPath,
   itemTitle,
+  rowContainer,
 } from "./explorer-paths";
 import { patchSorting, sortView, type SortPatch } from "./explorer-sort";
-import { kindOf, nameOf, OrderStore, parentKey, ROOT_KEY, type ItemKind } from "./order-store";
+import { nameOf, OrderStore, parentKey, ROOT_KEY } from "./order-store";
 import type MarkdownEditorPlusPlugin from "../main";
 
-/** The grip prepended to every title row. */
+/** The grip prepended to a folder's title row. */
 const HANDLE_CLASS = "mtk-order-handle";
 /** On the row being carried. */
 const DRAGGING_CLASS = "mtk-order-dragging";
@@ -142,16 +149,18 @@ interface Landing {
 }
 
 interface DragState {
-  /** The row being carried — the `.nav-file` / `.nav-folder` wrapper. */
+  /** The row being carried — the `.nav-folder` wrapper. */
   source: HTMLElement;
   handle: HTMLElement;
-  /** The `.nav-folder-children` the row sits in. */
+  /** The element the row shares with its siblings — see `rowContainer`. */
   container: HTMLElement;
   folderPath: string;
-  kind: ItemKind;
-  /** Same-kind rows sharing this parent, worked out once per gesture. */
+  /** The other subfolders sharing this parent, worked out once per gesture. */
   siblings: HTMLElement[];
   landing: Landing | null;
+  /** Whether the pointer has travelled since the press, so a plain click on a
+   * handle is not mistaken for a drag that failed to land. */
+  moved: boolean;
   pointerId: number;
   win: Window;
 }
@@ -190,12 +199,39 @@ export class FileOrder {
    * otherwise put a toast on screen for each of those.
    */
   private warned = false;
+  /**
+   * Which silent failures have already been reported.
+   *
+   * Everything in this file fails silently by construction. A handle that was
+   * never grown and a handle grown on nothing look identical on screen; a press
+   * that is refused looks exactly like a press that did nothing; and a drop
+   * that records nothing looks like a drag that never happened. Nothing the user
+   * can see separates those, which is how a round of work gets spent guessing —
+   * so each distinct cause says one line in the console and then keeps quiet.
+   */
+  private readonly reported = new Set<string>();
   private drag: DragState | null = null;
 
   constructor(plugin: MarkdownEditorPlusPlugin) {
     this.plugin = plugin;
     this.app = plugin.app;
     this.store = new OrderStore(plugin);
+  }
+
+  /**
+   * Say once why something was refused, and never again.
+   *
+   * Only for the paths that fail with nothing at all to show for it — a press
+   * that is turned away, a handle with no row under it, a tree with none of the
+   * rows the decorating pass is looking for. Each distinct reason gets one line
+   * in the console so the next "it does nothing" comes with a reading attached
+   * rather than costing another round of looking. Keyed by reason, so a refusal
+   * that repeats every time the handle is pressed is still one line.
+   */
+  private diag(reason: string): void {
+    if (this.reported.has(reason)) return;
+    this.reported.add(reason);
+    console.error(`MarkdownEditorPlus: manual order — ${reason}`);
   }
 
   enable(): void {
@@ -571,12 +607,15 @@ export class FileOrder {
   private decorate(): void {
     if (!this.reordering()) return;
 
+    let found = 0;
     for (const root of this.roots()) {
-      for (const row of Array.from(root.querySelectorAll<HTMLElement>(EXPLORER_ITEM_SELECTOR))) {
+      const rows = root.querySelectorAll<HTMLElement>(EXPLORER_FOLDER_SELECTOR);
+      found += rows.length;
+      for (const row of Array.from(rows)) {
         /* The vault-root row is a `.nav-folder` like any other and matches the
-           selector, but it has no path and cannot be reordered — it is the
-           vault, not something inside it. */
-        if (!itemPath(row)) continue;
+           selector, but it has no parent to be ordered within — it is the vault,
+           not something inside it. */
+        if (isExplorerRoot(row)) continue;
 
         const title = itemTitle(row);
         this.decorated.add(row);
@@ -587,6 +626,13 @@ export class FileOrder {
            arrow of a folder already is. */
         title.insertBefore(handle, title.firstChild);
       }
+    }
+
+    /* The mode is on, the app has explorer leaves, and not one folder row came
+       back: the selector and the tree have stopped agreeing, which is the one
+       way this feature can be on and show nothing. */
+    if (found === 0 && this.roots().length > 0) {
+      this.diag(`the tree matched no folder rows (${EXPLORER_FOLDER_SELECTOR})`);
     }
   }
 
@@ -599,10 +645,14 @@ export class FileOrder {
     applyTooltip(handle, t("settings.order.handleHint"));
 
     handle.addEventListener("pointerdown", (event) => this.beginDrag(row, handle, event));
-    /* The handle sits inside a row Obsidian makes draggable. `preventDefault()`
-       in `pointerdown` is what actually stops that — it suppresses the
-       compatibility mouse event the browser starts a drag from — and this is
-       the belt to that pair of braces. */
+    /* The handle sits inside a row Obsidian makes draggable, and letting the
+       browser start its own drag would hand the row to Obsidian as a file to be
+       moved. Measured with a real mouse in a real engine, against the same
+       markup, this listener is the *second* line of defence: with `pointerdown`
+       prevented the browser never starts a drag at all (0 `dragstart`), and with
+       it not prevented this one alone does not save the gesture — the browser
+       cancels the pointer instead (1 `dragstart`, then `pointercancel` and no
+       `pointerup`). It is kept because it is free and states the intent. */
     handle.addEventListener("dragstart", (event) => event.preventDefault());
     return handle;
   }
@@ -623,25 +673,52 @@ export class FileOrder {
     if (event.button !== 0) return;
 
     const path = itemPath(row);
-    const container = row.closest<HTMLElement>(".nav-folder-children");
-    if (!path || !container) return;
+    /* The container is the row's parent — *not* `.nav-folder-children`, which
+       only rows nested inside a folder have. Asking for that class answered
+       null for every top-level folder, so every drag of one was refused here,
+       silently: a refused gesture and a handle that does nothing look exactly
+       alike. See `rowContainer` for the measured tree. */
+    const container = rowContainer(row);
+    if (!path || !container) {
+      this.diag("a handle was pressed on a row with no path, or no container to sit among");
+      return;
+    }
+    /* Only rows this module decorated carry a handle, and it only decorates
+       folders — but a handle can outlive the folder it was grown on, and a drag
+       recorded against a note would be a record nothing ever applies. */
+    if (!this.isFolderPath(path)) {
+      this.diag(`"${path}" is not a folder any more, so there is no place to record it`);
+      return;
+    }
 
-    /* Suppresses the compatibility mouse event, and with it Obsidian's own
-       drag — which would otherwise be picking the row up as a file to move. */
+    /* What actually keeps Obsidian's own drag out of this: measured, one
+       `preventDefault()` here is the difference between the browser starting a
+       drag of the row (1 `dragstart`, gesture then cancelled) and not starting
+       one at all (0 `dragstart`, gesture runs to a `pointerup`). It also
+       suppresses the click the browser would otherwise synthesise, which is
+       wanted: pressing the handle must not select or expand the folder. */
     event.preventDefault();
     event.stopPropagation();
 
     const folderPath = parentKey(path);
-    const kind = this.kindOfPath(path);
+
+    /* Nothing to be ordered against. Starting a gesture here would lift a row,
+       draw no drop line anywhere, and put it back — the same nothing, by a
+       longer route. */
+    const siblings = this.findSiblings(container, row, folderPath);
+    if (siblings.length === 0) {
+      this.diag(`"${path}" is the only folder beside itself, so there is nothing to reorder`);
+      return;
+    }
 
     this.drag = {
       source: row,
       handle,
       container,
       folderPath,
-      kind,
-      siblings: this.findSiblings(container, row, folderPath, kind),
+      siblings,
       landing: null,
+      moved: false,
       pointerId: event.pointerId,
       win: container.ownerDocument.defaultView ?? window,
     };
@@ -665,40 +742,45 @@ export class FileOrder {
   }
 
   /**
-   * Same-parent, same-kind rows, minus the one being dragged.
+   * The sibling folders the row could be dropped among, minus the one being
+   * dragged.
    *
    * Worked out once per gesture rather than on every move: the tree's shape is
    * not changing under it, because nothing here moves a node mid-gesture.
    *
-   * Same kind, because that is the only thing a drop can mean. Obsidian draws
-   * every folder above every file, so there is no such position as "this note
-   * above that folder", and offering one would produce a drop line pointing at
-   * a place the row can never occupy.
+   * Folders of the same parent only. A drop means "put this folder between
+   * those two", and both halves of that are answers about one run of slots:
+   * Obsidian draws every folder above every file, so offering a note as a
+   * landing spot would draw a line at a place the folder can never occupy.
+   *
+   * The `parentKey` test is what draws that line, not the container: a
+   * top-level row's container is the whole scroll layer, so its subtree also
+   * holds the rows of every expanded folder below it. Matching on the path is
+   * both narrower and steadier than matching on where a row happens to sit.
    */
   private findSiblings(
     container: HTMLElement,
     source: HTMLElement,
-    folderPath: string,
-    kind: ItemKind
+    folderPath: string
   ): HTMLElement[] {
-    return Array.from(container.querySelectorAll<HTMLElement>(EXPLORER_ITEM_SELECTOR)).filter(
-      (row) => {
-        if (row === source) return false;
-        const path = itemPath(row);
-        if (!path || parentKey(path) !== folderPath) return false;
-        return this.kindOfPath(path) === kind;
-      }
-    );
+    const rows = container.querySelectorAll<HTMLElement>(EXPLORER_FOLDER_SELECTOR);
+    return Array.from(rows).filter((row) => {
+      if (row === source) return false;
+      const path = itemPath(row);
+      return Boolean(path) && parentKey(path) === folderPath;
+    });
   }
 
-  private kindOfPath(path: string): ItemKind {
-    return this.folderAt(path) ? "folders" : "files";
+  /** Whether a vault path names a folder. */
+  private isFolderPath(path: string): boolean {
+    return this.folderAt(path) !== null;
   }
 
   private readonly onMove = (event: PointerEvent): void => {
     const drag = this.drag;
     if (!drag || event.pointerId !== drag.pointerId) return;
     event.preventDefault();
+    drag.moved = true;
     this.mark(this.locate(drag, event.clientX, event.clientY));
   };
 
@@ -706,16 +788,22 @@ export class FileOrder {
     const drag = this.drag;
     if (!drag || event.pointerId !== drag.pointerId) return;
 
-    const landing = drag.landing;
+    const { landing, moved, folderPath } = drag;
     const moving = nameOf(itemPath(drag.source));
     const target = landing ? nameOf(itemPath(landing.row)) : "";
     const position = landing?.position ?? "before";
-    const { folderPath, kind } = drag;
 
     this.endDrag();
 
-    if (!landing || !moving || !target || moving === target) return;
-    void this.commit(folderPath, kind, moving, target, position);
+    if (!landing) {
+      /* A press with no travel is a click on the handle, not a failed drag, and
+         has nothing to report. One that travelled and landed nowhere means the
+         pointer left the rows before the release. */
+      if (moved) this.diag("the pointer was released while it was over no row at all");
+      return;
+    }
+    if (!moving || !target || moving === target) return;
+    void this.commit(folderPath, moving, target, position);
   };
 
   private readonly onCancel = (event: PointerEvent): void => {
@@ -784,13 +872,13 @@ export class FileOrder {
     drag.landing = landing;
     if (!landing) return;
 
-    /* On the `.tree-item`, not the title row. A `.tree-item` wraps a folder
-       together with its children, so "after" draws below the whole subtree —
-       where the row will actually end up. Drawn on the title row instead, the
-       line lands between a folder and its first child and reads as "into this
-       folder", which is not something this feature does. */
-    const item = landing.row.closest<HTMLElement>(".tree-item") ?? landing.row;
-    item.setAttribute(DROP_ATTR, landing.position);
+    /* On the title, not on the wrapper. A folder's `.tree-item` wraps its whole
+       subtree, so a line drawn on it lands at the far end of that subtree: on a
+       folder with three children it measured 116px below the pointer, and a
+       drop line that far from the pointer is indistinguishable from a drag that
+       is doing nothing at all. The title is the strip the pointer is measured
+       against, so anchoring there puts the line within a few pixels of it. */
+    itemTitle(landing.row).setAttribute(DROP_ATTR, landing.position);
   }
 
   private unmark(): void {
@@ -819,7 +907,6 @@ export class FileOrder {
 
   private async commit(
     folderPath: string,
-    kind: ItemKind,
     moving: string,
     target: string,
     position: "before" | "after"
@@ -827,11 +914,10 @@ export class FileOrder {
     /* Freeze what is on screen right now, before every drag rather than only
        the first. The move below is expressed as "put this name next to that
        one", so both names have to be in the record for it to mean anything —
-       and an entry added to the folder since the last drag is not, until this
-       runs. */
-    this.store.capture(folderPath, kind, this.displayedNames(folderPath, kind));
+       and a subfolder added since the last drag is not, until this runs. */
+    this.store.capture(folderPath, this.displayedNames(folderPath));
 
-    this.store.move(folderPath, kind, moving, target, position);
+    this.store.move(folderPath, moving, target, position);
     await this.save();
 
     /* Slide the rows rather than swapping them out from under the pointer — a
@@ -842,13 +928,13 @@ export class FileOrder {
   }
 
   /**
-   * One kind of one folder, in the order it is drawn: Obsidian's own sorting
+   * One folder's subfolders, in the order it is drawn: Obsidian's own sorting
    * with this plugin's record already laid over it.
    *
    * Asked of the unpatched sorter rather than read off the screen — see the
    * header of `explorer-sort.ts` for why the DOM cannot answer this.
    */
-  private displayedNames(folderPath: string, kind: ItemKind): string[] {
+  private displayedNames(folderPath: string): string[] {
     if (!this.patch) return [];
 
     const folder = folderPath === ROOT_KEY ? this.app.vault.getRoot() : this.folderAt(folderPath);
@@ -856,7 +942,7 @@ export class FileOrder {
 
     return this.store
       .apply(folder, this.patch.nativeItems(folder))
-      .filter((item) => kindOf(item.file) === kind)
+      .filter((item) => item.file instanceof TFolder)
       .map((item) => item.file.name);
   }
 

@@ -87,9 +87,9 @@ export interface MarkdownEditorPlusSettings {
    */
   orderMode: boolean;
   /**
-   * Per-folder custom order: folder path -> the names in that folder, kept as
-   * two orders because folders and files are drawn as two runs and can only
-   * ever be reordered inside their own. See `features/order-store.ts`.
+   * Per-folder custom order: folder path -> the names of the subfolders in it,
+   * in the order they are to be drawn. Subfolders only — notes are left to the
+   * sort menu. See `features/order-store.ts`.
    */
   orderMap: Orders;
   /** Template for generated attachment file names. */
