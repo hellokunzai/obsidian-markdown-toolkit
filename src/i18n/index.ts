@@ -222,7 +222,7 @@ const en: Dict = {
   "settings.openIn.modal": "A dialog",
   "settings.openIn.tab": "A tab",
 
-  "settings.tab.general": "General",
+  "settings.tab.general": "Diagrams",
   "settings.tab.toolbar": "Toolbar",
   "settings.tab.hidden": "Hidden rules",
   "settings.tab.order": "Manual order",
@@ -751,7 +751,7 @@ const zhCn: Dict = {
   "settings.openIn.modal": "弹窗",
   "settings.openIn.tab": "标签页",
 
-  "settings.tab.general": "常规",
+  "settings.tab.general": "图表",
   "settings.tab.toolbar": "工具栏",
   "settings.tab.hidden": "隐藏规则",
   "settings.tab.order": "手动排序",

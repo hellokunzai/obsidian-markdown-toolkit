@@ -90,7 +90,7 @@ The settings are split into five tabs:
 
 | Tab | Contents |
 |---|---|
-| **General** | Default flowchart direction, mind-map growth direction, remember dragged node positions, editor open location |
+| **Diagrams** | Default flowchart direction, mind-map growth direction, remember dragged node positions, editor open location |
 | **Toolbar** | Add/remove buttons, drag to reorder submenus and sequence |
 | **Hidden rules** | Entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator |
 | **Manual order** | Enable manual ordering, reset custom order |
