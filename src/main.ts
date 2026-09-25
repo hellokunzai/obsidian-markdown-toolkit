@@ -41,6 +41,7 @@ import { FocusMode } from "./features/focus-mode";
 import { FOCUS_MODE_ICON } from "./core/focus-mode";
 import { HideRules } from "./features/hide-rules";
 import { FileOrder } from "./features/file-order";
+import { migrateOrders } from "./features/order-store";
 import { AttachmentLocation } from "./features/attachment-location";
 import { AttachmentDeleteSync } from "./features/attachment-delete";
 import { AttachmentRenameSync } from "./features/attachment-rename";
@@ -76,6 +77,15 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
   private readonly blocks = new Set<Repaintable>();
   private hideRules: HideRules | null = null;
   private editorToolbar: EditorToolbar | null = null;
+
+  /**
+   * Manual ordering in the file explorer.
+   *
+   * Held rather than fired and forgotten, because it owns a patch it has left
+   * on the explorer's prototype: the plugin being switched off has to take that
+   * patch back out, or a closure from an unloaded plugin keeps sorting the tree.
+   */
+  private fileOrder: FileOrder | null = null;
 
   /**
    * 0.16.0 fullscreen focus mode.
@@ -120,7 +130,8 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     this.formatBrush.enable();
     this.hideRules = new HideRules(this);
     this.hideRules.enable();
-    new FileOrder(this).enable();
+    this.fileOrder = new FileOrder(this);
+    this.fileOrder.enable();
 
     // 0.16.0 fullscreen focus mode. Nothing to enable: it has no listeners of
     // its own until the mode is actually entered, and the ones it then adds have
@@ -250,6 +261,10 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     this.formatBrush = null;
     this.hideRules?.unload();
     this.hideRules = null;
+    // Takes the sorting patch off the explorer's prototype with it. Left in
+    // place, the closure would go on sorting a tree whose plugin is gone.
+    this.fileOrder?.unload();
+    this.fileOrder = null;
     for (const session of [...this.sessions.values()]) session.finish();
     this.sessions.clear();
     this.blocks.clear();
@@ -283,6 +298,24 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
 
   async loadSettings(): Promise<void> {
     const saved = (await this.loadData()) as Partial<MarkdownEditorPlusSettings> | null;
+    // The custom order changed shape in 0.19.0: one mixed list per folder became
+    // two, one per kind, and the vault root's key went from "" to "/". Both are
+    // converted here rather than at the point of use, so the rest of the code
+    // only ever sees the current shape.
+    const orders = migrateOrders(saved?.orderMap);
+    /* The reorder switch was renamed in 0.20.0. It used to mean "manual sorting
+       is on" — handles on every row, drags allowed — and it now means "the
+       toolbar button is showing", with the button itself carrying the on/off of
+       the mode. A vault that had the old switch on is carried over with the
+       button *and* the mode on, which is the state it was already in rather
+       than one that looks as if the feature was switched off underneath it; a
+       vault that had it off lands on both defaults either way. */
+    const legacyOrderEnabled =
+      (saved as { orderEnabled?: unknown } | null)?.orderEnabled === true;
+    const orderButton =
+      typeof saved?.orderButton === "boolean" ? saved.orderButton : legacyOrderEnabled;
+    const orderMode =
+      typeof saved?.orderMode === "boolean" ? saved.orderMode : legacyOrderEnabled;
     // Copied field by field rather than merged: a `data.json` written by an
     // earlier version still carries the retired block-language keys, and those
     // are better dropped than carried around forever. Every value is checked
@@ -340,9 +373,12 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
       hiddenExcludeEntries: Array.isArray(saved?.hiddenExcludeEntries)
         ? saved!.hiddenExcludeEntries.filter((entry): entry is string => typeof entry === "string")
         : DEFAULT_SETTINGS.hiddenExcludeEntries,
-      orderEnabled: saved?.orderEnabled ?? DEFAULT_SETTINGS.orderEnabled,
-      orderMap:
-        saved?.orderMap && typeof saved.orderMap === "object" ? saved.orderMap : DEFAULT_SETTINGS.orderMap,
+      orderButton,
+      /* Never left on behind a hidden button: a mode with nothing to press it
+         with could neither be seen nor left. `settings.ts` keeps this true on
+         its own side too, for files that did not come through here. */
+      orderMode: orderButton && orderMode,
+      orderMap: orders.orders,
       attachmentTemplate:
         typeof saved?.attachmentTemplate === "string"
           ? saved!.attachmentTemplate
@@ -382,10 +418,28 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
           ? saved!.deleteOrphanedOnNoteDelete
           : DEFAULT_SETTINGS.deleteOrphanedOnNoteDelete,
     };
+
+    // Written back the moment it is converted, so the migration happens once
+    // rather than on every load — and so a settings file that has been carried
+    // forward is not still advertising the old shape.
+    if (orders.migrated) await this.saveData(this.settings);
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * Applies the manual-order settings and writes whatever changed.
+   *
+   * Switching the feature on installs the sorting patch over the explorer's own
+   * sorter; switching it off takes the patch back out and lets the rows fall
+   * back into Obsidian's order. Both are side effects rather than stored flags,
+   * so the settings panel goes through here instead of writing the value itself.
+   */
+  async refreshFileOrder(): Promise<void> {
+    this.fileOrder?.sync();
+    await this.saveSettings();
   }
 
   /* --------------------------------------------------------------- blocks */

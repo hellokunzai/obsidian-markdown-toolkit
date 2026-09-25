@@ -23,6 +23,7 @@ import {
 import type { EmptyFolderHandling } from "./features/attachment-paths";
 import { resolveDuplicateSeparator, stripExtension } from "./features/attachment-paths";
 import type { FlowDirection, MindmapLayout } from "./core/model";
+import type { Orders } from "./features/order-store";
 import type MarkdownEditorPlusPlugin from "./main";
 
 /**
@@ -67,10 +68,30 @@ export interface MarkdownEditorPlusSettings {
    * linger in Obsidian's list with nothing left to point at them.
    */
   hiddenExcludeEntries: string[];
-  /** Whether manual sorting is enabled in the file explorer. */
-  orderEnabled: boolean;
-  /** Per-folder custom order: folder path -> ordered child names. */
-  orderMap: Record<string, string[]>;
+  /**
+   * Whether the reorder button is put in the file explorer's toolbar.
+   *
+   * It governs the *button*, not the order. With it off the tree keeps the
+   * arrangement it was given — only the ability to change that arrangement goes
+   * away, which is why the sorting patch outlives this flag rather than being
+   * taken back out with it. See `features/file-order.ts`.
+   */
+  orderButton: boolean;
+  /**
+   * Whether the button has been pressed — the mode, not the switch.
+   *
+   * Remembered across restarts, so a vault left in arrange mode comes back in
+   * it instead of silently dropping the handles half way through. Only ever
+   * true while `orderButton` is on: hiding the button clears this, because a
+   * mode with nothing to press it with cannot be left or explained.
+   */
+  orderMode: boolean;
+  /**
+   * Per-folder custom order: folder path -> the names in that folder, kept as
+   * two orders because folders and files are drawn as two runs and can only
+   * ever be reordered inside their own. See `features/order-store.ts`.
+   */
+  orderMap: Orders;
   /** Template for generated attachment file names. */
   attachmentTemplate: string;
   /** Token-aware folder template for where new attachments are saved. */
@@ -108,7 +129,8 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   hiddenExcludeList: false,
   hiddenStatusBar: false,
   hiddenExcludeEntries: [],
-  orderEnabled: false,
+  orderButton: false,
+  orderMode: false,
   orderMap: {},
   attachmentTemplate: 'file-${date:YYYYMMDDHHmmssSSS}',
   attachmentFolder: './assets/${noteFileName}',
@@ -808,14 +830,33 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.order.intro") }));
 
     new Setting(host)
-      .setName(t("settings.order.enabled.name"))
-      .setDesc(t("settings.order.enabled.desc"))
+      .setName(t("settings.order.button.name"))
+      .setDesc(t("settings.order.button.desc"))
       .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.orderEnabled).onChange(async (value) => {
-          this.plugin.settings.orderEnabled = value;
-          await this.plugin.saveSettings();
+        toggle.setValue(this.plugin.settings.orderButton).onChange(async (value) => {
+          this.plugin.settings.orderButton = value;
+          // Hiding the button ends the mode with it. A mode is left by pressing
+          // the thing that started it, so one running behind a hidden button
+          // could neither be seen nor left — and it would come back the moment
+          // the switch was turned on again, filling the tree with handles for
+          // no visible reason. The order itself is not touched either way.
+          if (!value) this.plugin.settings.orderMode = false;
+          // Through the plugin rather than straight to disk: the change has to
+          // reach the explorer's toolbar and every handle as well as the file.
+          await this.plugin.refreshFileOrder();
         })
       );
+
+    // The count is the context the button below needs: "clear everything" is a
+    // question with no answer until you know how much there is.
+    host.appendChild(
+      h("p", {
+        cls: "mtk-settings-note",
+        text: t("settings.order.count", {
+          count: Object.keys(this.plugin.settings.orderMap).length,
+        }),
+      })
+    );
 
     const resetBtn = h("button", {
       cls: "mtk-btn",
@@ -824,7 +865,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     });
     resetBtn.addEventListener("click", () => {
       this.plugin.settings.orderMap = {};
-      void this.plugin.saveSettings();
+      void this.plugin.refreshFileOrder();
       new Notice(t("settings.order.resetDone"));
       this.renderOrder(host);
     });

@@ -83,3 +83,21 @@ export function containerFolderPath(container: HTMLElement): string {
   const folder = container.closest<HTMLElement>(".nav-folder");
   return folder ? itemPath(folder) : "";
 }
+
+/**
+ * The explorer's toolbar: the row of buttons above the tree.
+ *
+ * Read from the explorer's own constructor, which builds
+ * `containerEl > .nav-header > .nav-buttons-container` and then drops one
+ * `div.clickable-icon.nav-action-button` into it per header button. There is
+ * one of these per leaf, and nothing else in an explorer carries the class, so
+ * the class alone addresses it — and addressing it by the name Obsidian's own
+ * stylesheet already uses is what keeps a rename of the header wrapper from
+ * quietly costing a button rather than throwing.
+ */
+export const EXPLORER_NAV_BAR_SELECTOR = ".nav-buttons-container";
+
+/** An explorer's toolbar, or null on a view that does not have one. */
+export function explorerNavBar(root: HTMLElement): HTMLElement | null {
+  return root.querySelector<HTMLElement>(EXPLORER_NAV_BAR_SELECTOR);
+}

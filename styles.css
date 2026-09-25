@@ -1581,24 +1581,72 @@ body.is-mobile .mtk-embed .mtk-embed-code {
 .mtk-explorer-hidden {
   display: none !important;
 }
+
+/* The drag handle every row grows once manual ordering is on.
+ *
+ * Sized through Obsidian's own `--icon-size`, which is the variable `.svg-icon`
+ * reads for its width and height. Setting the variable is the supported way to
+ * change an icon's size, and it means no rule here has to out-specify the
+ * theme's. */
 .mtk-order-handle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 12px;
-  height: 16px;
+  flex-shrink: 0;
+  width: 14px;
   margin-right: 2px;
+  --icon-size: 14px;
   color: var(--text-faint);
   cursor: grab;
-  flex-shrink: 0;
+  /* A pointer drag on a touch screen: without this the explorer scrolls
+     instead of reordering. */
+  touch-action: none;
+  user-select: none;
+}
+.mtk-order-handle:hover {
+  color: var(--text-muted);
 }
 .mtk-order-handle:active {
   cursor: grabbing;
 }
-.mtk-dragging {
-  opacity: 0.6;
+
+/* The row being carried. Styled on the title rather than on the wrapper, because
+   a folder's wrapper takes in its whole subtree and painting that reads as the
+   folder having been selected. */
+.nav-files-container .mtk-order-dragging > .nav-file-title,
+.nav-files-container .mtk-order-dragging > .nav-folder-title {
+  background-color: var(--background-modifier-hover);
+  border-radius: var(--radius-s, 4px);
+  opacity: 0.7;
+}
+
+/* Where the row would land.
+ *
+ * Drawn on the `.tree-item`, which for a folder wraps its children too — so
+ * "after" points below everything the folder contains, which is where the row
+ * will actually end up. Drawn on the title row instead, the line would fall
+ * between a folder and its first child and read as "into this folder".
+ *
+ * `position: relative` is set on the marked row alone rather than on every tree
+ * item, so nothing else in the explorer changes its positioning context. */
+.nav-files-container .tree-item[data-mtk-order-drop] {
+  position: relative;
+}
+.nav-files-container .tree-item[data-mtk-order-drop]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background-color: var(--color-accent);
   pointer-events: none;
-  background: var(--background-modifier-hover);
+}
+.nav-files-container .tree-item[data-mtk-order-drop="before"]::after {
+  top: 0;
+}
+.nav-files-container .tree-item[data-mtk-order-drop="after"]::after {
+  bottom: 0;
 }
 
 /* ---- format painter (格式刷) ---- */
