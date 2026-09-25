@@ -172,8 +172,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     const tabs: Array<{ id: string; label: string; render: (host: HTMLElement) => void }> = [
       { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
       { id: "toolbar", label: t("settings.tab.toolbar"), render: (host) => this.renderToolbar(host) },
-      { id: "hidden", label: t("settings.tab.hidden"), render: (host) => this.renderHidden(host) },
-      { id: "order", label: t("settings.tab.order"), render: (host) => this.renderOrder(host) },
+      { id: "files", label: t("settings.tab.files"), render: (host) => this.renderFiles(host) },
       { id: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
     ];
 
@@ -759,11 +758,30 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     }, 0);
   }
 
-  /* -------------------------------------------------------------- hidden */
+  /* --------------------------------------------------------------- files */
 
-  private renderHidden(host: HTMLElement): void {
-    host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.hidden.intro") }));
+  /**
+   * Hiding and ordering share one page: both answer "what does the file
+   * explorer show me", and neither half is long enough to carry a tab of its
+   * own. Each half keeps a heading, so the page does not read as one long list.
+   */
+  private renderFiles(host: HTMLElement): void {
+    host.appendChild(h("h3", { text: t("settings.files.hiding.heading") }));
+    this.renderFileHiding(host);
 
+    host.appendChild(h("h3", { text: t("settings.files.order.heading") }));
+
+    // The order half gets a container of its own: the reset button rebuilds
+    // that half in place, and rebuilding straight into `host` would take the
+    // heading above it and the hiding half with it.
+    const orderHost = h("div", {});
+    host.appendChild(orderHost);
+    this.renderFileOrder(orderHost);
+  }
+
+  /* ------------------------------------------------------------- hiding */
+
+  private renderFileHiding(host: HTMLElement): void {
     // The rule box gets a row of its own: a multi-line writing surface sharing
     // a row with a paragraph collapses to the width of a default textarea.
     new Setting(host)
@@ -823,11 +841,12 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
 
   /* -------------------------------------------------------------- order */
 
-  private renderOrder(host: HTMLElement): void {
+  private renderFileOrder(host: HTMLElement): void {
     // Cleared for the same reason as the toolbar panel: this is re-rendered in
     // place after the reset below, and appending would duplicate the page.
+    // `host` is this half's own container, so clearing it leaves the heading
+    // above and the hiding half before it untouched.
     host.replaceChildren();
-    host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.order.intro") }));
 
     new Setting(host)
       .setName(t("settings.order.button.name"))
@@ -847,29 +866,30 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         })
       );
 
-    // The count is the context the button below needs: "clear everything" is a
-    // question with no answer until you know how much there is.
-    host.appendChild(
-      h("p", {
-        cls: "mtk-settings-note",
-        text: t("settings.order.count", {
+    // A row like the toggles above it, rather than a loose paragraph and a
+    // loose button: this is the only destructive control on the page, and it
+    // reads as the odd one out when it does not line up with the others.
+    //
+    // The count is the context the button needs — "clear everything" says
+    // nothing until you know how much there is — so it becomes the row's
+    // description. That also ties the two together: the number cannot drift
+    // away from the button it belongs to, because the reset below rebuilds the
+    // pair in one go.
+    new Setting(host)
+      .setName(t("settings.order.reset.name"))
+      .setDesc(
+        t("settings.order.count", {
           count: Object.keys(this.plugin.settings.orderMap).length,
-        }),
-      })
-    );
-
-    const resetBtn = h("button", {
-      cls: "mtk-btn",
-      text: t("settings.order.reset"),
-      attr: { type: "button" },
-    });
-    resetBtn.addEventListener("click", () => {
-      this.plugin.settings.orderMap = {};
-      void this.plugin.refreshFileOrder();
-      new Notice(t("settings.order.resetDone"));
-      this.renderOrder(host);
-    });
-    host.appendChild(resetBtn);
+        })
+      )
+      .addButton((button) =>
+        button.setButtonText(t("settings.order.reset.button")).onClick(() => {
+          this.plugin.settings.orderMap = {};
+          void this.plugin.refreshFileOrder();
+          new Notice(t("settings.order.resetDone"));
+          this.renderFileOrder(host);
+        })
+      );
   }
 
   /* ----------------------------------------------------------- attachment */

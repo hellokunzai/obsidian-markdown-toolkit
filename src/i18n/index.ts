@@ -224,8 +224,7 @@ const en: Dict = {
 
   "settings.tab.general": "Diagrams",
   "settings.tab.toolbar": "Toolbar",
-  "settings.tab.hidden": "Hidden rules",
-  "settings.tab.order": "Manual order",
+  "settings.tab.files": "File settings",
   "settings.tab.attachment": "Attachments",
   "settings.toolbar.add": "Add command",
   "settings.toolbar.addSubmenu": "Add submenu",
@@ -266,8 +265,8 @@ const en: Dict = {
   "settings.toolbar.cancel": "Cancel",
   "settings.toolbar.save": "Save",
   "settings.toolbar.noCommand": "Pick a command first.",
-  "settings.hidden.intro":
-    "One rule per line, matched against the name of a file or folder — a file rule has to spell out its extension. Matching entries are hidden in the file explorer.",
+  "settings.files.hiding.heading": "File hiding",
+  "settings.files.order.heading": "File order",
   "settings.hidden.rules.name": "Entries to hide",
   "settings.hidden.rules.desc":
     "An exact name, startsWith::PREFIX, or endsWith::SUFFIX. Example: startsWith::. hides dot entries; attachments hides that folder.",
@@ -287,8 +286,6 @@ const en: Dict = {
   "hideRules.statusBar.hidden": "Hidden entries: {{count}}",
   "hideRules.ribbon.show": "Show the configured entries",
   "hideRules.ribbon.hide": "Hide the configured entries",
-  "settings.order.intro":
-    "Reordering lives behind a button in the file explorer's toolbar, at the end of the row of icons. Press it and every folder grows a handle: drag a handle to set that folder's place among the folders beside it, inside the same parent folder. Order is stored per folder, and notes are left to the sort menu — a folder you have not dragged still follows it as well.",
   "settings.order.button.name": "Show the reorder button",
   "settings.order.button.desc":
     "Whether that button is there at all. Hiding it does not take back an order you have already set — an arranged tree stays arranged, the button is only how you go on arranging it.",
@@ -298,7 +295,8 @@ const en: Dict = {
   "settings.order.handleHint": "Drag to reorder",
   "settings.order.unavailable":
     "This build of Obsidian does not expose the file explorer's sorting, so manual order is unavailable.",
-  "settings.order.reset": "Reset all custom order",
+  "settings.order.reset.name": "Reset all custom order",
+  "settings.order.reset.button": "Reset",
   "settings.order.resetDone": "Custom order cleared.",
   "settings.attachment.basic.heading": "Basic settings",
   "settings.attachment.folder.name": "Attachment folder",
@@ -753,8 +751,7 @@ const zhCn: Dict = {
 
   "settings.tab.general": "图表",
   "settings.tab.toolbar": "工具栏",
-  "settings.tab.hidden": "隐藏规则",
-  "settings.tab.order": "手动排序",
+  "settings.tab.files": "文件设置",
   "settings.tab.attachment": "附件位置",
   "settings.toolbar.add": "添加命令",
   "settings.toolbar.addSubmenu": "添加子菜单",
@@ -795,8 +792,8 @@ const zhCn: Dict = {
   "settings.toolbar.cancel": "取消",
   "settings.toolbar.save": "保存",
   "settings.toolbar.noCommand": "请先选择一个命令。",
-  "settings.hidden.intro":
-    "每行一条规则，按文件或文件夹的名字匹配——文件名要写全扩展名。命中的条目在文件管理器里被隐藏。",
+  "settings.files.hiding.heading": "文件隐藏",
+  "settings.files.order.heading": "文件排序",
   "settings.hidden.rules.name": "要隐藏的条目",
   "settings.hidden.rules.desc":
     "可以写精确名称、startsWith::前缀，或 endsWith::后缀。示例：startsWith::. 隐藏所有点开头的条目；attachments 隐藏这个文件夹。",
@@ -814,8 +811,6 @@ const zhCn: Dict = {
   "hideRules.statusBar.hidden": "已隐藏 {{count}} 个条目",
   "hideRules.ribbon.show": "显示被隐藏的条目",
   "hideRules.ribbon.hide": "隐藏配置的条目",
-  "settings.order.intro":
-    "调整顺序的入口是文件列表顶部工具栏最右边的一个按钮。点一下，每个文件夹行都会出现拖拽手柄；拖动它就能决定这个文件夹在同层其它文件夹中的位置。顺序按文件夹分别保存；笔记仍然按 Obsidian 自己的排序菜单排列，没拖过的文件夹也一样。",
   "settings.order.button.name": "显示排序按钮",
   "settings.order.button.desc":
     "控制工具栏上那个按钮显示与否。关掉它不会撤销已经调好的顺序——排好的列表照样保持原样，按钮只是继续调整它的方式。",
@@ -824,7 +819,8 @@ const zhCn: Dict = {
   "settings.order.count": "当前有 {{count}} 个文件夹保存了自定义顺序。",
   "settings.order.handleHint": "拖动调整顺序",
   "settings.order.unavailable": "当前 Obsidian 没有暴露文件列表的排序，手动排序无法使用。",
-  "settings.order.reset": "清除全部自定义顺序",
+  "settings.order.reset.name": "清除全部自定义顺序",
+  "settings.order.reset.button": "清除",
   "settings.order.resetDone": "已清除自定义顺序。",
   "settings.attachment.basic.heading": "基础设置",
   "settings.attachment.folder.name": "附件文件夹",
