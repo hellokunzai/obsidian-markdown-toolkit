@@ -20,8 +20,6 @@ import {
   isSubmenu,
   type ToolbarCommand,
 } from "./core/toolbar-commands";
-import { DEFAULT_CUSTOM_COLORS, sanitizeCustomColors } from "./core/font-color";
-import { DEFAULT_BACKGROUND_CUSTOM, sanitizeBackgroundCustom } from "./core/background-color";
 import type { EmptyFolderHandling } from "./features/attachment-paths";
 import { resolveDuplicateSeparator, stripExtension } from "./features/attachment-paths";
 import type { FlowDirection, MindmapLayout } from "./core/model";
@@ -91,25 +89,6 @@ export interface MarkdownEditorPlusSettings {
   emptyFolderHandling: EmptyFolderHandling;
   /** Delete a deleted note's now-unreferenced attachments automatically. */
   deleteOrphanedOnNoteDelete: boolean;
-
-  // ---- 0.14.0 font colour, 0.15.0 background colour ----
-  /**
-   * The five swatches at the foot of the font palette, as `#rrggbb`.
-   *
-   * Always exactly as long as the palette's custom band: the panel draws one
-   * cell per entry, so a shorter list would leave a gap and a longer one would
-   * draw cells the settings page cannot edit.
-   */
-  fontColorCustom: string[];
-
-  /**
-   * The five swatches at the foot of the background panel.
-   *
-   * Hex *or* `rgb()`/`rgba()`, unlike the font ones: half of that palette is
-   * written with an alpha channel, and a hand-picked translucent highlight is
-   * the thing a user is most likely to want to add.
-   */
-  backgroundColorCustom: string[];
 }
 
 export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
@@ -140,13 +119,6 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   attachmentDuplicateSeparator: "-",
   emptyFolderHandling: "delete-and-parents",
   deleteOrphanedOnNoteDelete: false,
-  // The reference plugin's own five; see `core/font-color.ts` for why they are
-  // not simply the first five of the Office palette already on screen.
-  fontColorCustom: [...DEFAULT_CUSTOM_COLORS],
-  // Also the reference plugin's, and pastels for the same reason a highlighter
-  // is: a background sits behind text and a saturated one makes it harder to
-  // read rather than easier.
-  backgroundColorCustom: [...DEFAULT_BACKGROUND_CUSTOM],
 };
 
 export class MarkdownEditorPlusSettingTab extends PluginSettingTab {

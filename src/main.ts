@@ -33,9 +33,9 @@ import { TEXT_TOOLS } from "./core/text-tools";
 import { applyTextAlign, TEXT_ALIGN_COMMAND_PREFIX } from "./features/text-align";
 import { ALIGN_TOOLS } from "./core/text-align";
 import { openFontColorPicker } from "./features/font-color";
-import { FONT_COLOR_ICON, sanitizeCustomColors } from "./core/font-color";
+import { FONT_COLOR_ICON } from "./core/font-color";
 import { openBackgroundColorPicker } from "./features/background-color";
-import { BACKGROUND_COLOR_ICON, sanitizeBackgroundCustom } from "./core/background-color";
+import { BACKGROUND_COLOR_ICON } from "./core/background-color";
 import { registerColorIcons } from "./ui/color-picker";
 import { FocusMode } from "./features/focus-mode";
 import { FOCUS_MODE_ICON } from "./core/focus-mode";
@@ -209,7 +209,7 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
       id: "change-font-color",
       name: t("command.fontColor"),
       icon: FONT_COLOR_ICON,
-      editorCallback: (editor) => openFontColorPicker(editor, null, this.settings.fontColorCustom),
+      editorCallback: (editor) => openFontColorPicker(editor, null),
     });
 
     // Background colour, the same shape one step further along: the same panel
@@ -218,8 +218,7 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
       id: "change-background-color",
       name: t("command.backgroundColor"),
       icon: BACKGROUND_COLOR_ICON,
-      editorCallback: (editor) =>
-        openBackgroundColorPicker(editor, null, this.settings.backgroundColorCustom),
+      editorCallback: (editor) => openBackgroundColorPicker(editor, null),
     });
 
     // Fullscreen focus mode. The reference plugin ships two of these; the other
@@ -382,14 +381,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.deleteOrphanedOnNoteDelete === "boolean"
           ? saved!.deleteOrphanedOnNoteDelete
           : DEFAULT_SETTINGS.deleteOrphanedOnNoteDelete,
-
-      // Always exactly five, each one either a validated colour or the default
-      // for that slot: a hand-edited data.json must not be able to put an
-      // unusable swatch, or a gap, into either palette. The background slots
-      // take `rgb()` and `rgba()` as well, because half of that palette has an
-      // alpha channel and no hex spelling.
-      fontColorCustom: sanitizeCustomColors(saved?.fontColorCustom),
-      backgroundColorCustom: sanitizeBackgroundCustom(saved?.backgroundColorCustom),
     };
   }
 

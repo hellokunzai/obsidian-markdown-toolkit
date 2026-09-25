@@ -99,8 +99,6 @@ export interface ColorPanelRequest {
   readonly round: boolean;
   /** Which spellings a typed colour may use; see `ColorPickerOptions`. */
   readonly accepts: (value: string) => string | null;
-  /** The custom swatches, of which the first seeds the hex field. */
-  readonly custom: readonly string[];
   /** What a picked colour means. */
   readonly apply: (editor: Editor, color: string) => void;
   readonly notices: ColorNotices;
@@ -128,7 +126,10 @@ export function openColorPanel(request: ColorPanelRequest): void {
     round: request.round,
     anchor: request.anchor,
     accepts: request.accepts,
-    seed: request.custom[0] ?? "#000000",
+    // A fixed starting point, now that there is no custom band to take a better
+    // guess from: the field is for a code the user already has in mind, and
+    // this is the one value that is never a surprise.
+    seed: "#000000",
     onPick: (color) => {
       editor.setSelection(saved.from, saved.to);
       request.apply(editor, color);

@@ -132,10 +132,10 @@ export class EditorToolbar {
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     const editor = view?.editor ?? null;
     if (panel === "background") {
-      openBackgroundColorPicker(editor, anchor, this.plugin.settings.backgroundColorCustom);
+      openBackgroundColorPicker(editor, anchor);
       return;
     }
-    openFontColorPicker(editor, anchor, this.plugin.settings.fontColorCustom);
+    openFontColorPicker(editor, anchor);
   }
 
   private openSubmenu(parent: ToolbarCommand, anchor: HTMLElement): void {

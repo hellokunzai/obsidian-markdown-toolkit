@@ -290,35 +290,3 @@ export function applyColorProp(
   const next = rewriteLines(text, prop, remove ? null : target);
   return { text: next, changed: next !== text };
 }
-
-/* --------------------------------------------------------------- storage */
-
-/**
- * The swatch list stored in settings, always exactly `count` long.
- *
- * Repaired one slot at a time — padded, cut down, or a single bad value falling
- * back to that slot's default — because a hand-edited `data.json` must not be
- * able to put an unusable swatch, or a gap, into the palette.
- *
- * Normalisation is passed in rather than assumed: which spellings a slot
- * accepts is the one thing the two palettes genuinely differ on, since a
- * translucent highlight cannot be written as a hex code.
- */
-export function sanitizeSlots(
-  raw: unknown,
-  count: number,
-  defaults: readonly string[],
-  normalize: (value: string) => string | null
-): string[] {
-  // Re-typed rather than left as the `any[]` that `Array.isArray` narrows to:
-  // every element is checked below, and an `any` on the way in is what makes an
-  // unchecked one survive to the palette.
-  const source: unknown[] = Array.isArray(raw) ? (raw as unknown[]) : [];
-  const out: string[] = [];
-  for (let index = 0; index < count; index += 1) {
-    const value = source[index];
-    const fallback = defaults[index];
-    out.push(typeof value === "string" ? normalize(value) ?? fallback : fallback);
-  }
-  return out;
-}

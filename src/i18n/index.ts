@@ -184,7 +184,6 @@ const en: Dict = {
   // ---- font colour (字体颜色) ----
   "fontColor.colors.theme": "Theme Colors",
   "fontColor.colors.standard": "Standard Colors",
-  "fontColor.colors.custom": "Custom Font Colors",
 
   // ---- background colour (背景颜色) ----
   // One quirk is copied on purpose: the first two swatches of the second
@@ -192,7 +191,6 @@ const en: Dict = {
   // them.
   "backgroundColor.colors.translucent": "Translucent Colors",
   "backgroundColor.colors.highlighter": "Highlighter Colors",
-  "backgroundColor.colors.custom": "Custom Colors",
 
   "settings.formatNote":
     "Every diagram lives in a ```mermaid block, whichever kind it is. The body's first line says which: `mindmap` for a mind map, `flowchart` for a flowchart. Mermaid blocks that open with anything else are left untouched.",
@@ -710,13 +708,11 @@ const zhCn: Dict = {
   // ---- 字体颜色 ----
   "fontColor.colors.theme": "主题颜色",
   "fontColor.colors.standard": "标准颜色",
-  "fontColor.colors.custom": "自定义颜色",
 
   // ---- 背景颜色 ----
   // 有一处是照抄参考插件的：半透明第二行前两格是同一个颜色，就长这样。
   "backgroundColor.colors.translucent": "半透明颜色",
   "backgroundColor.colors.highlighter": "荧光笔颜色",
-  "backgroundColor.colors.custom": "自定义颜色",
 
   "settings.formatNote":
     "所有图表都写在 ```mermaid 代码块里，靠块内第一行区分类别：`mindmap` 是思维导图，`flowchart` 是流程图。开头是其他关键字的 mermaid 块不会被改动。",

@@ -17,12 +17,13 @@
  *
  * The palette is the reference plugin's, kept in its order and in its own
  * spelling: two bands of ten, the first translucent and the second the opaque
- * highlighter set, then five custom swatches the user can edit. One quirk is
+ * highlighter set. The editable band of custom swatches that used to close the
+ * table is gone, and with it the settings field that stored one. One quirk is
  * copied deliberately rather than tidied away — the first two swatches of the
  * second translucent row are the same colour, which is what the reference
  * plugin ships and what its users will expect to find in the same place.
  */
-import { applyColorProp, normalizeColor, sanitizeSlots, type ColorResult } from "./color-span";
+import { applyColorProp, normalizeColor, type ColorResult } from "./color-span";
 
 /* ------------------------------------------------------------- the palette */
 
@@ -65,36 +66,6 @@ export const HIGHLIGHTER_COLORS: readonly string[] = [
   "rgb(212,177,6)",
   "rgb(146,84,222)",
 ];
-
-/** How many editable swatches this palette offers. */
-export const BACKGROUND_CUSTOM_COUNT = 5;
-
-/**
- * The custom swatches a fresh install starts with.
- *
- * The reference plugin's own five, so a user arriving from it finds what they
- * left behind. They are pastels on purpose: a background is behind the text,
- * and a saturated one would make the note harder to read rather than easier.
- */
-export const DEFAULT_BACKGROUND_CUSTOM: readonly string[] = [
-  "#f4cdb8",
-  "#d9efa6",
-  "#c0d9f3",
-  "#ecc5e3",
-  "#c7ecef",
-];
-
-/**
- * The swatch list stored in settings, always exactly `BACKGROUND_CUSTOM_COUNT`
- * long.
- *
- * Unlike the font palette's slots, these accept `rgb()` and `rgba()` as well as
- * a hex code: half of the palette above is written that way, and a user who
- * wants their own translucent highlight has no way to type one otherwise.
- */
-export function sanitizeBackgroundCustom(raw: unknown): string[] {
-  return sanitizeSlots(raw, BACKGROUND_CUSTOM_COUNT, DEFAULT_BACKGROUND_CUSTOM, normalizeColor);
-}
 
 /* ---------------------------------------------------------------- applying */
 

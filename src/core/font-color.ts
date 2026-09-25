@@ -29,9 +29,10 @@
  *
  * The palette is Office's, copied from the reference plugin's own swatch table
  * so the two palettes read the same: ten hues in six shades, then ten standard
- * colours, then five custom swatches the user can edit.
+ * colours. The editable band of custom swatches that used to close the table is
+ * gone, and with it the settings field that stored one.
  */
-import { applyColorProp, normalizeHex, sanitizeSlots, type ColorResult } from "./color-span";
+import { applyColorProp, normalizeHex, type ColorResult } from "./color-span";
 
 // The result of an edit is the same shape for both colouring features, and so
 // is its declaration: it lives beside the mechanism that produces it.
@@ -68,30 +69,6 @@ export const STANDARD_COLORS: readonly string[] = [
   "#002060",
   "#7030a0",
 ];
-
-/** How many editable swatches the palette offers. */
-export const CUSTOM_COLOR_COUNT = 5;
-
-/**
- * The custom swatches a fresh install starts with.
- *
- * Deliberately not Office's own five: those are the first five of a palette
- * that is already on screen above, so copying them would make the bottom row
- * a duplicate. These are the reference plugin's, which is what a user arriving
- * from it will expect to find in the same place.
- */
-export const DEFAULT_CUSTOM_COLORS: readonly string[] = [
-  "#d83931",
-  "#de7802",
-  "#245bdb",
-  "#6425d0",
-  "#646a73",
-];
-
-/** The swatch list stored in settings, always exactly `CUSTOM_COLOR_COUNT` long. */
-export function sanitizeCustomColors(raw: unknown): string[] {
-  return sanitizeSlots(raw, CUSTOM_COLOR_COUNT, DEFAULT_CUSTOM_COLORS, normalizeHex);
-}
 
 /* ---------------------------------------------------------------- applying */
 

@@ -26,42 +26,37 @@ export function applyBackgroundColor(editor: Editor, color: string): void {
 }
 
 /**
- * The panel's three bands, in the order the reference plugin lists them.
+ * The panel's two bands, in the order the reference plugin lists them.
  *
  * Two bands of ten rather than one of twenty, because that is where the panel
  * breaks them: the first is the translucent set, which lets the theme show
- * through, and the second is the opaque highlighters. The settings page holds
- * the third, already validated by `sanitizeBackgroundCustom`.
+ * through, and the second is the opaque highlighters. The editable band of
+ * custom swatches that used to sit under them is gone, along with the settings
+ * field that fed it.
  *
  * Exported for the same reason as its font-colour twin: the browser harness
  * builds the panel it measures from this, not from a second copy.
  */
-export function backgroundColorBands(custom: readonly string[]): ColorPanelRequest["bands"] {
+export function backgroundColorBands(): ColorPanelRequest["bands"] {
   return [
     { caption: t("backgroundColor.colors.translucent"), colors: TRANSLUCENT_COLORS },
     { caption: t("backgroundColor.colors.highlighter"), colors: HIGHLIGHTER_COLORS },
-    { caption: t("backgroundColor.colors.custom"), colors: custom },
   ];
 }
 
 /** Opens the swatch panel, anchored to the button that asked for it. */
-export function openBackgroundColorPicker(
-  editor: Editor | null,
-  anchor: HTMLElement | null,
-  custom: readonly string[]
-): void {
+export function openBackgroundColorPicker(editor: Editor | null, anchor: HTMLElement | null): void {
   openColorPanel({
     editor,
     anchor,
     titleKey: "command.backgroundColor",
-    bands: backgroundColorBands(custom),
+    bands: backgroundColorBands(),
     // Circles, five to a row: the reference plugin draws its highlighters as
     // pen caps, and a cap is round.
     round: true,
     // Hex *or* rgb()/rgba() — half of this palette has an alpha channel, and a
     // translucent highlight of one's own cannot be typed any other way.
     accepts: normalizeColor,
-    custom,
     apply: applyBackgroundColor,
     notices: NOTICES,
   });
