@@ -248,8 +248,7 @@ const en: Dict = {
   "settings.toolbar.addGroupLabel": "Add a section heading",
   "settings.toolbar.editGroupLabel": "Edit section heading",
   "settings.toolbar.addTitle": "Add a command to the toolbar",
-  "settings.toolbar.addDesc":
-    "Pick any command from Obsidian's command palette, or group several behind a submenu. Drag a row by its handle to reorder it, or press the arrow keys while the handle is focused. Click a row's icon to change it, the pencil to edit it, the trash to remove it.",
+  "settings.toolbar.addDesc": "Pick a command from Obsidian's command palette and add it to the toolbar.",
   "settings.toolbar.empty": "No commands yet. The toolbar stays hidden until the first one is added.",
   "settings.toolbar.reorder": "Drag to reorder, or press the arrow keys",
   "settings.toolbar.edit": "Edit command",
@@ -773,8 +772,7 @@ const zhCn: Dict = {
   "settings.toolbar.addGroupLabel": "添加分组标题",
   "settings.toolbar.editGroupLabel": "编辑分组标题",
   "settings.toolbar.addTitle": "往工具栏里添加命令",
-  "settings.toolbar.addDesc":
-    "从 Obsidian 的命令库里挑一条命令，也可以把几条命令归到子菜单里。拖动左侧手柄可调整顺序，手柄获得焦点时也可用方向键。点图标可换图标，铅笔编辑，垃圾桶删除。",
+  "settings.toolbar.addDesc": "从 Obsidian 的命令库里挑一条命令添加到工具栏。",
   "settings.toolbar.empty": "还没有命令。添加第一条之后，工具栏才会出现。",
   "settings.toolbar.reorder": "拖动排序，也可用方向键",
   "settings.toolbar.edit": "编辑命令",

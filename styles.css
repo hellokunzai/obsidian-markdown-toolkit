@@ -1034,6 +1034,7 @@ body.is-mobile .mtk-embed .mtk-embed-code {
 /* ---- toolbar tab: the "add" card ---- */
 .mtk-toolbar-add {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 12px;
   padding: 14px;
@@ -1042,7 +1043,7 @@ body.is-mobile .mtk-embed .mtk-embed-code {
   background: var(--background-secondary);
 }
 .mtk-toolbar-add-copy {
-  flex: 1 1 auto;
+  flex: 1 1 200px;
   min-width: 0;
 }
 .mtk-toolbar-add-title {
@@ -1057,47 +1058,17 @@ body.is-mobile .mtk-embed .mtk-embed-code {
   line-height: 1.55;
 }
 /*
- * Carries `clickable-icon` so Obsidian's `button:not(.clickable-icon)` rule
- * never applies, which is also why it is the one place that has to undo that
- * class's own padding and icon opacity by hand.
+ * The two actions are labelled buttons rather than icons, so they borrow the
+ * generic button pair (see "generic buttons" above) instead of sizing
+ * themselves. They keep their own row so a narrow pane wraps them under the
+ * copy instead of squeezing the description into a column of single words.
  */
-.mtk-tab-panels .mtk-toolbar-add-btn {
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 0;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-m);
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
-.mtk-tab-panels .mtk-toolbar-add-btn:hover {
-  background: var(--interactive-accent-hover);
-  color: var(--text-on-accent);
-}
-.mtk-tab-panels .mtk-toolbar-add-btn svg {
-  opacity: 1;
-}
 .mtk-toolbar-add-actions {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
-}
-/*
- * The submenu button sits next to the accent "add" button, so it is drawn as
- * the quieter of the two: same square, no fill.
- */
-.mtk-tab-panels .mtk-toolbar-add-btn.mtk-toolbar-add-sub {
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  color: var(--text-muted);
-}
-.mtk-tab-panels .mtk-toolbar-add-btn.mtk-toolbar-add-sub:hover {
-  background: var(--background-modifier-hover);
-  color: var(--text-normal);
+  margin-left: auto;
 }
 
 /* ---- toolbar tab: the command list ---- */

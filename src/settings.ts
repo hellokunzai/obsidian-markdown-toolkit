@@ -356,6 +356,12 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * under one), so those render and edit exactly as before; what is gone is the
    * only way to conjure a *new* one, which dropped a title row into the toolbar
    * with nothing under it.
+   *
+   * Both buttons are labelled rather than drawn as icons. A plus and a hamburger
+   * meant nothing until you hovered them, and the two actions are not guessable
+   * from a glyph: one picks a command, the other starts a group. They reuse the
+   * generic button pair, accent for the common action and neutral for the
+   * quieter one, so their wording is also their accessible name.
    */
   private buildAddCard(host: HTMLElement): HTMLElement {
     const card = h("div", { cls: "mtk-toolbar-add" });
@@ -370,20 +376,18 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     const actions = h("div", { cls: "mtk-toolbar-add-actions" });
 
     const addBtn = h("button", {
-      cls: "clickable-icon mtk-toolbar-add-btn",
-      attr: { type: "button", "aria-label": t("settings.toolbar.add") },
+      cls: "mtk-btn mtk-btn-primary",
+      text: t("settings.toolbar.add"),
+      attr: { type: "button" },
     });
-    setIcon(addBtn, "plus");
-    applyTooltip(addBtn, t("settings.toolbar.add"));
     addBtn.addEventListener("click", () => this.openCommandModal(host, this.plugin.settings.toolbarCommands, null));
     actions.appendChild(addBtn);
 
     const submenuBtn = h("button", {
-      cls: "clickable-icon mtk-toolbar-add-btn mtk-toolbar-add-sub",
-      attr: { type: "button", "aria-label": t("settings.toolbar.addSubmenu") },
+      cls: "mtk-btn",
+      text: t("settings.toolbar.addSubmenu"),
+      attr: { type: "button" },
     });
-    setIcon(submenuBtn, "menu");
-    applyTooltip(submenuBtn, t("settings.toolbar.addSubmenu"));
     submenuBtn.addEventListener("click", () => {
       this.openSubmenuModal(host, this.plugin.settings.toolbarCommands, null);
     });
