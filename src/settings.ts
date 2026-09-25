@@ -742,9 +742,12 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private renderHidden(host: HTMLElement): void {
     host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.hidden.intro") }));
 
+    // The rule box gets a row of its own: a multi-line writing surface sharing
+    // a row with a paragraph collapses to the width of a default textarea.
     new Setting(host)
       .setName(t("settings.hidden.rules.name"))
       .setDesc(t("settings.hidden.rules.desc"))
+      .setClass("mtk-setting-stack")
       .addTextArea((area) => {
         area.setValue(this.plugin.settings.hiddenRules);
         area.setPlaceholder(t("settings.hidden.rules.placeholder"));

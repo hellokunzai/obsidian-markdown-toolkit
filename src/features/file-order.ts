@@ -1,4 +1,5 @@
 import { type App } from "obsidian";
+import { containerFolderPath, explorerRootEl, itemName } from "./explorer-paths";
 import type MarkdownEditorPlusPlugin from "../main";
 
 /**
@@ -33,14 +34,14 @@ export class FileOrder {
   private attach(): void {
     const leaves = this.app.workspace.getLeavesOfType("file-explorer");
     for (const leaf of leaves) {
-      const contentEl = ((leaf.view as any).contentEl as HTMLElement) ?? null;
-      if (!contentEl) continue;
-      if (contentEl.dataset.mtkOrderBound) continue;
-      contentEl.dataset.mtkOrderBound = "1";
+      const root = explorerRootEl(leaf);
+      if (!root) continue;
+      if (root.dataset.mtkOrderBound) continue;
+      root.dataset.mtkOrderBound = "1";
       const observer = new MutationObserver(() => {
         if (!this.dragging) this.applyAll();
       });
-      observer.observe(contentEl, { childList: true, subtree: true });
+      observer.observe(root, { childList: true, subtree: true });
       this.observers.add(observer);
     }
     this.applyAll();
@@ -49,11 +50,12 @@ export class FileOrder {
   /** Re-order every folder whose children are currently in the DOM. */
   private applyAll(): void {
     if (!this.plugin.settings.orderEnabled) return;
-    const leaves = this.app.workspace.getLeavesOfType("file-explorer");
-    for (const leaf of leaves) {
-      const contentEl = ((leaf.view as any).contentEl as HTMLElement) ?? null;
-      if (!contentEl) continue;
-      const containers = contentEl.querySelectorAll<HTMLElement>(".nav-folder-children");
+    for (const leaf of this.app.workspace.getLeavesOfType("file-explorer")) {
+      const root = explorerRootEl(leaf);
+      if (!root) continue;
+      // `>` is safe here: the root folder's own children container is a child of
+      // the root row, and every nested one is a child of its own folder row.
+      const containers = root.querySelectorAll<HTMLElement>(".nav-folder-children");
       containers.forEach((container) => {
         this.applyOrder(container);
         this.bindContainer(container);
@@ -63,8 +65,7 @@ export class FileOrder {
 
   /** Resolve the folder path a container belongs to ("" for the vault root). */
   private folderPathOf(container: HTMLElement): string {
-    const folder = container.closest(".nav-folder") as HTMLElement | null;
-    return folder?.getAttribute("data-path") ?? "";
+    return containerFolderPath(container);
   }
 
   private applyOrder(container: HTMLElement): void {
@@ -74,10 +75,7 @@ export class FileOrder {
 
     const children = Array.from(container.children) as HTMLElement[];
     const byName = new Map<string, HTMLElement>();
-    for (const child of children) {
-      const path = child.getAttribute("data-path") ?? "";
-      byName.set(path.split("/").pop() ?? "", child);
-    }
+    for (const child of children) byName.set(itemName(child), child);
 
     let anchor: HTMLElement | null = null;
     for (const name of order) {
@@ -99,8 +97,10 @@ export class FileOrder {
       const title = child.querySelector(".nav-file-title, .nav-folder-title") ?? child;
       if (title.querySelector(".mtk-order-handle")) continue;
 
-      const handle = document.createElement("span");
-      handle.className = "mtk-order-handle";
+      // `createSpan` off the container rather than `document.createElement`:
+      // the element is created in the document the row belongs to, so a handle
+      // added in a popout window is a node of that window.
+      const handle = container.createSpan("mtk-order-handle");
       handle.setAttribute("aria-hidden", "true");
       handle.addEventListener("pointerdown", (e) => this.beginDrag(child, e));
       // Prepend so it sits at the left of the title row.
@@ -115,6 +115,10 @@ export class FileOrder {
     source.classList.add("mtk-dragging");
 
     const container = source.parentElement as HTMLElement;
+    // A popout window has its own `window` and `document`: the pointer events
+    // and the hit test both have to come from the document the row lives in, or
+    // dragging in a popout would do nothing at all.
+    const win = container.ownerDocument.defaultView ?? window;
     const move = (e: PointerEvent): void => {
       const target = this.itemUnderPoint(e.clientX, e.clientY, container, source);
       if (!target) return;
@@ -125,16 +129,16 @@ export class FileOrder {
     };
 
     const up = (): void => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
+      win.removeEventListener("pointermove", move);
+      win.removeEventListener("pointerup", up);
       source.classList.remove("mtk-dragging");
       this.dragging = false;
       this.writeOrder(container);
       this.applyAll();
     };
 
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    win.addEventListener("pointermove", move);
+    win.addEventListener("pointerup", up);
   }
 
   /** Find the sibling item under a point, ignoring the dragged element. */
@@ -144,7 +148,7 @@ export class FileOrder {
     container: HTMLElement,
     source: HTMLElement
   ): HTMLElement | null {
-    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const el = container.ownerDocument.elementFromPoint(x, y) as HTMLElement | null;
     if (!el) return null;
     let item: HTMLElement | null = el.closest(".nav-file, .nav-folder");
     while (item && item.parentElement !== container) item = item.parentElement;
@@ -157,8 +161,7 @@ export class FileOrder {
     const folderPath = this.folderPathOf(container);
     const names: string[] = [];
     for (const child of Array.from(container.children) as HTMLElement[]) {
-      const path = child.getAttribute("data-path") ?? "";
-      const name = path.split("/").pop() ?? "";
+      const name = itemName(child);
       if (name) names.push(name);
     }
     const orderMap = { ...this.plugin.settings.orderMap, [folderPath]: names };

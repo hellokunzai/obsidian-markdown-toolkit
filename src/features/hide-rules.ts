@@ -1,5 +1,6 @@
-import { setIcon, type App, type WorkspaceLeaf } from "obsidian";
+import { setIcon, type App } from "obsidian";
 import { t } from "../i18n";
+import { EXPLORER_ITEM_SELECTOR, explorerRootEl, itemName } from "./explorer-paths";
 import type MarkdownEditorPlusPlugin from "../main";
 
 /**
@@ -12,16 +13,34 @@ import type MarkdownEditorPlusPlugin from "../main";
  * name — what the setting describes is what you see in the explorer, not a kind
  * of item. A file rule therefore has to spell out its extension.
  *
- * Hiding is a CSS class rather than an inline style: the explorer's markup is
- * left intact, and removing the class restores the tree exactly.
+ * Rows are found and named through `features/explorer-paths.ts`, which knows
+ * where Obsidian actually keeps `data-path` — this module only decides what to
+ * match, never how to read a row.
  *
- * A MutationObserver watches each explorer's content element and the rules are
+ * Hiding is a CSS class — the explorer's markup is left intact, and removing the
+ * class restores the tree exactly — plus an inline `display:none`. The class is
+ * the styled hook; the inline declaration is what makes the feature independent
+ * of `styles.css`, which Obsidian reads once when a plugin loads, so a stylesheet
+ * that has fallen out of step with the build would otherwise leave the rules
+ * silently doing nothing.
+ *
+ * A MutationObserver watches each explorer's row container and the rules are
  * re-applied on any structural change, so added, renamed and removed entries are
  * handled without polling.
  */
 
-const PREFIX_TOKEN = "startswith::";
-const SUFFIX_TOKEN = "endswith::";
+/**
+ * The rule tokens, matched leniently: one colon or two, singular or plural.
+ *
+ * The documented spelling is `startsWith::` / `endsWith::`, but the two forms
+ * are one character apart and look identical at the size the settings panel
+ * renders them. What makes leniency worth it here is what a near miss costs: an
+ * unrecognised token is not an error, it is a perfectly valid *exact name*, so
+ * `endWith:.assets` would quietly hide nothing at all. Accepting the near
+ * spelling turns a silent no-op into the rule the user plainly meant.
+ */
+const PREFIX_TOKEN = /^starts?with\s*:+\s*/i;
+const SUFFIX_TOKEN = /^ends?with\s*:+\s*/i;
 const HIDDEN_CLASS = "mtk-explorer-hidden";
 
 type RuleKind = "exact" | "prefix" | "suffix";
@@ -57,7 +76,7 @@ interface VaultConfigAccess {
  * Splits the setting into rules.
  *
  * The token is recognised case-insensitively, so `startsWith::` and
- * `startswith::` behave the same, and it is stripped from the value: a rule is
+ * `startswith:` behave the same, and it is stripped from the value: a rule is
  * the name to look for, not the syntax wrapped around it. Blank lines — and a
  * token with nothing after it — are dropped rather than becoming a rule that
  * would match every entry.
@@ -67,16 +86,15 @@ function parseRules(raw: string): RawRule[] {
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith(PREFIX_TOKEN)) {
-      const value = trimmed.slice(PREFIX_TOKEN.length).trim();
-      if (value) rules.push({ kind: "prefix", value });
-    } else if (lower.startsWith(SUFFIX_TOKEN)) {
-      const value = trimmed.slice(SUFFIX_TOKEN.length).trim();
-      if (value) rules.push({ kind: "suffix", value });
-    } else {
-      rules.push({ kind: "exact", value: trimmed });
+    const prefix = PREFIX_TOKEN.exec(trimmed);
+    const token = prefix ?? SUFFIX_TOKEN.exec(trimmed);
+    if (token) {
+      const value = trimmed.slice(token[0].length).trim();
+      if (!value) continue;
+      rules.push({ kind: prefix ? "prefix" : "suffix", value });
+      continue;
     }
+    rules.push({ kind: "exact", value: trimmed });
   }
   return rules;
 }
@@ -120,6 +138,12 @@ export class HideRules {
       this.app.vault.on("rename", () => window.setTimeout(() => this.apply(), 10))
     );
 
+    // The explorer is usually restored after plugins load, and it is populated a
+    // moment after that: `attach()` above may well run against a workspace that
+    // has no rows yet. `layout-change` covers the rebuild, and this covers the
+    // first paint, where the leaf exists but its tree is still being filled in.
+    this.app.workspace.onLayoutReady(() => window.setTimeout(() => this.attach(), 100));
+
     this.attach();
     this.syncIgnoreList();
   }
@@ -128,6 +152,9 @@ export class HideRules {
   unload(): void {
     for (const observer of this.observers.values()) observer.disconnect();
     this.observers.clear();
+    // Hand the tree back the way it was found. Leaving the rows hidden after the
+    // plugin is gone would strand the user with entries they cannot reach.
+    for (const item of this.items()) this.setHidden(item, false);
     this.statusBarItem?.remove();
     this.statusBarItem = null;
   }
@@ -159,24 +186,14 @@ export class HideRules {
     }
 
     for (const leaf of this.app.workspace.getLeavesOfType("file-explorer")) {
-      const contentEl = this.contentEl(leaf);
-      if (!contentEl || this.observers.has(contentEl)) continue;
+      const root = explorerRootEl(leaf);
+      if (!root || this.observers.has(root)) continue;
       const observer = new MutationObserver(() => this.apply());
-      observer.observe(contentEl, { childList: true, subtree: true });
-      this.observers.set(contentEl, observer);
+      observer.observe(root, { childList: true, subtree: true });
+      this.observers.set(root, observer);
     }
 
     this.apply();
-  }
-
-  /**
-   * The explorer view's content element. Read as a structural property rather
-   * than through a cast of the whole view, because no explorer view type is
-   * exported to cast to.
-   */
-  private contentEl(leaf: WorkspaceLeaf): HTMLElement | null {
-    const view = leaf.view as unknown as { contentEl?: HTMLElement };
-    return view.contentEl ?? null;
   }
 
   /* -------------------------------------------------------------- matching */
@@ -211,22 +228,56 @@ export class HideRules {
     const enabled = this.plugin.settings.hiddenEnabled;
     let count = 0;
 
-    for (const leaf of this.app.workspace.getLeavesOfType("file-explorer")) {
-      const contentEl = this.contentEl(leaf);
-      if (!contentEl) continue;
-      const items = contentEl.querySelectorAll<HTMLElement>(
-        ".nav-folder-children > .nav-file, .nav-folder-children > .nav-folder"
-      );
-      for (const item of items) {
-        const path = item.getAttribute("data-path") ?? "";
-        const name = path.split("/").pop() ?? "";
-        const hidden = enabled && this.matches(name, matchers);
-        if (hidden) count++;
-        item.classList.toggle(HIDDEN_CLASS, hidden);
-      }
+    // Every row is visited on every pass — not just the matching ones — so a
+    // rule the user has edited away is un-hidden in the same breath.
+    for (const item of this.items()) {
+      const name = itemName(item);
+      // An unreadable row is never hidden. This is what keeps the vault-root
+      // folder row (whose path is empty) out of the feature entirely: failing
+      // open shows too much, which is recoverable, while failing closed would
+      // hide the vault.
+      const hidden = enabled && name.length > 0 && this.matches(name, matchers);
+      if (hidden) count++;
+      this.setHidden(item, hidden);
     }
 
     this.updateStatusBar(count);
+  }
+
+  /** Every row of every open explorer, at any depth. */
+  private items(): HTMLElement[] {
+    const items: HTMLElement[] = [];
+    for (const leaf of this.app.workspace.getLeavesOfType("file-explorer")) {
+      const root = explorerRootEl(leaf);
+      if (!root) continue;
+      for (const item of root.querySelectorAll<HTMLElement>(EXPLORER_ITEM_SELECTOR)) {
+        items.push(item);
+      }
+    }
+    return items;
+  }
+
+  /**
+   * Applies or clears both halves of the hiding.
+   *
+   * `setCssProps` is the app's own inline-style helper, and an empty value is
+   * how a property is removed again — so both directions go through one call
+   * rather than through `style.setProperty`.
+   *
+   * Clearing is deliberately conditional: a row is only restored if this feature
+   * is what hid it, so an inline `display` set by Obsidian itself — on a folder
+   * being dragged, say — is never clobbered by a pass that had nothing to say
+   * about that row.
+   */
+  private setHidden(item: HTMLElement, hidden: boolean): void {
+    if (hidden) {
+      item.classList.add(HIDDEN_CLASS);
+      item.setCssProps({ display: "none" });
+      return;
+    }
+    if (!item.classList.contains(HIDDEN_CLASS)) return;
+    item.classList.remove(HIDDEN_CLASS);
+    item.setCssProps({ display: "" });
   }
 
   /* ----------------------------------------------------------- status bar */

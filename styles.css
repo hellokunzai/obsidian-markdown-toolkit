@@ -888,6 +888,34 @@ body.is-mobile .mtk-embed .mtk-embed-code {
   margin-bottom: 0;
 }
 
+/*
+ * A multi-line field is a writing surface, not a one-word input: it belongs on
+ * a row of its own under its description. Left in the default side-by-side
+ * layout it collapses to the browser's default textarea width and the
+ * paragraph beside it loses room to wrap. The class is doubled so this beats
+ * Obsidian's own `.setting-item` rule on specificity rather than `!important`.
+ */
+.mtk-setting-stack.mtk-setting-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* The row-gap Obsidian puts between stacked children is the spacing we want;
+   only the info block's trailing margin has to go, or the column looks uneven. */
+.mtk-setting-stack .setting-item-info {
+  align-self: stretch;
+  margin-inline-end: 0;
+}
+
+.mtk-setting-stack .setting-item-control {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.mtk-setting-stack .setting-item-control textarea {
+  width: 100%;
+}
+
 /* --------------------------------------------------- the kinds reference */
 
 /*
