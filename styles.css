@@ -9,8 +9,14 @@
      literal is ever assigned to `style.*` from code.
    ========================================================================== */
 
+/* Diagram colours, stated once per surface a diagram can appear on. The preview
+   is on this list because it hangs off `document.body`: the drawing reads its
+   palette off the SVG it renders into, and an SVG outside `.mtk-editor` /
+   `.mtk-embed` inherits none of these, so the preview used to paint every node
+   in the theme's grey fallback while the block in the note painted them blue. */
 .mtk-editor,
-.mtk-embed {
+.mtk-embed,
+.mtk-lightbox {
   --mtk-node-fill: #e8f1fe;
   --mtk-node-stroke: #77aaf0;
   --mtk-node-text: #123a6b;
@@ -24,7 +30,8 @@
 }
 
 .theme-dark .mtk-editor,
-.theme-dark .mtk-embed {
+.theme-dark .mtk-embed,
+.theme-dark .mtk-lightbox {
   --mtk-node-fill: #233450;
   --mtk-node-stroke: #5b93d6;
   --mtk-node-text: #d6e8ff;
@@ -700,15 +707,84 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   backdrop-filter: blur(2px);
 }
 
+/* The preview's window: press it anywhere to pick it up, pull the corner grip
+   or spin the wheel to size it.
+
+   No geometry is written in TypeScript as a value — `makeFloatingWindow`
+   publishes whatever the user settled on as `--mtk-lightbox-*`, and until then
+   these defaults are what it opens at, centred, on any screen. The offset is a
+   `translate` rather than a `left/top` pair because the overlay already centres
+   the window: an offset from the centring composes with it instead of fighting
+   it, and "no variables set" stays a complete description of the opening state.
+
+   `box-sizing` is stated rather than inherited because the grip maths writes
+   the width it measured from the panel's own rect: under the content box the
+   1px border would be added on top of every write and the window would creep
+   away from the pointer. */
 .mtk-lightbox-canvas {
   position: relative;
-  width: min(92vw, 1100px);
-  height: min(86vh, 820px);
+  box-sizing: border-box;
+  width: var(--mtk-lightbox-w, min(92vw, 1100px));
+  height: var(--mtk-lightbox-h, min(86vh, 820px));
+  transform: translate(var(--mtk-lightbox-x, 0px), var(--mtk-lightbox-y, 0px));
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 12px;
   box-shadow: var(--shadow-l);
   overflow: hidden;
+  cursor: grab;
+  /* A pointer drag on a touch screen: without this the gesture scrolls instead
+     of moving the window. */
+  touch-action: none;
+  /* A drag must not turn into a selection of the labels it passes over. */
+  user-select: none;
+}
+
+.mtk-lightbox-canvas.is-moving {
+  cursor: grabbing;
+}
+
+.mtk-lightbox-canvas.is-sizing {
+  cursor: nwse-resize;
+}
+
+/* The window's one piece of chrome. A div rather than a button: it carries no
+   label and no action, and a real `<button>` would inherit the theme's fixed
+   30px height.
+
+   The wedge is drawn on a pseudo-element rather than on the grip, because a
+   `clip-path` clips the hit area along with the paint — and the middle of the
+   square, which is exactly where anyone aims, sits *on* the diagonal
+   (`11 + 11 = 22`), so the grip measured as unclickable and every press fell
+   through to the drawing underneath and moved the window instead of resizing
+   it. Drawing the wedge one level down keeps the shape while leaving the whole
+   square grabbable. */
+.mtk-lightbox .mtk-lightbox-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.mtk-lightbox .mtk-lightbox-grip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--text-faint) 0 1px,
+    transparent 1px 5px
+  );
+}
+
+.mtk-lightbox .mtk-lightbox-grip:hover::after {
+  opacity: 0.9;
 }
 
 .mtk-lightbox-canvas .mtk-svg {

@@ -15,6 +15,7 @@ import {
   type FitBoundsBox,
 } from "../render/fit";
 import type { DiagramMode } from "../core/model";
+import { makeFloatingWindow } from "./floating-window";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
 import { setCssVars } from "../utils/css-vars";
@@ -253,12 +254,19 @@ export function buildDiagramBox(
 }
 
 /**
- * A full-screen, read-only copy of the diagram, painted fresh at the overlay's
- * size so it fits the viewport instead of reusing the block's small canvas.
+ * A full-screen copy of the diagram, painted fresh at the window's own size so
+ * it fits what is on screen instead of reusing the block's small canvas.
  *
  * Re-painting rather than cloning the inline SVG also keeps the preview
  * independent of the block: closing the note does not tear the lightbox down,
- * and the theme palette is resolved against the overlay, not the note.
+ * and the theme palette is resolved against the overlay, not the note — which
+ * is why `styles.css` carries the diagram's colours on `.mtk-lightbox` as well
+ * as on the two places a diagram is normally shown.
+ *
+ * The window it opens in can be picked up and resized (see
+ * `makeFloatingWindow`), so the framing is redone by an observer rather than
+ * once: a drawing fitted to the size the window had at open would sit in the
+ * corner of a window that has since been stretched.
  */
 export function openLightbox(host: DiagramBoxHost, source: string, mode: DiagramMode): void {
   if (document.querySelector(".mtk-lightbox")) return;
@@ -270,8 +278,14 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
   const canvas = h("div", { cls: "mtk-lightbox-canvas" });
   overlay.appendChild(canvas);
 
+  const floating = makeFloatingWindow(canvas, overlay);
+  let observer: ResizeObserver | null = null;
+
   const close = (): void => {
     document.removeEventListener("keydown", onKey);
+    observer?.disconnect();
+    observer = null;
+    floating.destroy();
     overlay.remove();
   };
   const onKey = (event: KeyboardEvent): void => {
@@ -293,7 +307,17 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
   document.body.appendChild(overlay);
 
   const surface = createSurface(canvas);
-  const frame = (bounds: FitBoundsBox): void => {
+
+  /**
+   * Frame the drawing for the size the window has right now.
+   *
+   * Charts hand over their own bounding box and node graphs go through
+   * `computeFit`, so the two settle into one callback here rather than two
+   * copies of "when the window changes, frame it again".
+   */
+  let fit: (() => void) | null = null;
+
+  const frameTo = (bounds: FitBoundsBox): void => {
     if (!canvas.clientWidth || !canvas.clientHeight) return;
     applyViewport(
       surface.layer,
@@ -310,28 +334,35 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
     spec.layout(state);
     paintChart(surface, spec, state, { palette: readPalette(surface.svg), interactive: false });
     const bounds = spec.extent(state);
-    window.setTimeout(() => {
-      if (bounds) frame(bounds);
-    }, 0);
-    return;
+    if (bounds) fit = () => frameTo(bounds);
+  } else {
+    const parsed = parseDiagram(source, mode);
+    if (!parsed.ok) {
+      canvas.appendChild(h("div", { cls: "mtk-embed-message", text: t("embed.parseFailed") }));
+    } else {
+      const model = parsed.model;
+      if (model.mode === "mindmap") layoutMindmap(model, host.settings.mindmapLayout);
+      else layoutFlow(model);
+      applyPinnedPositions(model);
+      renderDiagram(surface, model, { interactive: false, selectedId: null });
+      fit = () => {
+        if (!canvas.clientWidth || !canvas.clientHeight) return;
+        const view = computeFit(model, canvas.clientWidth, canvas.clientHeight, {
+          ...LIGHTBOX_FIT,
+          anchorLeft: false,
+        });
+        if (view) applyViewport(surface.layer, view);
+      };
+    }
   }
 
-  const parsed = parseDiagram(source, mode);
-  if (!parsed.ok) {
-    canvas.appendChild(h("div", { cls: "mtk-embed-message", text: t("embed.parseFailed") }));
-    return;
+  if (fit) {
+    const run = fit;
+    // Once on the next frame (the overlay has no size until then) and then on
+    // every size the window is given afterwards — the grip, the wheel, or the
+    // screen itself getting smaller.
+    window.setTimeout(run, 0);
+    observer = new ResizeObserver(run);
+    observer.observe(canvas);
   }
-  const model = parsed.model;
-  if (model.mode === "mindmap") layoutMindmap(model, host.settings.mindmapLayout);
-  else layoutFlow(model);
-  applyPinnedPositions(model);
-  renderDiagram(surface, model, { interactive: false, selectedId: null });
-  window.setTimeout(() => {
-    if (!canvas.clientWidth || !canvas.clientHeight) return;
-    const view = computeFit(model, canvas.clientWidth, canvas.clientHeight, {
-      ...LIGHTBOX_FIT,
-      anchorLeft: false,
-    });
-    if (view) applyViewport(surface.layer, view);
-  }, 0);
 }
