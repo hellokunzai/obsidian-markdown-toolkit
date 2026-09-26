@@ -13,9 +13,10 @@ import {
   fitBounds,
   fitBoundsToWidth,
   type FitBoundsBox,
+  type Viewport,
 } from "../render/fit";
 import type { DiagramMode } from "../core/model";
-import { makeFloatingWindow } from "./floating-window";
+import { makePreviewViewport, type PreviewViewport } from "./preview-viewport";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
 import { setCssVars } from "../utils/css-vars";
@@ -263,10 +264,10 @@ export function buildDiagramBox(
  * is why `styles.css` carries the diagram's colours on `.mtk-lightbox` as well
  * as on the two places a diagram is normally shown.
  *
- * The window it opens in can be picked up and resized (see
- * `makeFloatingWindow`), so the framing is redone by an observer rather than
- * once: a drawing fitted to the size the window had at open would sit in the
- * corner of a window that has since been stretched.
+ * The preview is a fixed frame and the *drawing* is what takes gestures (see
+ * `makePreviewViewport`), so this function's job around it is narrow: work out
+ * how to frame the drawing for the frame's size, hand that to the gesture
+ * layer, and take it back on the way out.
  */
 export function openLightbox(host: DiagramBoxHost, source: string, mode: DiagramMode): void {
   if (document.querySelector(".mtk-lightbox")) return;
@@ -278,14 +279,12 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
   const canvas = h("div", { cls: "mtk-lightbox-canvas" });
   overlay.appendChild(canvas);
 
-  const floating = makeFloatingWindow(canvas, overlay);
-  let observer: ResizeObserver | null = null;
+  let viewport: PreviewViewport | null = null;
 
   const close = (): void => {
     document.removeEventListener("keydown", onKey);
-    observer?.disconnect();
-    observer = null;
-    floating.destroy();
+    viewport?.destroy();
+    viewport = null;
     overlay.remove();
   };
   const onKey = (event: KeyboardEvent): void => {
@@ -309,24 +308,15 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
   const surface = createSurface(canvas);
 
   /**
-   * Frame the drawing for the size the window has right now.
+   * How to frame the drawing at the frame's current size.
    *
    * Charts hand over their own bounding box and node graphs go through
-   * `computeFit`, so the two settle into one callback here rather than two
-   * copies of "when the window changes, frame it again".
+   * `computeFit`, so the two settle into one shape here rather than two copies
+   * of "frame the drawing". Both are recomputed on every call, because the
+   * frame's size is the input and the answer is worthless the moment it
+   * changes.
    */
-  let fit: (() => void) | null = null;
-
-  const frameTo = (bounds: FitBoundsBox): void => {
-    if (!canvas.clientWidth || !canvas.clientHeight) return;
-    applyViewport(
-      surface.layer,
-      fitBounds(bounds, canvas.clientWidth, canvas.clientHeight, {
-        ...LIGHTBOX_FIT,
-        anchorLeft: false,
-      })
-    );
-  };
+  let fit: (() => Viewport | null) | null = null;
 
   if (isChartMode(mode)) {
     const spec = chartSpec(mode);
@@ -334,7 +324,13 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
     spec.layout(state);
     paintChart(surface, spec, state, { palette: readPalette(surface.svg), interactive: false });
     const bounds = spec.extent(state);
-    if (bounds) fit = () => frameTo(bounds);
+    if (bounds) {
+      fit = () =>
+        fitBounds(bounds, canvas.clientWidth, canvas.clientHeight, {
+          ...LIGHTBOX_FIT,
+          anchorLeft: false,
+        });
+    }
   } else {
     const parsed = parseDiagram(source, mode);
     if (!parsed.ok) {
@@ -345,24 +341,13 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
       else layoutFlow(model);
       applyPinnedPositions(model);
       renderDiagram(surface, model, { interactive: false, selectedId: null });
-      fit = () => {
-        if (!canvas.clientWidth || !canvas.clientHeight) return;
-        const view = computeFit(model, canvas.clientWidth, canvas.clientHeight, {
+      fit = () =>
+        computeFit(model, canvas.clientWidth, canvas.clientHeight, {
           ...LIGHTBOX_FIT,
           anchorLeft: false,
         });
-        if (view) applyViewport(surface.layer, view);
-      };
     }
   }
 
-  if (fit) {
-    const run = fit;
-    // Once on the next frame (the overlay has no size until then) and then on
-    // every size the window is given afterwards — the grip, the wheel, or the
-    // screen itself getting smaller.
-    window.setTimeout(run, 0);
-    observer = new ResizeObserver(run);
-    observer.observe(canvas);
-  }
+  if (fit) viewport = makePreviewViewport(canvas, surface.layer, fit);
 }
