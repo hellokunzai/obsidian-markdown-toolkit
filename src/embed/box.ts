@@ -44,16 +44,16 @@ export interface DiagramBoxHost {
  * Which entry points a box carries.
  *
  * Named by the caller rather than inferred from the DOM: the reading view wants
- * "enlarge this", the editor wants "open the canvas" and "give me the source
- * back". Enlarging takes the centre spot, while the editor's entries are corner
- * icon buttons that read as one family.
+ * "show me this bigger", the editor wants "open the canvas" and "give me the
+ * source back". Every entry is a corner icon button, so whichever mode the note
+ * is read in, the block wears the same family of 26px squares.
  */
 export interface DiagramBoxActions {
   /** Corner icon button (left of the code entry) that opens the visual editor. */
   onEdit?: () => void;
   /** Corner button that hands the block back to the plain markdown editor. */
   onSource?: () => void;
-  /** Centre button that only enlarges the drawing. */
+  /** Corner icon button that shows the drawing full screen. */
   onView?: () => void;
 }
 
@@ -196,19 +196,22 @@ export function buildDiagramBox(
 
   paint();
 
-  // One primary action per mode: the editor's edit entry is the icon twin of
-  // the corner "code" entry beside it — same 26px square, one gap to the left.
+  // The block's entries, as one family of 26px squares in the top-right corner:
+  // "edit the drawing", "show it bigger", "hand it back to markdown".
   //
-  // The glyph is Lucide's `square-pen` — a square with a pencil crossing its
-  // top-right corner, the same idea as the reference. A hand-drawn twin of that
-  // reference was tried first and had to go: `addIcon` registers the glyph under
-  // a name that Obsidian then adds to the icon element as a *class*, so naming
-  // it `mtk-embed-edit` made the button's own rules — absolute placement at
-  // `right: 40px`, and `opacity: 0` until hover — apply to the glyph as well.
-  // The icon ended up parked 40px to the left of its button and invisible.
+  // Every action is an icon, never a label — a word does not fit in a 26px
+  // square. Glyphs are Lucide's, borrowed rather than drawn: `square-pen` for
+  // the editor's entry and `maximize-2` for the reading view's, the latter
+  // being the name Obsidian's own alias table gives `enlarge-glyph`. A
+  // hand-drawn twin of the edit entry was tried first and had to go: `addIcon`
+  // registers the glyph under a name Obsidian then adds to the icon element as
+  // a *class*, so naming it `mtk-embed-edit` made the button's own rules —
+  // absolute placement at `right: 40px`, and `opacity: 0` until hover — apply
+  // to the glyph as well, parking it outside its own button. See the
+  // `.mtk-embed-action` rules in `styles.css` for the other half of the fix.
   const onEdit = actions.onEdit;
   if (onEdit) {
-    const edit = h("button", { cls: "mtk-embed-edit" });
+    const edit = h("button", { cls: "mtk-embed-action mtk-embed-edit" });
     edit.type = "button";
     setIcon(edit, "square-pen");
     applyTooltip(edit, t("embed.edit"));
@@ -217,10 +220,9 @@ export function buildDiagramBox(
   }
 
   if (actions.onSource) {
-    // An icon rather than a label: this is the "hand it back to markdown"
-    // affordance the block had before it was replaced, and it reads as such at
-    // 26px, where a word would not fit.
-    const own = h("button", { cls: "mtk-embed-code" });
+    // The "hand it back to markdown" affordance the block had before it was
+    // replaced, kept as an icon so it reads as one of the same family.
+    const own = h("button", { cls: "mtk-embed-action mtk-embed-code" });
     own.type = "button";
     setIcon(own, "code");
     applyTooltip(own, t("embed.viewSource"));
@@ -229,12 +231,15 @@ export function buildDiagramBox(
   }
 
   if (actions.onView) {
-    const pill = h("button", { cls: "mtk-embed-pill" });
-    pill.type = "button";
-    pill.appendChild(h("span", { text: t("embed.view") }));
-    applyTooltip(pill, t("embed.view"));
-    pill.addEventListener("click", () => actions.onView?.());
-    box.appendChild(pill);
+    // The reading view's only entry, and the one action that is not "go back to
+    // the text": it takes the corner for itself, since nothing else is there to
+    // share it with.
+    const view = h("button", { cls: "mtk-embed-action mtk-embed-view" });
+    view.type = "button";
+    setIcon(view, "maximize-2");
+    applyTooltip(view, t("embed.view"));
+    view.addEventListener("click", () => actions.onView?.());
+    box.appendChild(view);
   }
 
   return {

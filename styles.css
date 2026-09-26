@@ -623,138 +623,68 @@ body.is-mobile .mtk-embed .mtk-embed-meta {
   opacity: 1;
 }
 
-.mtk-embed .mtk-embed-pill {
+/* The block's entries: every action it carries, as one family of 26px squares
+   in the top-right corner. Only the horizontal slot differs between them, so
+   that is the only thing stated per button below.
+
+   Every rule here is scoped to `button.` — `addIcon` hands the icon element the
+   registered glyph name as a class, so a glyph named after one of these buttons
+   would otherwise collect the absolute placement and the `opacity: 0` below and
+   sit parked outside its own button. An `<svg>` never matches `button`, so the
+   tag keeps the two apart whatever a future glyph is called. */
+.mtk-embed button.mtk-embed-action {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) scale(0.96);
+  top: 8px;
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: auto;
-  min-width: 0;
-  min-height: 0;
-  white-space: nowrap;
-  font: inherit;
-  font-size: 13px;
-  padding: 7px 15px;
-  color: var(--text-normal);
+  justify-content: center;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  color: var(--text-muted);
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
+  border-radius: 8px;
   box-shadow: var(--shadow-s);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition: opacity 0.16s ease;
 }
 
-.mtk-embed:hover .mtk-embed-pill,
-.mtk-embed .mtk-embed-pill:focus-visible,
-body.is-mobile .mtk-embed .mtk-embed-pill {
+.mtk-embed:hover button.mtk-embed-action,
+.mtk-embed button.mtk-embed-action:focus-visible,
+body.is-mobile .mtk-embed button.mtk-embed-action {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
 }
 
-.mtk-embed .mtk-embed-pill:hover {
+.mtk-embed button.mtk-embed-action:hover {
   color: var(--text-on-accent);
   background-color: var(--interactive-accent);
   border-color: var(--interactive-accent);
 }
 
-/* Corner "edit" entry, shown only inside the Live Preview (source) editor.
-   An icon twin of the "code" entry beside it — same 26px square, same corner
-   placement, one gap over to the left (code sits at right: 8px + 26px).
+.mtk-embed button.mtk-embed-action svg {
+  width: 14px;
+  height: 14px;
+}
 
-   Every rule here is scoped to `button.`: `addIcon` gives the icon element the
-   registered name as a class, so a glyph named after this button would collect
-   the absolute placement and the `opacity: 0` below, and sit parked outside its
-   own button. The button tag keeps them apart whatever the glyph is called. */
+/* The editor's "edit" entry sits one gap to the left of the "code" entry, which
+   owns the corner: 8px inset + a 26px square + a 6px gap. */
 .mtk-embed button.mtk-embed-edit {
-  position: absolute;
   right: 40px;
-  top: 8px;
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  min-height: 26px;
-  padding: 0;
-  color: var(--text-muted);
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-s);
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.16s ease;
 }
 
-.mtk-embed:hover button.mtk-embed-edit,
-.mtk-embed button.mtk-embed-edit:focus-visible,
-body.is-mobile .mtk-embed button.mtk-embed-edit {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.mtk-embed button.mtk-embed-edit:hover {
-  color: var(--text-on-accent);
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-}
-
-.mtk-embed button.mtk-embed-edit svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* Corner "code" entry: hands the block back to its fenced source. */
-.mtk-embed .mtk-embed-code {
-  position: absolute;
+/* "code" hands the block back to its fenced source; "view" opens the drawing
+   full screen in the reading view. They never coexist — a block is either being
+   written or being read — so both may claim the corner slot. */
+.mtk-embed button.mtk-embed-code,
+.mtk-embed button.mtk-embed-view {
   right: 8px;
-  top: 8px;
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  min-height: 26px;
-  padding: 0;
-  color: var(--text-muted);
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-s);
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.16s ease;
-}
-
-.mtk-embed:hover .mtk-embed-code,
-.mtk-embed .mtk-embed-code:focus-visible,
-body.is-mobile .mtk-embed .mtk-embed-code {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.mtk-embed .mtk-embed-code:hover {
-  color: var(--text-on-accent);
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-}
-
-.mtk-embed .mtk-embed-code svg {
-  width: 14px;
-  height: 14px;
 }
 
 /* Full-screen, read-only preview of the diagram (reading view only). */
