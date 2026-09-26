@@ -222,7 +222,7 @@ const en: Dict = {
   "settings.openIn.modal": "A dialog",
   "settings.openIn.tab": "A tab",
 
-  "settings.tab.general": "Diagrams",
+  "settings.tab.general": "Diagram settings",
   "settings.tab.toolbar": "Toolbar",
   "settings.tab.files": "File settings",
   "settings.tab.attachment": "Attachments",
@@ -749,7 +749,7 @@ const zhCn: Dict = {
   "settings.openIn.modal": "弹窗",
   "settings.openIn.tab": "标签页",
 
-  "settings.tab.general": "图表",
+  "settings.tab.general": "图表设置",
   "settings.tab.toolbar": "工具栏",
   "settings.tab.files": "文件设置",
   "settings.tab.attachment": "附件位置",

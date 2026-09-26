@@ -206,7 +206,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
 
   private renderGeneral(host: HTMLElement): void {
     host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.formatNote") }));
-    host.appendChild(this.buildReference());
 
     new Setting(host)
       .setName(t("settings.flowDirection.name"))
@@ -262,6 +261,8 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    host.appendChild(this.buildReference());
   }
 
   private buildReference(): HTMLElement {
