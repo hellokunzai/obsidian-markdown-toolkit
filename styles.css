@@ -664,46 +664,54 @@ body.is-mobile .mtk-embed .mtk-embed-pill {
   border-color: var(--interactive-accent);
 }
 
-/* Centre "edit" entry, shown only inside the Live Preview (source) editor. */
-.mtk-embed .mtk-embed-edit {
+/* Corner "edit" entry, shown only inside the Live Preview (source) editor.
+   An icon twin of the "code" entry beside it — same 26px square, same corner
+   placement, one gap over to the left (code sits at right: 8px + 26px).
+
+   Every rule here is scoped to `button.`: `addIcon` gives the icon element the
+   registered name as a class, so a glyph named after this button would collect
+   the absolute placement and the `opacity: 0` below, and sit parked outside its
+   own button. The button tag keeps them apart whatever the glyph is called. */
+.mtk-embed button.mtk-embed-edit {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) scale(0.96);
+  right: 40px;
+  top: 8px;
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: auto;
-  min-width: 0;
-  min-height: 0;
-  white-space: nowrap;
-  font: inherit;
-  font-size: 12.5px;
-  padding: 5px 11px;
-  color: var(--text-normal);
+  justify-content: center;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  color: var(--text-muted);
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
+  border-radius: 8px;
   box-shadow: var(--shadow-s);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition: opacity 0.16s ease;
 }
 
-.mtk-embed:hover .mtk-embed-edit,
-.mtk-embed .mtk-embed-edit:focus-visible,
-body.is-mobile .mtk-embed .mtk-embed-edit {
+.mtk-embed:hover button.mtk-embed-edit,
+.mtk-embed button.mtk-embed-edit:focus-visible,
+body.is-mobile .mtk-embed button.mtk-embed-edit {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
 }
 
-.mtk-embed .mtk-embed-edit:hover {
+.mtk-embed button.mtk-embed-edit:hover {
   color: var(--text-on-accent);
   background-color: var(--interactive-accent);
   border-color: var(--interactive-accent);
+}
+
+.mtk-embed button.mtk-embed-edit svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Corner "code" entry: hands the block back to its fenced source. */

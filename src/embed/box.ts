@@ -45,12 +45,11 @@ export interface DiagramBoxHost {
  *
  * Named by the caller rather than inferred from the DOM: the reading view wants
  * "enlarge this", the editor wants "open the canvas" and "give me the source
- * back". Each mode's primary action takes the centre spot — enlarging in the
- * note, opening the canvas in the editor — so the two read as the same object,
- * while secondary actions go to the corners.
+ * back". Enlarging takes the centre spot, while the editor's entries are corner
+ * icon buttons that read as one family.
  */
 export interface DiagramBoxActions {
-  /** Centre button that opens the visual editor. */
+  /** Corner icon button (left of the code entry) that opens the visual editor. */
   onEdit?: () => void;
   /** Corner button that hands the block back to the plain markdown editor. */
   onSource?: () => void;
@@ -197,10 +196,25 @@ export function buildDiagramBox(
 
   paint();
 
-  // One primary action per mode, always in the centre: the editor's edit entry
-  // sits exactly where the reading view's enlarge entry does.
-  const edit = actions.onEdit ? labelledButton("mtk-embed-edit", t("embed.edit"), actions.onEdit) : null;
-  if (edit) box.appendChild(edit);
+  // One primary action per mode: the editor's edit entry is the icon twin of
+  // the corner "code" entry beside it — same 26px square, one gap to the left.
+  //
+  // The glyph is Lucide's `square-pen` — a square with a pencil crossing its
+  // top-right corner, the same idea as the reference. A hand-drawn twin of that
+  // reference was tried first and had to go: `addIcon` registers the glyph under
+  // a name that Obsidian then adds to the icon element as a *class*, so naming
+  // it `mtk-embed-edit` made the button's own rules — absolute placement at
+  // `right: 40px`, and `opacity: 0` until hover — apply to the glyph as well.
+  // The icon ended up parked 40px to the left of its button and invisible.
+  const onEdit = actions.onEdit;
+  if (onEdit) {
+    const edit = h("button", { cls: "mtk-embed-edit" });
+    edit.type = "button";
+    setIcon(edit, "square-pen");
+    applyTooltip(edit, t("embed.edit"));
+    edit.addEventListener("click", () => onEdit());
+    box.appendChild(edit);
+  }
 
   if (actions.onSource) {
     // An icon rather than a label: this is the "hand it back to markdown"
@@ -231,16 +245,6 @@ export function buildDiagramBox(
       observer = null;
     },
   };
-}
-
-/** A labelled pill button; where it sits is decided by its class. */
-function labelledButton(cls: string, label: string, onClick: () => void): HTMLElement {
-  const button = h("button", { cls });
-  button.type = "button";
-  button.appendChild(h("span", { text: label }));
-  applyTooltip(button, label);
-  button.addEventListener("click", onClick);
-  return button;
 }
 
 /**
