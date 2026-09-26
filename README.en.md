@@ -93,7 +93,7 @@ The settings are split into five tabs:
 | **Diagram settings** | Default flowchart direction, mind-map growth direction, remember dragged node positions, editor open location |
 | **Toolbar** | Add/remove buttons, drag to reorder submenus and sequence |
 | **File settings** | File hiding (entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator) and file order (show the reorder button, reset all custom order) |
-| **Attachments** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |
+| **Attachment settings** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |
 
 ---
 

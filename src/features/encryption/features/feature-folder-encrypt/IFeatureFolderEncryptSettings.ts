@@ -13,8 +13,15 @@ export interface IMarkedFolder {
 	recursive: boolean;
 }
 
+export type EncryptScope = "md" | "all";
+
 export interface IFeatureFolderEncryptSettings {
 	recursive: boolean;
+	/**
+	 * Which files bulk encrypt touches: only Markdown (`md`) or every file
+	 * type in the folder except already-encrypted ones (`all`).
+	 */
+	encryptScope: EncryptScope;
 	/** Folders flagged as encrypted. Persisted with the plugin settings. */
 	markedFolders: IMarkedFolder[];
 }

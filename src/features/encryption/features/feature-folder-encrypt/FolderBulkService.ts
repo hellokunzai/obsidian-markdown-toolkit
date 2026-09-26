@@ -49,8 +49,28 @@ export class FolderBulkService {
 		return result;
 	}
 
-	static collectPlainNotes(folder: TFolder, recursive: boolean): TFile[] {
+	static collectPlainNotes(folder: TFolder, recursive: boolean, scope: "md" | "all" = "md"): TFile[] {
+		if (scope === "all") {
+			return FolderBulkService.collectFilesExcept(folder, recursive, ENCRYPTED_FILE_EXTENSIONS.slice());
+		}
 		return FolderBulkService.collectFiles(folder, recursive, ["md"]);
+	}
+
+	/** All files in the folder whose extension is NOT in `excludedExtensions`. */
+	static collectFilesExcept(folder: TFolder, recursive: boolean, excludedExtensions: string[]): TFile[] {
+		const result: TFile[] = [];
+		for (const child of folder.children) {
+			if (child instanceof TFolder) {
+				if (recursive) {
+					result.push(...FolderBulkService.collectFilesExcept(child, recursive, excludedExtensions));
+				}
+			} else if (child instanceof TFile) {
+				if (!excludedExtensions.contains(child.extension)) {
+					result.push(child);
+				}
+			}
+		}
+		return result;
 	}
 
 	static collectEncryptedNotes(folder: TFolder, recursive: boolean): TFile[] {
@@ -62,10 +82,11 @@ export class FolderBulkService {
 		folder: TFolder,
 		recursive: boolean,
 		passwordAndHint: PasswordAndHint,
-		onProgress?: FolderBulkProgressCallback
+		onProgress?: FolderBulkProgressCallback,
+		scope: "md" | "all" = "md"
 	): Promise<IFolderBulkResult> {
 		return await FolderBulkService.run(
-			FolderBulkService.collectPlainNotes(folder, recursive),
+			FolderBulkService.collectPlainNotes(folder, recursive, scope),
 			async file => {
 				const encryptedContent = await FileEncryptHelper.encryptFile(plugin, file, passwordAndHint);
 				await FileEncryptHelper.closeUpdateRememberPasswordThenReopen(

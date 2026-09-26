@@ -1896,3 +1896,113 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .meld-encrypt-view-busy {
 	cursor: wait;
 }
+
+/* ── File encryption settings: encrypted folder list ───────────────────── */
+.ve-marked-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	padding: 0 var(--size-4-4);
+	margin: var(--size-4-4) 0 var(--size-4-2);
+}
+.ve-marked-head .ve-marked-count {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+.ve-marked-table {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	overflow: hidden;
+	background: var(--background-primary);
+}
+.ve-marked-table thead th {
+	text-align: left;
+	font-weight: var(--font-semibold);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	white-space: nowrap;
+	letter-spacing: 0.02em;
+}
+.ve-marked-table tbody td {
+	padding: var(--size-4-3);
+	border-bottom: 1px solid var(--background-modifier-border);
+	vertical-align: middle;
+	line-height: var(--line-height-tight);
+	overflow: hidden;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+.ve-marked-table tbody tr:last-child td { border-bottom: 0; }
+.ve-marked-table .col-scope { width: 96px; }
+.ve-marked-table .col-progress { width: 110px; }
+.ve-marked-table .col-acts { width: 72px; text-align: right; }
+.ve-marked-table .col-acts .ve-marked-acts { display: inline-flex; gap: 2px; justify-content: flex-end; }
+.ve-marked-fpath {
+	display: block;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.ve-marked-pill {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 999px;
+	background: var(--background-modifier-border);
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.6;
+	white-space: nowrap;
+}
+.ve-marked-progress {
+	display: block;
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.ve-marked-acts .clickable-icon { position: relative; color: var(--text-muted); }
+.ve-marked-acts .clickable-icon:hover { background-color: var(--background-modifier-hover); color: var(--text-normal); }
+.ve-marked-acts .clickable-icon .tip {
+	position: absolute;
+	top: -26px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--color-base-100);
+	color: #fff;
+	font-size: 11px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.12s;
+}
+.ve-marked-acts .clickable-icon:hover .tip { opacity: 1; }
+.ve-marked-row-empty td {
+	padding: var(--size-4-5) var(--size-4-4);
+	text-align: center;
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-normal);
+}
+
+/* Brief highlight when "reveal in file explorer" is used */
+.nav-folder-title.mtk-reveal {
+	animation: mtk-reveal-flash 1.2s ease-out;
+}
+@keyframes mtk-reveal-flash {
+	0% { background-color: var(--interactive-accent); color: var(--text-on-accent); }
+	100% { background-color: transparent; }
+}

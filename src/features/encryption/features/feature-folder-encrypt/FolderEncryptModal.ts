@@ -22,6 +22,7 @@ export class FolderEncryptModal extends Modal {
 	private readonly mode: FolderEncryptMode;
 	private folderPath: string;
 	private recursive: boolean;
+	private readonly encryptScope: "md" | "all";
 	private running = false;
 	private readonly plugin: MarkdownEditorPlusPlugin;
 
@@ -36,6 +37,7 @@ export class FolderEncryptModal extends Modal {
 		this.folderPath = folderPath;
 		this.mode = mode;
 		this.recursive = plugin.settings.featureFolderEncrypt?.recursive ?? true;
+		this.encryptScope = plugin.settings.featureFolderEncrypt?.encryptScope ?? "md";
 	}
 
 	onOpen(): void {
@@ -218,7 +220,7 @@ export class FolderEncryptModal extends Modal {
 			return null;
 		}
 		return this.mode === "encrypt"
-			? FolderBulkService.collectPlainNotes(abstractFile, this.recursive)
+			? FolderBulkService.collectPlainNotes(abstractFile, this.recursive, this.encryptScope)
 			: FolderBulkService.collectEncryptedNotes(abstractFile, this.recursive);
 	}
 
@@ -237,7 +239,7 @@ export class FolderEncryptModal extends Modal {
 		}
 
 		const files = isEncrypt
-			? FolderBulkService.collectPlainNotes(abstractFile, this.recursive)
+			? FolderBulkService.collectPlainNotes(abstractFile, this.recursive, this.encryptScope)
 			: FolderBulkService.collectEncryptedNotes(abstractFile, this.recursive);
 		if (files.length === 0) {
 			new Notice(t("notice.folderNoMatchingFiles"), 8000);

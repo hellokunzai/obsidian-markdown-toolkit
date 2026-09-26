@@ -161,7 +161,7 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   confirmPassword: true,
   rememberPassword: true,
   rememberPasswordTimeout: 30,
-  featureFolderEncrypt: { recursive: true, markedFolders: [] },
+  featureFolderEncrypt: { recursive: true, encryptScope: "md", markedFolders: [] },
   featureRandomPassword: { length: 16, upper: true, lower: true, number: true, symbol: true },
 };
 
@@ -192,10 +192,10 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     containerEl.appendChild(panelHost);
 
     const tabs: Array<{ id: string; label: string; render: (host: HTMLElement) => void }> = [
-      { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
       { id: "toolbar", label: t("settings.tab.toolbar"), render: (host) => this.renderToolbar(host) },
-      { id: "files", label: t("settings.tab.files"), render: (host) => this.renderFiles(host) },
       { id: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
+      { id: "files", label: t("settings.tab.files"), render: (host) => this.renderFiles(host) },
+      { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
       { id: "encryption", label: t("settings.tab.encryption"), render: (host) => this.renderEncryption(host) },
     ];
 
@@ -228,8 +228,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   /* -------------------------------------------------------------- general */
 
   private renderGeneral(host: HTMLElement): void {
-    host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.formatNote") }));
-
     new Setting(host)
       .setName(t("settings.flowDirection.name"))
       .setDesc(t("settings.flowDirection.desc"))
@@ -291,7 +289,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private buildReference(): HTMLElement {
     const wrap = h("div", { cls: "mtk-kinds" });
     wrap.appendChild(h("h3", { cls: "mtk-kinds-title", text: t("settings.kinds.title") }));
-    wrap.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.kinds.desc") }));
 
     const thead = h("thead");
     const headRow = h("tr");

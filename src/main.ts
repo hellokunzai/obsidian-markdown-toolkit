@@ -481,6 +481,10 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
             typeof f?.recursive === "boolean"
               ? f!.recursive
               : DEFAULT_SETTINGS.featureFolderEncrypt.recursive,
+          encryptScope:
+            f?.encryptScope === "all" || f?.encryptScope === "md"
+              ? f!.encryptScope
+              : DEFAULT_SETTINGS.featureFolderEncrypt.encryptScope,
           markedFolders,
         };
       })(),

@@ -1,4 +1,4 @@
-import { Notice, Setting, TAbstractFile, TFile, TFolder, TextFileView } from "obsidian";
+import { Notice, Setting, TAbstractFile, TFile, TFolder, TextFileView, setIcon } from "obsidian";
 import type MarkdownEditorPlusPlugin from "../../../../main";
 import { t } from "../../i18n";
 import type { MarkdownEditorPlusSettings } from "../../../../settings";
@@ -187,7 +187,7 @@ export default class FeatureFolderEncrypt implements IMarkdownEditorPlusPluginPl
 	}
 
 	private async onFileCreated(file: TAbstractFile): Promise<void> {
-		if (FolderBulkService.isRunning || !(file instanceof TFile) || file.extension !== "md") {
+		if (FolderBulkService.isRunning || !(file instanceof TFile) || !this.isPlainEncryptTarget(file)) {
 			return;
 		}
 
@@ -209,7 +209,7 @@ export default class FeatureFolderEncrypt implements IMarkdownEditorPlusPluginPl
 			return;
 		}
 
-		if (FolderBulkService.isRunning || !(file instanceof TFile) || file.extension !== "md") {
+		if (FolderBulkService.isRunning || !(file instanceof TFile) || !this.isPlainEncryptTarget(file)) {
 			return;
 		}
 
@@ -564,6 +564,15 @@ export default class FeatureFolderEncrypt implements IMarkdownEditorPlusPluginPl
 
 	/* -------------------------------------------------------------- settings */
 
+	/** True when a file should be auto-encrypted on create/move, per scope. */
+	private isPlainEncryptTarget(file: TFile): boolean {
+		const scope = this.featureSettings.encryptScope ?? "md";
+		if (scope === "all") {
+			return !ENCRYPTED_FILE_EXTENSIONS.contains(file.extension);
+		}
+		return file.extension === "md";
+	}
+
 	buildSettingsUi(containerEl: HTMLElement, saveSettingCallback: () => Promise<void>): void {
 		const sectionEl = containerEl.createDiv({ cls: "ve-folder-encrypt-settings" });
 
@@ -580,5 +589,164 @@ export default class FeatureFolderEncrypt implements IMarkdownEditorPlusPluginPl
 				})
 			);
 
+		// 需求1：加密范围（仅 .md / 所有文件）
+		new Setting(sectionEl)
+			.setName(t("settings.folderEncrypt.scope.name"))
+			.setDesc(t("settings.folderEncrypt.scope.desc"))
+			.addDropdown(dropdown => dropdown
+				.addOption("md", t("settings.folderEncrypt.scope.md"))
+				.addOption("all", t("settings.folderEncrypt.scope.all"))
+				.setValue(this.featureSettings.encryptScope ?? "md")
+				.onChange(async value => {
+					this.featureSettings.encryptScope = value as "md" | "all";
+					await saveSettingCallback();
+				})
+			);
+
+		// 需求2 + 需求3：搜索框（过滤列表） + 已加密文件夹列表
+		const head = sectionEl.createDiv({ cls: "ve-marked-head" });
+		head.createSpan({ text: t("settings.folderEncrypt.markedList.heading"), cls: "setting-item-name" });
+		const countEl = head.createSpan({ cls: "ve-marked-count" });
+
+		// 已加密文件夹列表（表格风格）
+		const listEl = sectionEl.createEl("table", { cls: "ve-marked-table" });
+		const thead = listEl.createEl("thead");
+		const htr = thead.createEl("tr");
+		htr.createEl("th", { text: t("settings.folderEncrypt.markedList.colFolder") });
+		htr.createEl("th", { cls: "col-scope", text: t("settings.folderEncrypt.markedList.colScope") });
+		htr.createEl("th", { cls: "col-progress", text: t("settings.folderEncrypt.markedList.colProgress") });
+		htr.createEl("th", { cls: "col-acts", text: t("settings.folderEncrypt.markedList.colActions") });
+		const tbody = listEl.createEl("tbody");
+
+		const render = (filter: string) => this.renderMarkedList(tbody, filter, countEl);
+
+		// search row (filters the list below) — sits above the list
+		const searchSetting = new Setting(sectionEl)
+			.setClass("mod-search-setting")
+			.addSearch(search => search
+				.setPlaceholder(t("settings.folderEncrypt.search.placeholder"))
+				.onChange(render)
+			);
+		sectionEl.insertBefore(searchSetting.settingEl, head);
+
+		render("");
+	}
+
+	/** Render the encrypted-folder list as a table, filtered by `query` (path or hint). */
+	private renderMarkedList(listEl: HTMLElement, query: string, countEl?: HTMLElement): void {
+		const marks = FolderMarkService.getMarks();
+		const q = query.trim().toLowerCase();
+		const rows = q === ""
+			? marks
+			: marks.filter(m =>
+				m.path.toLowerCase().includes(q)
+				|| (m.hint ?? "").toLowerCase().includes(q)
+			);
+
+		if (countEl) {
+			countEl.setText(t("settings.folderEncrypt.markedList.count", { count: String(marks.length) }));
+		}
+
+		listEl.empty();
+
+		if (marks.length === 0) {
+			listEl.createEl("tr", { cls: "ve-marked-row-empty" })
+				.createEl("td", { attr: { colspan: "4" }, text: t("settings.folderEncrypt.markedList.empty") });
+			return;
+		}
+		if (rows.length === 0) {
+			listEl.createEl("tr", { cls: "ve-marked-row-empty" })
+				.createEl("td", { attr: { colspan: "4" }, text: t("settings.folderEncrypt.markedList.noMatch", { query }) });
+			return;
+		}
+
+		for (const mark of rows) {
+			const row = listEl.createEl("tr", { cls: "ve-marked-row" });
+
+			const pathTd = row.createEl("td");
+			pathTd.createEl("span", {
+				cls: "ve-marked-fpath",
+				text: mark.path === FolderMarkService.rootPath ? "/" : mark.path
+			});
+
+			const scopeTd = row.createEl("td", { cls: "col-scope" });
+			scopeTd.createEl("span", {
+				cls: "ve-marked-pill",
+				text: mark.recursive ? t("settings.folderEncrypt.scope.recursive") : t("settings.folderEncrypt.scope.notRecursive")
+			});
+
+			const progTd = row.createEl("td", { cls: "col-progress" });
+			const prog = this.folderProgress(mark);
+			progTd.createEl("span", { cls: "ve-marked-progress", text: `${prog.enc}/${prog.total}` });
+
+			const actsTd = row.createEl("td", { cls: "col-acts" });
+			const acts = actsTd.createEl("span", { cls: "ve-marked-acts" });
+			const locateBtn = acts.createEl("button", {
+				cls: "clickable-icon",
+				attr: { "aria-label": t("settings.folderEncrypt.markedList.locate") }
+			});
+			setIcon(locateBtn, "folder-open");
+			locateBtn.addEventListener("click", () => this.locateFolder(mark.path));
+
+			const decryptBtn = acts.createEl("button", {
+				cls: "clickable-icon",
+				attr: { "aria-label": t("settings.folderEncrypt.markedList.decrypt") }
+			});
+			setIcon(decryptBtn, "key");
+			decryptBtn.addEventListener("click", () => {
+				new FolderEncryptModal(this.plugin.app, this.plugin, mark.path, "decrypt").open();
+			});
+		}
+	}
+
+	/** Count already-encrypted vs total encryptable files under a marked folder. */
+	private folderProgress(mark: IMarkedFolder): { enc: number; total: number } {
+		const folder = this.plugin.app.vault.getAbstractFileByPath(mark.path);
+		if (!(folder instanceof TFolder)) {
+			return { enc: 0, total: 0 };
+		}
+		const scope = this.featureSettings.encryptScope ?? "md";
+		let enc = 0;
+		let total = 0;
+		const walk = (f: TFolder): void => {
+			for (const child of f.children) {
+				if (child instanceof TFolder) {
+					if (mark.recursive) {
+						walk(child);
+					}
+				} else if (child instanceof TFile) {
+					if (ENCRYPTED_FILE_EXTENSIONS.contains(child.extension)) {
+						enc++;
+						total++;
+					} else if (scope === "all" || child.extension === "md") {
+						total++;
+					}
+				}
+			}
+		};
+		walk(folder);
+		return { enc, total };
+	}
+
+	/** Reveal a marked folder in the file explorer and flash its row. */
+	private locateFolder(folderPath: string): void {
+		const normalized = FolderMarkService.normalizeFolderPath(folderPath);
+		const leaves = this.plugin.app.workspace.getLeavesOfType("file-explorer");
+		for (const leaf of leaves) {
+			const view = leaf.view;
+			if (!view) {
+				continue;
+			}
+			const root = view.containerEl;
+			const titleEl = root.querySelector<HTMLElement>(`.nav-folder-title[data-path="${normalized}"]`);
+			if (titleEl) {
+				this.plugin.app.workspace.revealLeaf(leaf);
+				titleEl.scrollIntoView({ block: "center" });
+				titleEl.addClass("mtk-reveal");
+				setTimeout(() => titleEl.removeClass("mtk-reveal"), 1200);
+				return;
+			}
+		}
+		new Notice(t("notice.folderNotFound"));
 	}
 }
