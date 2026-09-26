@@ -2,6 +2,7 @@ import { TFile, normalizePath } from "obsidian";
 import { t } from "../i18n";
 import { MemoryCache } from "./MemoryCache";
 import { Utils } from "./Utils";
+import { ENCRYPTED_FILE_EXTENSIONS } from "./Constants";
 
 export type PasswordAndHint = {
 	password: string;
@@ -280,8 +281,14 @@ export class SessionPasswordService{
 	}
 
 	private static getFileCacheKey( file : TFile ) : string {
-		// whole-note encryption: one password per file
-		return Utils.getFilePathExcludingExtension( file );
+		// whole-note encryption: one password per file.
+		// 密钥按「原始（未加密）路径」记忆，使加密/解密前后 key 连续：
+		// 已加密文件（如 `未命名.md.enc`）用「去加密后缀」路径；普通文件用自身路径。
+		// 三者最终都收敛为原始路径（如 `parent/未命名.md`），旧格式 .mdenc/.encrypted 同样兼容。
+		if ( ENCRYPTED_FILE_EXTENSIONS.includes( file.extension ) ) {
+			return Utils.getDecryptedFilePath( file );
+		}
+		return file.path;
 	}
 
 	/* ------------------------------------------------------------- infra */

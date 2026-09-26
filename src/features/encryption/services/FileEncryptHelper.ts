@@ -3,7 +3,6 @@ import { TFile, TextFileView } from "obsidian";
 import { PasswordAndHint, SessionPasswordService } from "./SessionPasswordService";
 import { FileDataHelper, JsonFileEncoding } from "./FileDataHelper";
 import { Utils } from "./Utils";
-import { ENCRYPTED_FILE_EXTENSION_DEFAULT } from "./Constants";
 
 /**
  * Shared single-file encrypt/decrypt primitives reused by both the
@@ -36,8 +35,12 @@ export class FileEncryptHelper {
 	}
 
 	/**
-	 * Rename the file to the target extension, write the new content, and
+	 * Rename the file to its encrypted/decrypted path, write the new content, and
 	 * remember the password for the (new) file. Reopens the file if it was open.
+	 *
+	 * The target path is derived automatically:
+	 * - encrypting (`rememberPassword = true`): `<原名>.<原ext>.enc`
+	 * - decrypting (`rememberPassword = false`): the original path (suffix removed)
 	 *
 	 * Pass `rememberPassword = false` when decrypting: once the content is
 	 * back to plaintext the cached password is dropped instead of kept.
@@ -45,7 +48,6 @@ export class FileEncryptHelper {
 	static async closeUpdateRememberPasswordThenReopen(
 		plugin: MarkdownEditorPlusPlugin,
 		file: TFile,
-		newFileExtension: string,
 		content: string,
 		pw: PasswordAndHint,
 		rememberPassword = true
@@ -60,7 +62,9 @@ export class FileEncryptHelper {
 		});
 
 		try {
-			const newFilepath = Utils.getFilePathWithNewExtension(file, newFileExtension);
+			const newFilepath = rememberPassword
+				? Utils.getEncryptedFilePath(file)
+				: Utils.getDecryptedFilePath(file);
 			await plugin.app.fileManager.renameFile(file, newFilepath);
 			await plugin.app.vault.modify(file, content);
 			if (rememberPassword) {
@@ -73,12 +77,5 @@ export class FileEncryptHelper {
 				await plugin.app.workspace.getLeaf(true).openFile(file);
 			}
 		}
-	}
-
-	/**
-	 * Determine the effective encrypted extension for a freshly encrypted file.
-	 */
-	static get defaultEncryptedExtension(): string {
-		return ENCRYPTED_FILE_EXTENSION_DEFAULT;
 	}
 }

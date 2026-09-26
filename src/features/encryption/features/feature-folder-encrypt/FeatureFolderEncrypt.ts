@@ -9,7 +9,7 @@ import { IMarkedFolder } from "./IFeatureFolderEncryptSettings";
 import { FolderBulkService } from "./FolderBulkService";
 import { MarkFolderModal } from "./MarkFolderModal";
 import { EncryptedIconService } from "../../services/EncryptedIconService";
-import { ENCRYPTED_FILE_EXTENSION_DEFAULT, ENCRYPTED_FILE_EXTENSIONS } from "../../services/Constants";
+import { ENCRYPTED_FILE_EXTENSIONS } from "../../services/Constants";
 import { FileEncryptHelper } from "../../services/FileEncryptHelper";
 import { PasswordAndHint, SessionPasswordService } from "../../services/SessionPasswordService";
 import PluginPasswordModal from "../../PluginPasswordModal";
@@ -448,13 +448,12 @@ export default class FeatureFolderEncrypt implements IMarkdownEditorPlusPluginPl
 				content
 			);
 
-			await FileEncryptHelper.closeUpdateRememberPasswordThenReopen(
-				this.plugin,
-				file,
-				ENCRYPTED_FILE_EXTENSION_DEFAULT,
-				encryptedContent,
-				passwordAndHint
-			);
+		await FileEncryptHelper.closeUpdateRememberPasswordThenReopen(
+			this.plugin,
+			file,
+			encryptedContent,
+			passwordAndHint
+		);
 
 			FolderMarkService.putPassword(mark.path, passwordAndHint);
 			EncryptedIconService.refresh();

@@ -6,7 +6,7 @@ import PluginPasswordModal from "../../PluginPasswordModal";
 import { ENCRYPTED_FILE_EXTENSIONS } from "../../services/Constants";
 
 /**
- * A MarkdownView for encrypted files (.mdenc / .encrypted): on load it
+ * A MarkdownView for encrypted files (.md.enc / .mdenc / .encrypted): on load it
  * decrypts the content (prompting for a password when none is cached) and
  * shows the plaintext; on save it transparently re-encrypts before writing.
  */

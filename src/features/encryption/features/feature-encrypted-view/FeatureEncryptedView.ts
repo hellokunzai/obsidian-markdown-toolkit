@@ -6,7 +6,7 @@ import { EncryptedMarkdownView } from "./EncryptedMarkdownView";
 import { ENCRYPTED_FILE_EXTENSIONS } from "../../services/Constants";
 
 /**
- * Registers the view used to open encrypted files (.mdenc / .encrypted):
+ * Registers the view used to open encrypted files (.md.enc / .mdenc / .encrypted):
  * clicking such a file prompts for its password, then shows the decrypted
  * document. The folder-encrypt feature creates these files; this feature
  * makes them openable.

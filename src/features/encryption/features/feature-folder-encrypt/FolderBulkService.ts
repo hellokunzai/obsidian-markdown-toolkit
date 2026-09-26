@@ -1,7 +1,7 @@
 import { TFile, TFolder } from "obsidian";
 import type MarkdownEditorPlusPlugin from "../../../../main";
 import { t } from "../../i18n";
-import { ENCRYPTED_FILE_EXTENSIONS, ENCRYPTED_FILE_EXTENSION_DEFAULT } from "../../services/Constants";
+import { ENCRYPTED_FILE_EXTENSIONS } from "../../services/Constants";
 import { FileEncryptHelper } from "../../services/FileEncryptHelper";
 import { PasswordAndHint } from "../../services/SessionPasswordService";
 
@@ -88,14 +88,13 @@ export class FolderBulkService {
 		return await FolderBulkService.run(
 			FolderBulkService.collectPlainNotes(folder, recursive, scope),
 			async file => {
-				const encryptedContent = await FileEncryptHelper.encryptFile(plugin, file, passwordAndHint);
-				await FileEncryptHelper.closeUpdateRememberPasswordThenReopen(
-					plugin,
-					file,
-					ENCRYPTED_FILE_EXTENSION_DEFAULT,
-					encryptedContent,
-					passwordAndHint
-				);
+			const encryptedContent = await FileEncryptHelper.encryptFile(plugin, file, passwordAndHint);
+			await FileEncryptHelper.closeUpdateRememberPasswordThenReopen(
+				plugin,
+				file,
+				encryptedContent,
+				passwordAndHint
+			);
 			},
 			onProgress
 		);
@@ -111,18 +110,17 @@ export class FolderBulkService {
 		return await FolderBulkService.run(
 			FolderBulkService.collectEncryptedNotes(folder, recursive),
 			async file => {
-				const content = await FileEncryptHelper.decryptFile(plugin, file, passwordAndHint.password);
-				if (content == null) {
-					throw new Error(t("error.decryptionFailed"));
-				}
-				await FileEncryptHelper.closeUpdateRememberPasswordThenReopen(
-					plugin,
-					file,
-					"md",
-					content,
-					passwordAndHint,
-					false
-				);
+			const content = await FileEncryptHelper.decryptFile(plugin, file, passwordAndHint.password);
+			if (content == null) {
+				throw new Error(t("error.decryptionFailed"));
+			}
+			await FileEncryptHelper.closeUpdateRememberPasswordThenReopen(
+				plugin,
+				file,
+				content,
+				passwordAndHint,
+				false
+			);
 			},
 			onProgress
 		);
