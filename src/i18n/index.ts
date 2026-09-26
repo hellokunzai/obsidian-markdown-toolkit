@@ -634,6 +634,12 @@ const en: Dict = {
   "notice.folderPasswordWrong": "❌ Wrong password — it does not match the encrypted files already in this folder",
   "notice.folderAutoLockOnTimeout": "🔒 Encrypted folder re-locked — the remembered password timed out",
   "error.decryptionFailed": "Decryption failed",
+  "action.changePassword": "Change Password",
+  "action.lockAndClose": "Lock & Close",
+  "notice.passwordChanged": "Password changed",
+  "notice.passwordWasntChanged": "Password wasn't changed",
+  "modal.decryptingTitle": "Decrypting \"{{name}}\"",
+  "modal.changePasswordTitle": "Change password for \"{{name}}\"",
 };
 
 const zhCn: Dict = {
@@ -1226,6 +1232,12 @@ const zhCn: Dict = {
   "notice.folderPasswordWrong": "❌ 密码错误：与文件夹内已有加密文件的密码不一致",
   "notice.folderAutoLockOnTimeout": "🔒 加密文件夹已重新锁定：记住的密码已超时",
   "error.decryptionFailed": "解密失败",
+  "action.changePassword": "修改密码",
+  "action.lockAndClose": "锁定并关闭",
+  "notice.passwordChanged": "密码已修改",
+  "notice.passwordWasntChanged": "密码未修改",
+  "modal.decryptingTitle": "正在解密“{{name}}”",
+  "modal.changePasswordTitle": "修改“{{name}}”的密码",
 };
 
 const translations: Record<string, Dict> = {

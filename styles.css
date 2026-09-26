@@ -1891,3 +1891,8 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .meld-encrypt-pre-wrap {
 	white-space: pre-wrap;
 }
+
+/* Encrypted MarkdownView while decrypting / re-encrypting on save */
+.meld-encrypt-view-busy {
+	cursor: wait;
+}

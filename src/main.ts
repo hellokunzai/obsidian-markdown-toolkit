@@ -48,6 +48,7 @@ import { AttachmentDeleteSync } from "./features/attachment-delete";
 import { AttachmentRenameSync } from "./features/attachment-rename";
 import FeatureFolderEncrypt from "./features/encryption/features/feature-folder-encrypt/FeatureFolderEncrypt";
 import FeatureRandomPassword from "./features/encryption/features/feature-random-password/FeatureRandomPassword";
+import FeatureEncryptedView from "./features/encryption/features/feature-encrypted-view/FeatureEncryptedView";
 import { SessionPasswordService } from "./features/encryption/services/SessionPasswordService";
 
 /**
@@ -111,6 +112,8 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
   folderEncryptFeature: FeatureFolderEncrypt | null = null;
   /** Random-password generator feature. */
   randomPasswordFeature: FeatureRandomPassword | null = null;
+
+  encryptedViewFeature: FeatureEncryptedView | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -264,8 +267,10 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     );
     this.folderEncryptFeature = new FeatureFolderEncrypt();
     this.randomPasswordFeature = new FeatureRandomPassword();
+    this.encryptedViewFeature = new FeatureEncryptedView();
     void this.folderEncryptFeature.onload(this, this.settings);
     void this.randomPasswordFeature.onload(this, this.settings);
+    void this.encryptedViewFeature.onload(this, this.settings);
   }
 
   onunload(): void {
@@ -289,6 +294,8 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     this.folderEncryptFeature = null;
     this.randomPasswordFeature?.onunload();
     this.randomPasswordFeature = null;
+    this.encryptedViewFeature?.onunload();
+    this.encryptedViewFeature = null;
     for (const session of [...this.sessions.values()]) session.finish();
     this.sessions.clear();
     this.blocks.clear();
