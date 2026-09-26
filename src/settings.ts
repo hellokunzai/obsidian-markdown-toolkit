@@ -25,6 +25,9 @@ import { resolveDuplicateSeparator, stripExtension } from "./features/attachment
 import type { FlowDirection, MindmapLayout } from "./core/model";
 import type { Orders } from "./features/order-store";
 import type MarkdownEditorPlusPlugin from "./main";
+import type { IFeatureFolderEncryptSettings, IMarkedFolder } from "./features/encryption/features/feature-folder-encrypt/IFeatureFolderEncryptSettings";
+import type { IFeatureRandomPasswordSettings } from "./features/encryption/features/feature-random-password/IFeatureRandomPasswordSettings";
+import { SessionPasswordService } from "./features/encryption/services/SessionPasswordService";
 
 /**
  * There is deliberately no block-language setting here.
@@ -110,6 +113,18 @@ export interface MarkdownEditorPlusSettings {
   emptyFolderHandling: EmptyFolderHandling;
   /** Delete a deleted note's now-unreferenced attachments automatically. */
   deleteOrphanedOnNoteDelete: boolean;
+
+  // ---- File encryption (ported from obsidian-vault-encrypted, scheme A) ----
+  /** Require the password to be typed twice and confirmed when setting one. */
+  confirmPassword: boolean;
+  /** Keep entered passwords in memory (cleared on timeout) instead of asking. */
+  rememberPassword: boolean;
+  /** How long (minutes) a remembered password stays in memory before expiring. */
+  rememberPasswordTimeout: number;
+  /** Folder encryption: recursive flag plus the list of marked folders. */
+  featureFolderEncrypt: IFeatureFolderEncryptSettings;
+  /** Random-password generator preferences. */
+  featureRandomPassword: IFeatureRandomPasswordSettings;
 }
 
 export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
@@ -141,6 +156,13 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   attachmentDuplicateSeparator: "-",
   emptyFolderHandling: "delete-and-parents",
   deleteOrphanedOnNoteDelete: false,
+
+  // ---- File encryption (ported from obsidian-vault-encrypted, scheme A) ----
+  confirmPassword: true,
+  rememberPassword: true,
+  rememberPasswordTimeout: 30,
+  featureFolderEncrypt: { recursive: true, markedFolders: [] },
+  featureRandomPassword: { length: 16, upper: true, lower: true, number: true, symbol: true },
 };
 
 export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
@@ -174,6 +196,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       { id: "toolbar", label: t("settings.tab.toolbar"), render: (host) => this.renderToolbar(host) },
       { id: "files", label: t("settings.tab.files"), render: (host) => this.renderFiles(host) },
       { id: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
+      { id: "encryption", label: t("settings.tab.encryption"), render: (host) => this.renderEncryption(host) },
     ];
 
     let activeButton: HTMLElement | null = null;
@@ -894,6 +917,70 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   }
 
   /* ----------------------------------------------------------- attachment */
+
+  /* ----------------------------------------------------------- encryption */
+
+  /**
+   * Global password/session settings, then the two scheme-A features
+   * (folder encryption, random password) render their own sections via
+   * `buildSettingsUi`.
+   */
+  private renderEncryption(host: HTMLElement): void {
+    this.plugin.randomPasswordFeature?.buildSettingsUi(host, () => this.plugin.saveSettings());
+
+    host.appendChild(h("h3", { text: t("settings.encryption.passwords.heading") }));
+
+    new Setting(host)
+      .setName(t("settings.confirmPassword.name"))
+      .setDesc(t("settings.confirmPassword.desc"))
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.confirmPassword).onChange(async (value) => {
+          this.plugin.settings.confirmPassword = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    const refreshTimeoutName = (setting: Setting, timeout: number): void => {
+      const label =
+        timeout === 0
+          ? t("settings.rememberPasswordTimeout.untilClosed")
+          : t("settings.rememberPasswordTimeout.forMinutes", { minutes: String(timeout) });
+      setting.setName(t("settings.rememberPasswordTimeout.name", { timeout: label }));
+    };
+
+    new Setting(host)
+      .setName(t("settings.rememberPassword.name"))
+      .setDesc(t("settings.rememberPassword.desc"))
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.rememberPassword).onChange(async (value) => {
+          this.plugin.settings.rememberPassword = value;
+          await this.plugin.saveSettings();
+          SessionPasswordService.setActive(value);
+          if (value) pwTimeoutSetting.settingEl.show();
+          else pwTimeoutSetting.settingEl.hide();
+        })
+      );
+
+    const pwTimeoutSetting = new Setting(host)
+      .setDesc(t("settings.rememberPasswordTimeout.desc"))
+      .addSlider((slider) =>
+        slider
+          .setLimits(0, 120, 5)
+          .setValue(this.plugin.settings.rememberPasswordTimeout)
+          .onChange(async (value) => {
+            this.plugin.settings.rememberPasswordTimeout = value;
+            await this.plugin.saveSettings();
+            SessionPasswordService.setAutoExpire(value === 0 ? null : value);
+            refreshTimeoutName(pwTimeoutSetting, value);
+          })
+      );
+    refreshTimeoutName(pwTimeoutSetting, this.plugin.settings.rememberPasswordTimeout);
+    if (!this.plugin.settings.rememberPassword) {
+      pwTimeoutSetting.settingEl.hide();
+    }
+
+    this.plugin.folderEncryptFeature?.buildSettingsUi(host, () => this.plugin.saveSettings());
+  }
 
   private renderAttachment(host: HTMLElement): void {
     host.appendChild(h("h3", { text: t("settings.attachment.basic.heading") }));
