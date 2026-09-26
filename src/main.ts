@@ -8,7 +8,6 @@ import {
 } from "obsidian";
 import { t } from "./i18n";
 import { DEFAULT_SETTINGS, MarkdownEditorPlusSettingTab, type MarkdownEditorPlusSettings } from "./settings";
-import type { IMarkedFolder } from "./features/encryption/features/feature-folder-encrypt/IFeatureFolderEncryptSettings";
 import {
   registerDiagramBlocks,
   type DiagramBlockHost,
@@ -46,10 +45,6 @@ import { migrateOrders } from "./features/order-store";
 import { AttachmentLocation } from "./features/attachment-location";
 import { AttachmentDeleteSync } from "./features/attachment-delete";
 import { AttachmentRenameSync } from "./features/attachment-rename";
-import FeatureFolderEncrypt from "./features/encryption/features/feature-folder-encrypt/FeatureFolderEncrypt";
-import FeatureRandomPassword from "./features/encryption/features/feature-random-password/FeatureRandomPassword";
-import FeatureEncryptedView from "./features/encryption/features/feature-encrypted-view/FeatureEncryptedView";
-import { SessionPasswordService } from "./features/encryption/services/SessionPasswordService";
 
 /**
  * `editorCallback` hands back either a `MarkdownView` or a bare
@@ -107,13 +102,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
    * settings tab can keep using a bare plugin mock in tests.
    */
   formatBrush: FormatBrush | null = null;
-
-  /** Folder encryption feature (scheme A of obsidian-vault-encrypted). */
-  folderEncryptFeature: FeatureFolderEncrypt | null = null;
-  /** Random-password generator feature. */
-  randomPasswordFeature: FeatureRandomPassword | null = null;
-
-  encryptedViewFeature: FeatureEncryptedView | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -258,19 +246,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     // SVG paints are baked-in attributes rather than CSS, so a theme switch has
     // to trigger a repaint in every live block and editor.
     this.registerEvent(this.app.workspace.on("css-change", () => this.repaintAll()));
-
-    // File encryption features (scheme A). SessionPasswordService is a static
-    // service; we only (re)arm its remember-window from the current settings.
-    SessionPasswordService.setActive(this.settings.rememberPassword);
-    SessionPasswordService.setAutoExpire(
-      this.settings.rememberPasswordTimeout === 0 ? null : this.settings.rememberPasswordTimeout
-    );
-    this.folderEncryptFeature = new FeatureFolderEncrypt();
-    this.randomPasswordFeature = new FeatureRandomPassword();
-    this.encryptedViewFeature = new FeatureEncryptedView();
-    void this.folderEncryptFeature.onload(this, this.settings);
-    void this.randomPasswordFeature.onload(this, this.settings);
-    void this.encryptedViewFeature.onload(this, this.settings);
   }
 
   onunload(): void {
@@ -290,12 +265,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     // place, the closure would go on sorting a tree whose plugin is gone.
     this.fileOrder?.unload();
     this.fileOrder = null;
-    this.folderEncryptFeature?.onunload();
-    this.folderEncryptFeature = null;
-    this.randomPasswordFeature?.onunload();
-    this.randomPasswordFeature = null;
-    this.encryptedViewFeature?.onunload();
-    this.encryptedViewFeature = null;
     for (const session of [...this.sessions.values()]) session.finish();
     this.sessions.clear();
     this.blocks.clear();
@@ -449,60 +418,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.deleteOrphanedOnNoteDelete === "boolean"
           ? saved!.deleteOrphanedOnNoteDelete
           : DEFAULT_SETTINGS.deleteOrphanedOnNoteDelete,
-
-      // ---- File encryption (ported from obsidian-vault-encrypted, scheme A) ----
-      confirmPassword:
-        typeof saved?.confirmPassword === "boolean"
-          ? saved!.confirmPassword
-          : DEFAULT_SETTINGS.confirmPassword,
-      rememberPassword:
-        typeof saved?.rememberPassword === "boolean"
-          ? saved!.rememberPassword
-          : DEFAULT_SETTINGS.rememberPassword,
-      rememberPasswordTimeout:
-        typeof saved?.rememberPasswordTimeout === "number" && saved!.rememberPasswordTimeout > 0
-          ? saved!.rememberPasswordTimeout
-          : DEFAULT_SETTINGS.rememberPasswordTimeout,
-      featureFolderEncrypt: (() => {
-        const f = saved?.featureFolderEncrypt;
-        const markedFolders: IMarkedFolder[] = Array.isArray(f?.markedFolders)
-          ? f!.markedFolders
-              .filter(
-                (m) =>
-                  !!m &&
-                  typeof m.path === "string" &&
-                  typeof m.hint === "string" &&
-                  typeof m.recursive === "boolean"
-              )
-              .map((m) => ({ path: m.path, hint: m.hint, recursive: m.recursive }))
-          : DEFAULT_SETTINGS.featureFolderEncrypt.markedFolders;
-        return {
-          recursive:
-            typeof f?.recursive === "boolean"
-              ? f!.recursive
-              : DEFAULT_SETTINGS.featureFolderEncrypt.recursive,
-          encryptScope:
-            f?.encryptScope === "all" || f?.encryptScope === "md"
-              ? f!.encryptScope
-              : DEFAULT_SETTINGS.featureFolderEncrypt.encryptScope,
-          markedFolders,
-        };
-      })(),
-      featureRandomPassword: (() => {
-        const r = saved?.featureRandomPassword;
-        const length =
-          typeof r?.length === "number" && r!.length >= 1
-            ? Math.floor(r!.length)
-            : DEFAULT_SETTINGS.featureRandomPassword.length;
-        const bool = (v: unknown, d: boolean): boolean => (typeof v === "boolean" ? v : d);
-        return {
-          length,
-          upper: bool(r?.upper, DEFAULT_SETTINGS.featureRandomPassword.upper),
-          lower: bool(r?.lower, DEFAULT_SETTINGS.featureRandomPassword.lower),
-          number: bool(r?.number, DEFAULT_SETTINGS.featureRandomPassword.number),
-          symbol: bool(r?.symbol, DEFAULT_SETTINGS.featureRandomPassword.symbol),
-        };
-      })(),
     };
 
     // Written back the moment it is converted, so the migration happens once
