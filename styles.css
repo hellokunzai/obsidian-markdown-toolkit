@@ -754,10 +754,15 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   height: 100%;
 }
 
-.mtk-lightbox .mtk-lightbox-close {
+/* The corner buttons: one appearance, one slot each — the same split the block's
+   own corner buttons use (`mtk-embed-edit` / `-code` / `-view`). Only the slot
+   is written per button, so a second button cannot drift away from the first.
+
+   `top` is here rather than in the slots because the two are meant to sit on one
+   line; only `right` differs. */
+.mtk-lightbox .mtk-lightbox-action {
   position: absolute;
   top: 14px;
-  right: 14px;
   z-index: 1;
   display: inline-flex;
   align-items: center;
@@ -776,15 +781,44 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   opacity: 0.92;
 }
 
-.mtk-lightbox .mtk-lightbox-close:hover {
+.mtk-lightbox .mtk-lightbox-action:hover {
   color: var(--text-on-accent);
   background-color: var(--interactive-accent);
   border-color: var(--interactive-accent);
 }
 
-.mtk-lightbox .mtk-lightbox-close .svg-icon {
+.mtk-lightbox .mtk-lightbox-action .svg-icon {
   width: 16px;
   height: 16px;
+}
+
+.mtk-lightbox .mtk-lightbox-close {
+  right: 14px;
+}
+
+/* 32 wide + 8 of air + the close button's 14. */
+.mtk-lightbox .mtk-lightbox-full {
+  right: 54px;
+}
+
+/* Full screen.
+
+   The overlay is already `fixed; inset: 0`, so "full screen" in a lightbox can
+   only mean letting the frame fill it — hence padding 0 plus the frame at 100%.
+   Both live on the overlay rather than on the frame, because the overlay is what
+   owns the padding; splitting them would let the two drift apart.
+
+   The radius has to go with the padding. Once the frame reaches the viewport's
+   edge, a rounded corner is not a rounded corner any more — it is a notch cut
+   out of the screen. */
+.mtk-lightbox.is-fullscreen {
+  padding: 0;
+}
+
+.mtk-lightbox.is-fullscreen .mtk-lightbox-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
 }
 
 .mtk-embed-error {

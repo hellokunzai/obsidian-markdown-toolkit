@@ -281,6 +281,30 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
 
   let viewport: PreviewViewport | null = null;
 
+  /* The two corner buttons. "Full screen" here means the frame filling the
+     viewport (see the `.is-fullscreen` rules) — the overlay is already
+     `fixed; inset: 0`, so that is the only reading available, and it keeps the
+     feature inside the preview instead of taking the browser window away from
+     Obsidian's own full screen command.
+
+     The resizing that follows is not wired up here: the frame changing size is
+     the whole of it, and `makePreviewViewport` already treats "the frame got a
+     new size" as a reason to re-frame the drawing — unless the user has taken
+     over the view, in which case it leaves their framing alone. */
+  const fullButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-full" });
+  fullButton.type = "button";
+  setIcon(fullButton, "maximize");
+  applyTooltip(fullButton, t("embed.lightboxFull"));
+
+  let showingFull = false;
+  const setFullscreen = (on: boolean): void => {
+    if (on === showingFull) return;
+    showingFull = on;
+    overlay.classList.toggle("is-fullscreen", on);
+    setIcon(fullButton, on ? "minimize" : "maximize");
+    applyTooltip(fullButton, on ? t("embed.lightboxRestore") : t("embed.lightboxFull"));
+  };
+
   const close = (): void => {
     document.removeEventListener("keydown", onKey);
     viewport?.destroy();
@@ -288,7 +312,12 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
     overlay.remove();
   };
   const onKey = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") close();
+    if (event.key !== "Escape") return;
+    /* Escape peels one layer at a time: out of full screen first, then out of
+       the preview. Closing in one step would make the way back into full screen
+       the only way out of it. */
+    if (showingFull) setFullscreen(false);
+    else close();
   };
 
   overlay.addEventListener("click", (event) => {
@@ -296,7 +325,10 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
   });
   document.addEventListener("keydown", onKey);
 
-  const closeButton = h("button", { cls: "mtk-lightbox-close" });
+  fullButton.addEventListener("click", () => setFullscreen(!showingFull));
+  canvas.appendChild(fullButton);
+
+  const closeButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-close" });
   closeButton.type = "button";
   setIcon(closeButton, "x");
   applyTooltip(closeButton, t("embed.lightboxClose"));
