@@ -1,14 +1,16 @@
-import { Notice, Platform, setIcon } from "obsidian";
+import { Menu, Modal, Notice, Platform, setIcon, type App } from "obsidian";
 import { t } from "../i18n";
 import { kindById } from "../core/kinds";
 import type { ChartCanvasId, Point } from "../core/model";
 import { chartSpec } from "../charts/registry";
 import type { ChartField, ChartHandle, RegisteredSpec } from "../charts/types";
+import { nextId } from "../charts/draw";
 import { paintChart } from "../charts/paint";
 import { createSurface, readPalette, type DiagramSurface } from "../render/svg";
 import { fitBounds } from "../render/fit";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
+import { TextToolModal } from "../ui/text-tool-modal";
 import type { EditorPanelHost } from "./editor-panel";
 
 /**
@@ -57,6 +59,29 @@ export interface ChartPanelOptions {
   /** Which canvas to open. Always one of the chart kinds, never mindmap/flow. */
   mode: ChartCanvasId;
   host: EditorPanelHost;
+  /** Obsidian app, needed to open modals (message/participant editors). */
+  app: App;
+}
+
+/** Minimal view of the sequence-chart state the right-click menu and message
+ * dialog need. The panel is generic and never imports the spec's `Actor`/
+ * `Message` types; this structural subset is all the menu touches. */
+interface SequenceActor {
+  id: string;
+  key: string;
+  label: string;
+}
+interface SequenceMessage {
+  id: string;
+  from: string;
+  to: string;
+  text: string;
+  arrow: string;
+  y: number;
+}
+interface SequenceChartShape {
+  actors: SequenceActor[];
+  messages: SequenceMessage[];
 }
 
 export class ChartPanel {
@@ -248,8 +273,15 @@ export class ChartPanel {
     this.emptyNote = h("div", { cls: "mtk-empty", text: t("chart.empty") });
     this.canvasWrap.appendChild(this.emptyNote);
 
-    this.propsEl = h("aside", { cls: "mtk-props" });
+    // Sequence diagrams are edited through the right-click menu and the message
+    // dialog, never the side panel — so the canvas keeps the whole body. The
+    // other eight chart kinds still render the property panel.
+    if (this.options.mode === "sequence") {
+      this.bodyWrap.append(this.canvasWrap);
+      return;
+    }
 
+    this.propsEl = h("aside", { cls: "mtk-props" });
     this.bodyWrap.append(this.canvasWrap, this.propsEl);
   }
 
@@ -308,6 +340,9 @@ export class ChartPanel {
    * selection. The panel knows six field kinds and nothing about diagrams.
    */
   private renderProps(): void {
+    // Sequence diagrams have no side panel; their editing lives in the
+    // right-click menu and the message dialog opened from it.
+    if (this.options.mode === "sequence" || !this.propsEl) return;
     const fragment = document.createDocumentFragment();
     fragment.appendChild(h("div", { cls: "mtk-props-head", text: t("chart.props.title") }));
 
@@ -764,6 +799,14 @@ export class ChartPanel {
       },
       { passive: false }
     );
+
+    // Sequence diagrams drive all editing from the right-click menu; the other
+    // chart kinds keep their left-click-to-select + side-panel flow.
+    svg.addEventListener("contextmenu", (event: MouseEvent) => {
+      if (this.options.mode !== "sequence") return;
+      event.preventDefault();
+      this.openSequenceMenu(event);
+    });
   }
 
   private capture(event: PointerEvent): void {
@@ -780,6 +823,137 @@ export class ChartPanel {
     return target.closest("[data-mtk]")?.getAttribute("data-mtk") ?? null;
   }
 
+  /* --------------------------------------------------- sequence context menu */
+
+  /**
+   * Right-click menu for the sequence diagram. The side panel is gone for this
+   * chart, so every edit — add participant, add/edit/delete message, rename
+   * participant — is reached from here.
+   */
+  private openSequenceMenu(event: MouseEvent): void {
+    const chart = this.state as SequenceChartShape;
+    const hitId = this.elementIdFromEvent(event);
+    const menu = new Menu();
+
+    if (!hitId) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.seq.addParticipant")).setIcon("plus").onClick(() => this.addParticipantToCanvas())
+      );
+      if (chart.actors.length > 0) {
+        menu.addItem((item) =>
+          item.setTitle(t("chart.seq.addMessage")).setIcon("message-square-plus").onClick(() => this.openMessageDialog(null))
+        );
+      }
+    } else if (chart.actors.some((a) => a.id === hitId)) {
+      const actor = chart.actors.find((a) => a.id === hitId);
+      if (!actor) return;
+      menu.addItem((item) =>
+        item.setTitle(t("chart.seq.rename")).setIcon("pencil").onClick(() => this.renameActor(actor))
+      );
+      menu.addItem((item) =>
+        item.setTitle(t("chart.seq.addMessage")).setIcon("message-square-plus").onClick(() => this.openMessageDialog(null, actor.id))
+      );
+      menu.addItem((item) =>
+        item.setTitle(t("chart.seq.deleteParticipant")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+    } else if (chart.messages.some((m) => m.id === hitId)) {
+      const message = chart.messages.find((m) => m.id === hitId);
+      if (!message) return;
+      menu.addItem((item) =>
+        item.setTitle(t("chart.seq.editMessage")).setIcon("pencil").onClick(() => this.openMessageDialog(message))
+      );
+      menu.addItem((item) =>
+        item.setTitle(t("chart.seq.deleteMessage")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+    }
+
+    menu.showAtMouseEvent(event);
+  }
+
+  private addParticipantToCanvas(): void {
+    const before = this.spec.serialize(this.state);
+    this.selected = this.spec.add(this.state);
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+  }
+
+  private deleteById(id: string): void {
+    const before = this.spec.serialize(this.state);
+    this.spec.remove(this.state, id);
+    if (this.selected === id) this.selected = null;
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+  }
+
+  private renameActor(actor: SequenceActor): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.seq.renameTitle"),
+      "",
+      [{ key: "label", label: t("chart.seq.label"), value: actor.label }],
+      t("chart.seq.renameOk"),
+      (values) => {
+        const next = values.label.trim();
+        if (!next) return t("chart.seq.nameRequired");
+        const before = this.spec.serialize(this.state);
+        actor.label = next;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  /**
+   * Opens the message editor. Pass an existing message to edit it, or `null`
+   * (optionally with a `fromHint`) to create a new one. The dialog owns the
+   * form; on confirm it writes the fields back and commits a single undo step.
+   */
+  private openMessageDialog(existing: SequenceMessage | null, fromHint?: string): void {
+    const chart = this.state as SequenceChartShape;
+    if (chart.actors.length === 0) {
+      // No participant to send from: drop one on the canvas first, then let the
+      // user add the message on the next right-click.
+      this.addParticipantToCanvas();
+      return;
+    }
+    const actorOptions = chart.actors.map((a) => ({ value: a.id, label: a.label }));
+    const init = existing
+      ? { from: existing.from, to: existing.to, arrow: existing.arrow, text: existing.text }
+      : this.defaultMessage(chart, fromHint);
+    const dialog = new MessageDialog(this.options.app, actorOptions, init, (values) => {
+      const before = this.spec.serialize(this.state);
+      if (existing) {
+        existing.from = values.from;
+        existing.to = values.to;
+        existing.arrow = values.arrow;
+        existing.text = values.text;
+      } else {
+        const id = nextId(
+          chart.messages.map((m) => m.id),
+          "m"
+        );
+        chart.messages.push({ id, from: values.from, to: values.to, text: values.text, arrow: values.arrow, y: 0 });
+        this.selected = id;
+      }
+      this.pushUndoIfChanged(before);
+      this.commit(true);
+    });
+    dialog.open();
+  }
+
+  private defaultMessage(
+    chart: SequenceChartShape,
+    fromHint?: string
+  ): { from: string; to: string; arrow: string; text: string } {
+    const fromIndex = chart.actors.findIndex((a) => a.id === fromHint);
+    const from = chart.actors[fromIndex >= 0 ? fromIndex : 0];
+    const toIndex = (fromIndex >= 0 ? fromIndex + 1 : 1) % chart.actors.length;
+    const to = chart.actors[toIndex] ?? from;
+    return { from: from.id, to: to.id, arrow: "->>", text: "" };
+  }
+
   /* --------------------------------------------------------------- output */
 
   private async save(): Promise<void> {
@@ -788,4 +962,98 @@ export class ChartPanel {
     await this.options.host.save(source);
   }
 
+}
+
+/**
+ * The message editor dialog for sequence diagrams.
+ *
+ * It carries the four fields the (removed) side panel offered for a message —
+ * sender, receiver, arrow style, text — but as a modal so the canvas keeps its
+ * full width. Both "add message" and "edit message" flow through here; the
+ * caller's `onSubmit` decides whether to append a new message or mutate an
+ * existing one.
+ */
+class MessageDialog extends Modal {
+  private readonly actorOptions: Array<{ value: string; label: string }>;
+  private readonly initial: { from: string; to: string; arrow: string; text: string };
+  private readonly onSubmit: (values: { from: string; to: string; arrow: string; text: string }) => void;
+
+  constructor(
+    app: App,
+    actorOptions: Array<{ value: string; label: string }>,
+    initial: { from: string; to: string; arrow: string; text: string },
+    onSubmit: (values: { from: string; to: string; arrow: string; text: string }) => void
+  ) {
+    super(app);
+    this.actorOptions = actorOptions;
+    this.initial = initial;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.appendChild(h("h3", { text: t("chart.seq.editMessage") }));
+
+    const from = this.buildSelect(t("chart.seq.from"), this.initial.from, this.actorOptions);
+    const to = this.buildSelect(t("chart.seq.to"), this.initial.to, this.actorOptions);
+    const arrowOptions = [
+      { value: "->>", label: t("chart.seq.solidArrow") },
+      { value: "-->>", label: t("chart.seq.dashedArrow") },
+      { value: "->", label: t("chart.seq.solidLine") },
+      { value: "-->", label: t("chart.seq.dashedLine") },
+      { value: "-x", label: t("chart.seq.solidCross") },
+      { value: "--x", label: t("chart.seq.dashedCross") },
+    ];
+    const arrow = this.buildSelect(t("chart.seq.arrow"), this.initial.arrow, arrowOptions);
+
+    const textRow = h("div", { cls: "mtk-field" });
+    textRow.appendChild(h("label", { cls: "mtk-field-label", text: t("chart.seq.text") }));
+    const textInput = h("input", {
+      cls: "mtk-input",
+      attr: { type: "text", placeholder: t("chart.seq.newMessage") },
+    });
+    textInput.value = this.initial.text;
+    textRow.appendChild(textInput);
+
+    contentEl.append(from, to, arrow, textRow);
+
+    const actions = h("div", { cls: "mtk-modal-actions" });
+    const cancel = h("button", { cls: "mtk-btn", text: t("settings.toolbar.cancel"), attr: { type: "button" } });
+    cancel.addEventListener("click", () => this.close());
+    const submit = h("button", { cls: "mtk-btn mtk-btn-primary", text: t("chart.seq.confirm"), attr: { type: "button" } });
+    submit.addEventListener("click", () => this.submit(from, to, arrow, textInput));
+    actions.append(cancel, submit);
+    contentEl.appendChild(actions);
+
+    (from.lastElementChild as HTMLSelectElement | null)?.focus();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+
+  private buildSelect(label: string, value: string, options: Array<{ value: string; label: string }>): HTMLDivElement {
+    const row = h("div", { cls: "mtk-field" });
+    row.appendChild(h("label", { cls: "mtk-field-label", text: label }));
+    const select = h("select", { cls: "mtk-input mtk-prop-select" });
+    for (const option of options) {
+      const node = h("option", { text: option.label });
+      node.value = option.value;
+      select.appendChild(node);
+    }
+    select.value = value;
+    row.appendChild(select);
+    return row;
+  }
+
+  private submit(from: HTMLDivElement, to: HTMLDivElement, arrow: HTMLDivElement, text: HTMLInputElement): void {
+    this.onSubmit({
+      from: (from.lastElementChild as HTMLSelectElement).value,
+      to: (to.lastElementChild as HTMLSelectElement).value,
+      arrow: (arrow.lastElementChild as HTMLSelectElement).value,
+      text: text.value.trim(),
+    });
+    this.close();
+  }
 }

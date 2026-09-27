@@ -105,6 +105,7 @@ export class EditorSession implements EditorPanelHost {
           source: init.source,
           mode: init.mode,
           host: this,
+          app: this.app,
         });
     this.panel.root.remove();
     this.startIn = init.openIn;
