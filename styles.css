@@ -271,10 +271,6 @@
   user-select: none;
 }
 
-.mtk-port {
-  cursor: crosshair;
-}
-
 .mtk-editor .mtk-empty {
   position: absolute;
   left: 50%;

@@ -2,7 +2,7 @@ import { Menu, Notice, Platform, setIcon } from "obsidian";
 import { t } from "../i18n";
 import { measureLines, measureNode, modelBounds } from "../core/measure";
 import { layoutFlow } from "../core/layout-flow";
-import { layoutMindmap } from "../core/layout-mindmap";
+import { layoutMindmap, COLUMN_GAP, ROW_GAP } from "../core/layout-mindmap";
 import {
   createModel,
   nextNodeId,
@@ -18,7 +18,6 @@ import { applyPinnedPositions, parseDiagram } from "../core/parse";
 import { serializeDiagram } from "../core/serialize";
 import {
   createSurface,
-  readPalette,
   renderDiagram,
   type DiagramSurface,
 } from "../render/svg";
@@ -51,12 +50,10 @@ export interface EditorPanelOptions {
 const SHAPES: NodeShape[] = ["rect", "stadium", "circle", "diamond", "hexagon"];
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3.2;
-const SVG_NS = "http://www.w3.org/2000/svg";
 
 type DragState =
   | { kind: "pan"; startX: number; startY: number; originTx: number; originTy: number }
-  | { kind: "node"; id: string; offsetX: number; offsetY: number; moved: boolean }
-  | { kind: "edge"; id: string; point: Point };
+  | { kind: "node"; id: string; offsetX: number; offsetY: number; moved: boolean };
 
 /**
  * The visual editor.
@@ -291,11 +288,10 @@ export class EditorPanel {
   private buildHints(): HTMLElement {
     const hints = h("div", { cls: "mtk-hints" });
     const keys = Platform.isMobile
-      ? ["editor.hint.touch", "editor.hint.dragPort", "editor.hint.blank"]
+      ? ["editor.hint.touch", "editor.hint.blank"]
       : [
           "editor.hint.pan",
           "editor.hint.zoom",
-          "editor.hint.dragPort",
           "editor.hint.blank",
           "editor.hint.delete",
         ];
@@ -487,13 +483,14 @@ export class EditorPanel {
     const bounds = modelBounds(this.model);
     this.pushUndo();
     const id = nextNodeId(this.model);
+    const newSize = measureNode({ text: t("editor.newNode"), shape: "rect" });
     this.model.nodes.push({
       id,
       alias: "",
       text: t("editor.newNode"),
       shape: "rect",
       x: bounds ? (bounds.x1 + bounds.x2) / 2 : 0,
-      y: bounds ? bounds.y2 + 72 : 0,
+      y: bounds ? bounds.y2 + ROW_GAP + newSize.h / 2 : 0,
       key: id,
       depth: 0,
       pinned: true,
@@ -525,15 +522,18 @@ export class EditorPanel {
   private addRelated(id: string, relation: "child" | "sibling"): void {
     const anchor = nodeById(this.model, id);
     if (!anchor) return;
+    const shape = this.model.mode === "mindmap" ? "rect" : anchor.shape;
+    const anchorSize = measureNode(anchor);
+    const newSize = measureNode({ text: t("editor.newNode"), shape });
     this.pushUndo();
     const nodeId = nextNodeId(this.model);
     this.model.nodes.push({
       id: nodeId,
       alias: "",
       text: t("editor.newNode"),
-      shape: this.model.mode === "mindmap" ? "rect" : anchor.shape,
-      x: anchor.x + (relation === "child" ? 220 : 0),
-      y: anchor.y + (relation === "child" ? 0 : 70),
+      shape,
+      x: anchor.x + (relation === "child" ? Math.round(anchorSize.w / 2 + COLUMN_GAP + newSize.w / 2) : 0),
+      y: anchor.y + (relation === "child" ? 0 : Math.round(anchorSize.h / 2 + ROW_GAP + newSize.h / 2)),
       key: nodeId,
       depth: 0,
       pinned: true,
@@ -751,16 +751,6 @@ export class EditorPanel {
       }
       this.endInlineEdit(true);
 
-      const port = (event.target as Element | null)?.closest("[data-port]");
-      if (port) {
-        const from = port.getAttribute("data-port");
-        if (!from) return;
-        this.drag = { kind: "edge", id: from, point: this.toModelCoords(event.clientX, event.clientY) };
-        this.capture(event);
-        event.preventDefault();
-        return;
-      }
-
       const id = this.nodeIdFromEvent(event);
       const node = id ? nodeById(this.model, id) : null;
       if (node) {
@@ -835,9 +825,6 @@ export class EditorPanel {
         this.render();
         return;
       }
-      this.drag.point = point;
-      this.render();
-      this.drawDragLine(this.drag.id, point);
     });
 
     const finish = (event: PointerEvent): void => {
@@ -858,9 +845,6 @@ export class EditorPanel {
           this.render();
         }
         return;
-      }
-      if (drag.kind === "edge") {
-        this.completeConnection(drag.id, this.toModelCoords(event.clientX, event.clientY));
       }
     };
     svg.addEventListener("pointerup", finish);
@@ -916,64 +900,6 @@ export class EditorPanel {
   private nodeIdFromEvent(event: Event): string | null {
     const group = (event.target as Element | null)?.closest("[data-node]");
     return group?.getAttribute("data-node") ?? null;
-  }
-
-  private drawDragLine(fromId: string, point: Point): void {
-    const from = nodeById(this.model, fromId);
-    if (!from) return;
-    const size = measureNode(from);
-    const line = document.createElementNS(SVG_NS, "path");
-    line.setAttribute("d", `M${from.x + size.w / 2} ${from.y} L${point.x} ${point.y}`);
-    line.setAttribute("fill", "none");
-    line.setAttribute("stroke", readPalette(this.svg).accent);
-    line.setAttribute("stroke-width", "1.3");
-    line.setAttribute("stroke-dasharray", "3 3");
-    line.setAttribute("vector-effect", "non-scaling-stroke");
-    this.surface.layer.appendChild(line);
-  }
-
-  private completeConnection(fromId: string, point: Point): void {
-    const from = nodeById(this.model, fromId);
-    if (!from) return;
-    const target = this.hitTest(point, fromId);
-    this.pushUndo();
-
-    if (target) {
-      this.model.edges.push({ id: `e${Date.now()}`, from: fromId, to: target.id, label: "" });
-      new Notice(t("notice.linkedTo", { name: target.text }));
-    } else {
-      const id = nextNodeId(this.model);
-      this.model.nodes.push({
-        id,
-        alias: "",
-        text: t("editor.newNode"),
-        shape: "rect",
-        x: point.x,
-        y: point.y,
-        key: id,
-        depth: 0,
-        pinned: true,
-      });
-      this.model.edges.push({ id: `e${Date.now()}a`, from: fromId, to: id, label: "" });
-      new Notice(t("notice.nodeCreated"));
-    }
-    this.selectedId = null;
-    this.render();
-  }
-
-  private hitTest(point: Point, exceptId?: string): DiagramNode | null {
-    for (let i = this.model.nodes.length - 1; i >= 0; i--) {
-      const node = this.model.nodes[i];
-      if (exceptId && node.id === exceptId) continue;
-      const size = measureNode(node);
-      if (
-        Math.abs(point.x - node.x) <= size.w / 2 + 4 &&
-        Math.abs(point.y - node.y) <= size.h / 2 + 4
-      ) {
-        return node;
-      }
-    }
-    return null;
   }
 
   private startLongPress(event: PointerEvent, node: DiagramNode): void {

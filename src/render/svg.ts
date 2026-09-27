@@ -275,22 +275,6 @@ export function renderDiagram(
     group.appendChild(shapeFor(node, size.w, size.h, fill, stroke));
     group.appendChild(labelFor(node, size.w, textColor));
 
-    if (options.interactive) {
-      const port = createSvgEl("circle");
-      port.classList.add("mtk-port");
-      setAttrs(port, {
-        "data-port": node.id,
-        cx: node.x + size.w / 2 + 12,
-        cy: node.y,
-        r: 6.5,
-        fill: colors.surface,
-        stroke: colors.accent,
-        "stroke-width": 1.2,
-        "vector-effect": "non-scaling-stroke",
-      });
-      group.appendChild(port);
-    }
-
     fragment.appendChild(group);
   }
 

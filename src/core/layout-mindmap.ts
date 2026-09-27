@@ -13,8 +13,8 @@ import { measureNode } from "./measure";
  * user dragged them to.
  */
 
-const COLUMN_GAP = 48;
-const ROW_GAP = 16;
+export const COLUMN_GAP = 48;
+export const ROW_GAP = 16;
 const RECURSION_GUARD = 10000;
 
 function ownSpan(node: DiagramNode): number {
