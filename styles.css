@@ -183,6 +183,23 @@
   border-color: var(--interactive-accent);
 }
 
+/*
+ * Save sits in the toolbar but stays the primary action, so it reuses the
+ * accent fill the header used to give it. Scoped to `.mtk-tb` as well as
+ * `.mtk-save` so it outranks the plain toolbar button rules (including their
+ * `:hover`), while the header still owns `.mtk-header .mtk-save` for the chart
+ * editor's identical button.
+ */
+.mtk-editor .mtk-tb.mtk-save {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+.mtk-editor .mtk-tb.mtk-save:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
 .mtk-editor .mtk-tb:disabled {
   opacity: 0.4;
   cursor: default;
@@ -203,12 +220,6 @@
   height: 18px;
   margin: 0 3px;
   background-color: var(--background-modifier-border);
-}
-
-.mtk-editor .mtk-group-label {
-  font-size: 11px;
-  color: var(--text-faint);
-  padding: 0 2px;
 }
 
 .mtk-editor .mtk-zoom-value {
@@ -342,7 +353,6 @@
 }
 
 body.is-mobile .mtk-editor .mtk-tb-label,
-body.is-mobile .mtk-editor .mtk-group-label,
 body.is-mobile .mtk-editor .mtk-divider {
   display: none;
 }

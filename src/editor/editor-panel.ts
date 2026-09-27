@@ -188,8 +188,6 @@ export class EditorPanel {
 
     this.expandButton = h("button", { cls: "mtk-btn mtk-expand", text: t("editor.expand") });
     this.expandButton.type = "button";
-    const save = h("button", { cls: "mtk-btn mtk-save", text: t("editor.save") });
-    save.type = "button";
     const close = h("button", { cls: "mtk-btn mtk-close", text: t("editor.close") });
     close.type = "button";
 
@@ -197,7 +195,6 @@ export class EditorPanel {
       if (this.root.closest(".mtk-in-tab")) this.options.host.collapse();
       else this.options.host.expand();
     });
-    save.addEventListener("click", () => void this.save());
     close.addEventListener("click", () => {
       void (async () => {
         if (this.dirty) await this.save();
@@ -205,12 +202,20 @@ export class EditorPanel {
       })();
     });
 
-    header.append(this.expandButton, save, close);
+    header.append(this.expandButton, close);
     return header;
   }
 
   private buildToolbar(): HTMLElement {
     const toolbar = h("div", { cls: "mtk-toolbar" });
+
+    // Saving leads the toolbar: it is the one action people reach for while
+    // working, and the header is where the window-level controls (expand,
+    // close) belong. It keeps its own accent styling via `.mtk-tb.mtk-save`.
+    const save = this.buildButton("mtk-save", t("editor.save"), "save");
+    save.addEventListener("click", () => void this.save());
+    toolbar.appendChild(save);
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
     const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
     tidy.addEventListener("click", () => {
@@ -234,22 +239,9 @@ export class EditorPanel {
     toolbar.append(undo, redo);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
-    const add = this.buildButton("mtk-add", t("editor.toolbar.addNode"), "plus");
-    add.addEventListener("click", () => this.addNodeAtFreeSpot());
-    const remove = this.buildButton("mtk-delete", t("editor.toolbar.delete"), "trash-2");
-    remove.addEventListener("click", () => this.deleteSelected());
-    toolbar.append(add, remove);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
-    toolbar.appendChild(h("span", { cls: "mtk-group-label", text: t("editor.toolbar.shape") }));
-    for (const shape of SHAPES) {
-      const button = this.buildButton(`mtk-shape mtk-shape-${shape}`, t(`editor.shape.${shape}`));
-      button.dataset.shape = shape;
-      button.addEventListener("click", () => this.setShape(shape));
-      toolbar.appendChild(button);
-    }
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
+    // Adding a node, deleting it and picking its shape all live in the
+    // right-click menu (see openContextMenu), so the toolbar only carries the
+    // whole-canvas actions: layout, history and viewport.
     const zoomOut = this.buildButton("mtk-zoom-out", t("editor.toolbar.zoomOut"), "zoom-out");
     zoomOut.addEventListener("click", () => this.zoomBy(1 / 1.15));
     this.zoomLabel = h("span", { cls: "mtk-zoom-value", text: "100%" });
@@ -366,16 +358,10 @@ export class EditorPanel {
       ? t("editor.selected", { name: node.text })
       : t("editor.selectedNone");
 
-    const remove = this.root.querySelector<HTMLButtonElement>(".mtk-delete");
-    if (remove) remove.disabled = !node;
     const undo = this.root.querySelector<HTMLButtonElement>(".mtk-undo");
     if (undo) undo.disabled = this.undoStack.length === 0;
     const redo = this.root.querySelector<HTMLButtonElement>(".mtk-redo");
     if (redo) redo.disabled = this.redoStack.length === 0;
-
-    this.root.querySelectorAll<HTMLButtonElement>(".mtk-shape").forEach((button) => {
-      button.classList.toggle("is-on", Boolean(node) && node?.shape === button.dataset.shape);
-    });
 
     this.emptyNote.classList.toggle("is-visible", this.model.nodes.length === 0);
   }
