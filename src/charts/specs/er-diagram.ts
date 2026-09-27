@@ -392,7 +392,7 @@ function render(ctx: ChartRenderContext<ErChart>): void {
   }
 }
 
-const CARD_OPTIONS: Array<{ value: Cardinality; key: string }> = [
+export const CARD_OPTIONS: Array<{ value: Cardinality; key: string }> = [
   { value: "one", key: "chart.er.one" },
   { value: "zero-one", key: "chart.er.zeroOne" },
   { value: "one-many", key: "chart.er.oneMany" },

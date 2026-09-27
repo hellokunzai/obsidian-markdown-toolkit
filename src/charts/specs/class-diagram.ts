@@ -89,7 +89,7 @@ const RELATION_LABELS: Record<string, string> = {
   "..": "chart.rel.link",
 };
 
-const RELATION_GROUPS: Array<{ op: string; labelKey: string }> = [
+export const RELATION_GROUPS: Array<{ op: string; labelKey: string }> = [
   { op: "<|--", labelKey: "chart.rel.inheritance" },
   { op: "*--", labelKey: "chart.rel.composition" },
   { op: "o--", labelKey: "chart.rel.aggregation" },

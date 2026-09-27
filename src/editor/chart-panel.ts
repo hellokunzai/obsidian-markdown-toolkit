@@ -3,6 +3,8 @@ import { t } from "../i18n";
 import { kindById } from "../core/kinds";
 import type { ChartCanvasId, Point } from "../core/model";
 import { chartSpec } from "../charts/registry";
+import { RELATION_GROUPS } from "../charts/specs/class-diagram";
+import { CARD_OPTIONS } from "../charts/specs/er-diagram";
 import type { ChartField, ChartHandle, RegisteredSpec } from "../charts/types";
 import { nextId } from "../charts/draw";
 import { paintChart } from "../charts/paint";
@@ -82,6 +84,72 @@ interface SequenceMessage {
 interface SequenceChartShape {
   actors: SequenceActor[];
   messages: SequenceMessage[];
+}
+
+/** Structural subset of the class-diagram state the right-click menu touches.
+ * The panel stays generic and never imports the spec's `ClassItem`/`ClassEdge`
+ * types; this is all the menu reads or mutates. */
+interface ClassItemShape {
+  id: string;
+  name: string;
+  attrs: string[];
+  methods: string[];
+  pinned?: boolean;
+}
+interface ClassEdgeShape {
+  id: string;
+  from: string;
+  to: string;
+  op: string;
+  label: string;
+}
+interface ClassChartShape {
+  items: ClassItemShape[];
+  edges: ClassEdgeShape[];
+  linking: string | null;
+}
+
+/** Structural subset of the state-diagram state the right-click menu touches.
+ * The `[*]` markers are derived (virtual) and deliberately not editable, so the
+ * menu only ever acts on `virtual === ""` items. */
+interface StateItemShape {
+  id: string;
+  name: string;
+  virtual: "" | "start" | "end";
+  pinned?: boolean;
+}
+interface StateEdgeShape {
+  id: string;
+  from: string;
+  to: string;
+  label: string;
+}
+interface StateChartShape {
+  items: StateItemShape[];
+  edges: StateEdgeShape[];
+  linking: string | null;
+}
+
+/** Structural subset of the ER-diagram state the right-click menu touches. */
+interface EntityItemShape {
+  id: string;
+  name: string;
+  fields: string[];
+  pinned?: boolean;
+}
+interface EntityEdgeShape {
+  id: string;
+  from: string;
+  to: string;
+  left: string;
+  right: string;
+  identifying: boolean;
+  label: string;
+}
+interface ErChartShape {
+  items: EntityItemShape[];
+  edges: EntityEdgeShape[];
+  linking: string | null;
 }
 
 export class ChartPanel {
@@ -273,10 +341,15 @@ export class ChartPanel {
     this.emptyNote = h("div", { cls: "mtk-empty", text: t("chart.empty") });
     this.canvasWrap.appendChild(this.emptyNote);
 
-    // Sequence diagrams are edited through the right-click menu and the message
-    // dialog, never the side panel — so the canvas keeps the whole body. The
-    // other eight chart kinds still render the property panel.
-    if (this.options.mode === "sequence") {
+    // State/ER diagrams are edited through the right-click menu too (matching
+    // sequence and class), so the canvas keeps the whole body. The other five
+    // chart kinds still render the property panel.
+    if (
+      this.options.mode === "sequence" ||
+      this.options.mode === "class" ||
+      this.options.mode === "state" ||
+      this.options.mode === "er"
+    ) {
       this.bodyWrap.append(this.canvasWrap);
       return;
     }
@@ -340,9 +413,16 @@ export class ChartPanel {
    * selection. The panel knows six field kinds and nothing about diagrams.
    */
   private renderProps(): void {
-    // Sequence diagrams have no side panel; their editing lives in the
-    // right-click menu and the message dialog opened from it.
-    if (this.options.mode === "sequence" || !this.propsEl) return;
+    // State/ER diagrams have no side panel either; their editing lives in the
+    // right-click menu (and the transition/relation dialog opened from it).
+    if (
+      this.options.mode === "sequence" ||
+      this.options.mode === "class" ||
+      this.options.mode === "state" ||
+      this.options.mode === "er" ||
+      !this.propsEl
+    )
+      return;
     const fragment = document.createDocumentFragment();
     fragment.appendChild(h("div", { cls: "mtk-props-head", text: t("chart.props.title") }));
 
@@ -756,8 +836,24 @@ export class ChartPanel {
       const point = this.toModelCoords(event.clientX, event.clientY);
       const before = this.spec.serialize(this.state);
       if (hitId) {
+        // State/ER: drawing a transition/relation finishes on a left-click and
+        // the new edge is what the spec's onPick just appended, so snapshot the
+        // edge ids beforehand to find it and open its editor right away.
+        const beforeEdgeIds =
+          this.options.mode === "state" || this.options.mode === "er"
+            ? new Set((this.state as StateChartShape | ErChartShape).edges.map((edge) => edge.id))
+            : null;
         if (this.spec.onPick?.(this.state, hitId, point)) {
           this.pushUndoIfChanged(before);
+          if (beforeEdgeIds) {
+            if (this.options.mode === "state") {
+              const edge = (this.state as StateChartShape).edges.find((e) => !beforeEdgeIds.has(e.id));
+              if (edge) this.openStateTransitionDialog(edge);
+            } else {
+              const edge = (this.state as ErChartShape).edges.find((e) => !beforeEdgeIds.has(e.id));
+              if (edge) this.openErRelationDialog(edge);
+            }
+          }
           this.commit(true);
           return;
         }
@@ -800,12 +896,22 @@ export class ChartPanel {
       { passive: false }
     );
 
-    // Sequence diagrams drive all editing from the right-click menu; the other
-    // chart kinds keep their left-click-to-select + side-panel flow.
+    // Sequence, class, state and ER diagrams drive all editing from the
+    // right-click menu; the other five chart kinds keep their left-click-to-
+    // select + side-panel.
     svg.addEventListener("contextmenu", (event: MouseEvent) => {
-      if (this.options.mode !== "sequence") return;
+      if (
+        this.options.mode !== "sequence" &&
+        this.options.mode !== "class" &&
+        this.options.mode !== "state" &&
+        this.options.mode !== "er"
+      )
+        return;
       event.preventDefault();
-      this.openSequenceMenu(event);
+      if (this.options.mode === "sequence") this.openSequenceMenu(event);
+      else if (this.options.mode === "class") this.openClassMenu(event);
+      else if (this.options.mode === "state") this.openStateMenu(event);
+      else this.openErMenu(event);
     });
   }
 
@@ -954,6 +1060,447 @@ export class ChartPanel {
     return { from: from.id, to: to.id, arrow: "->>", text: "" };
   }
 
+  /* ----------------------------------------------------- class context menu */
+
+  /**
+   * Right-click menu for class diagrams. The side panel is gone for this chart,
+   * so every edit — add/rename class, edit attributes/methods, add/edit/delete
+   * relation, release a pinned box, delete — is reached from here.
+   *
+   * Adding a relation walks through the spec's own `linking` state: "Add
+   * relation" arms it on the source class, a follow-up right-click on a *target*
+   * class opens a relation-type submenu, and picking one creates the edge. A
+   * left-click on the target still works too (it just uses the default `-->`).
+   */
+  private openClassMenu(event: MouseEvent): void {
+    const chart = this.state as ClassChartShape;
+    const hitId = this.elementIdFromEvent(event);
+    const menu = new Menu();
+
+    // While a relation is being drawn, only another class can be the target.
+    if (chart.linking) {
+      const validTarget =
+        hitId && hitId !== chart.linking && chart.items.some((i) => i.id === hitId);
+      if (!validTarget) {
+        menu.addItem((item) =>
+          item
+            .setTitle(t("chart.class.cancelLink"))
+            .setIcon("x")
+            .onClick(() => this.cancelLink())
+        );
+        menu.showAtMouseEvent(event);
+        return;
+      }
+      const sourceId = chart.linking;
+      for (const entry of RELATION_GROUPS) {
+        menu.addItem((item) =>
+          item
+            .setTitle(t(entry.labelKey))
+            .setIcon("corner-down-right")
+            .onClick(() => this.addClassEdge(sourceId, hitId, entry.op))
+        );
+      }
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    if (!hitId) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.class.addClass")).setIcon("plus").onClick(() => this.addOne())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const item = chart.items.find((i) => i.id === hitId);
+    if (item) {
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.class.editName")).setIcon("pencil").onClick(() => this.renameClass(item))
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.class.editAttrs")).setIcon("list").onClick(() => this.editMembers(item, "attrs"))
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.class.editMethods")).setIcon("function-square").onClick(() => this.editMembers(item, "methods"))
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.class.addRelation")).setIcon("corner-down-right").onClick(() => this.startLink(item))
+      );
+      if (item.pinned) {
+        menu.addItem((mi) =>
+          mi.setTitle(t("chart.release")).setIcon("move").onClick(() => this.releaseItem(item))
+        );
+      }
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.deleteClass")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const edge = chart.edges.find((e) => e.id === hitId);
+    if (edge) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.class.editRelation")).setIcon("pencil").onClick(() => this.openRelationDialog(edge))
+      );
+      menu.addItem((item) =>
+        item.setTitle(t("chart.deleteRelation")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+      menu.showAtMouseEvent(event);
+    }
+  }
+
+  private cancelLink(): void {
+    const chart = this.state as ClassChartShape;
+    chart.linking = null;
+    this.commit(false);
+  }
+
+  private startLink(item: ClassItemShape): void {
+    const chart = this.state as ClassChartShape;
+    chart.linking = item.id;
+    this.commit(false);
+    new Notice(t("chart.class.pickTarget", { name: item.name }));
+  }
+
+  private addClassEdge(fromId: string, toId: string | null, op: string): void {
+    if (!toId) return;
+    const chart = this.state as ClassChartShape;
+    const before = this.spec.serialize(this.state);
+    chart.edges.push({
+      id: nextId(chart.edges.map((e) => e.id), "r"),
+      from: fromId,
+      to: toId,
+      op,
+      label: "",
+    });
+    chart.linking = null;
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+  }
+
+  private renameClass(item: ClassItemShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.class.renameTitle"),
+      "",
+      [{ key: "name", label: t("chart.class.name"), value: item.name }],
+      t("chart.class.confirm"),
+      (values) => {
+        const next = values.name.trim();
+        if (!next) return t("chart.class.nameRequired");
+        const before = this.spec.serialize(this.state);
+        item.name = next;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private releaseItem(item: { pinned?: boolean }): void {
+    const before = this.spec.serialize(this.state);
+    item.pinned = false;
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+  }
+
+  private editMembers(item: ClassItemShape, kind: "attrs" | "methods"): void {
+    const title = kind === "attrs" ? t("chart.class.attrTitle") : t("chart.class.methodTitle");
+    const lines = kind === "attrs" ? item.attrs : item.methods;
+    const dialog = new ClassMemberDialog(
+      this.options.app,
+      title,
+      lines.join("\n"),
+      kind === "attrs" ? t("chart.class.attrPlaceholder") : t("chart.class.methodPlaceholder"),
+      (value) => {
+        const next = value
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+        const before = this.spec.serialize(this.state);
+        if (kind === "attrs") item.attrs = next;
+        else item.methods = next;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+      }
+    );
+    dialog.open();
+  }
+
+  private openRelationDialog(edge: ClassEdgeShape): void {
+    const chart = this.state as ClassChartShape;
+    const fromName = chart.items.find((i) => i.id === edge.from)?.name ?? "?";
+    const toName = chart.items.find((i) => i.id === edge.to)?.name ?? "?";
+    const dialog = new RelationDialog(
+      this.options.app,
+      RELATION_GROUPS.map((entry) => ({ value: entry.op, label: t(entry.labelKey) })),
+      { op: edge.op, role: edge.label, from: fromName, to: toName },
+      (values) => {
+        const before = this.spec.serialize(this.state);
+        edge.op = values.op;
+        edge.label = values.role;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+      }
+    );
+    dialog.open();
+  }
+
+  /* --------------------------------------------------------- state context menu */
+
+  /**
+   * Right-click menu for the state diagram. Like the class diagram, the side
+   * panel is gone, so every edit — add/rename/delete a state, draw/edit/delete
+   * a transition — is reached from here. `[*]` markers are derived and never
+   * appear in the menu.
+   */
+  private openStateMenu(event: MouseEvent): void {
+    const chart = this.state as StateChartShape;
+    const hitId = this.elementIdFromEvent(event);
+    const menu = new Menu();
+
+    // While a transition is being drawn, a left-click on another state
+    // completes it; the right-click menu only offers to cancel.
+    if (chart.linking) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.cancel")).setIcon("x").onClick(() => this.cancelLink())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    if (!hitId) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.state.addState")).setIcon("plus").onClick(() => this.addNode())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const item = chart.items.find((i) => i.id === hitId);
+    if (item) {
+      if (item.virtual) return; // [*] markers are derived, not editable
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.state.editName")).setIcon("pencil").onClick(() => this.renameState(item))
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.state.addTransition")).setIcon("corner-down-right").onClick(() => this.startNodeLink(item))
+      );
+      if (item.pinned) {
+        menu.addItem((mi) =>
+          mi.setTitle(t("chart.release")).setIcon("move").onClick(() => this.releaseItem(item))
+        );
+      }
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.deleteState")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const edge = chart.edges.find((e) => e.id === hitId);
+    if (edge) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.state.editTransition")).setIcon("pencil").onClick(() => this.openStateTransitionDialog(edge))
+      );
+      menu.addItem((item) =>
+        item.setTitle(t("chart.deleteTransition")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+      menu.showAtMouseEvent(event);
+    }
+  }
+
+  private renameState(item: StateItemShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.state.editName"),
+      "",
+      [{ key: "name", label: t("chart.state.name"), value: item.name }],
+      t("chart.class.confirm"),
+      (values) => {
+        const next = values.name.trim();
+        if (!next) return t("chart.class.nameRequired");
+        const before = this.spec.serialize(this.state);
+        item.name = next;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private openStateTransitionDialog(edge: StateEdgeShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.state.editTransition"),
+      "",
+      [{ key: "event", label: t("chart.state.event"), value: edge.label }],
+      t("chart.class.confirm"),
+      (values) => {
+        const before = this.spec.serialize(this.state);
+        edge.label = values.event.trim();
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  /* ----------------------------------------------------------- er context menu */
+
+  /**
+   * Right-click menu for the ER diagram. Same shape as the state/class menus:
+   * add/rename/delete an entity, edit its fields, draw/edit/delete a relation.
+   * A relation is drawn by right-clicking the source entity, then left-clicking
+   * the target — which pops the relation editor so the cardinalities are set.
+   */
+  private openErMenu(event: MouseEvent): void {
+    const chart = this.state as ErChartShape;
+    const hitId = this.elementIdFromEvent(event);
+    const menu = new Menu();
+
+    // While a relation is being drawn, a left-click on another entity completes
+    // it; the right-click menu only offers to cancel.
+    if (chart.linking) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.cancel")).setIcon("x").onClick(() => this.cancelLink())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    if (!hitId) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.er.addEntity")).setIcon("plus").onClick(() => this.addNode())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const item = chart.items.find((i) => i.id === hitId);
+    if (item) {
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.er.editName")).setIcon("pencil").onClick(() => this.renameEntity(item))
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.er.editFields")).setIcon("list").onClick(() => this.editEntityFields(item))
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.er.addRelation")).setIcon("corner-down-right").onClick(() => this.startNodeLink(item))
+      );
+      if (item.pinned) {
+        menu.addItem((mi) =>
+          mi.setTitle(t("chart.release")).setIcon("move").onClick(() => this.releaseItem(item))
+        );
+      }
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.deleteEntity")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const edge = chart.edges.find((e) => e.id === hitId);
+    if (edge) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.er.editRelation")).setIcon("pencil").onClick(() => this.openErRelationDialog(edge))
+      );
+      menu.addItem((item) =>
+        item.setTitle(t("chart.deleteRelation")).setIcon("trash-2").onClick(() => this.deleteById(hitId))
+      );
+      menu.showAtMouseEvent(event);
+    }
+  }
+
+  /** Adds a state or an entity — `spec.add` is mode-specific, so one wrapper
+   * covers both right-click "add" entries. */
+  private addNode(): void {
+    const before = this.spec.serialize(this.state);
+    this.selected = this.spec.add(this.state);
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+  }
+
+  private startNodeLink(item: StateItemShape | EntityItemShape): void {
+    const chart = this.state as StateChartShape | ErChartShape;
+    chart.linking = item.id;
+    this.commit(false);
+    const key = this.options.mode === "state" ? "chart.state.pickTarget" : "chart.er.pickTarget";
+    new Notice(t(key, { name: item.name }));
+  }
+
+  private renameEntity(item: EntityItemShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.er.editName"),
+      "",
+      [{ key: "name", label: t("chart.er.name"), value: item.name }],
+      t("chart.class.confirm"),
+      (values) => {
+        const next = values.name.trim();
+        if (!next) return t("chart.class.nameRequired");
+        const before = this.spec.serialize(this.state);
+        item.name = next;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private editEntityFields(item: EntityItemShape): void {
+    const dialog = new ClassMemberDialog(
+      this.options.app,
+      t("chart.er.editFields"),
+      item.fields.join("\n"),
+      t("chart.er.fieldPlaceholder"),
+      (value) => {
+        const next = value
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+        const before = this.spec.serialize(this.state);
+        item.fields = next;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+      }
+    );
+    dialog.open();
+  }
+
+  private openErRelationDialog(edge: EntityEdgeShape): void {
+    const chart = this.state as ErChartShape;
+    const fromName = chart.items.find((i) => i.id === edge.from)?.name ?? "?";
+    const toName = chart.items.find((i) => i.id === edge.to)?.name ?? "?";
+    const dialog = new ErRelationDialog(
+      this.options.app,
+      CARD_OPTIONS.map((entry) => ({ value: entry.value, label: t(entry.key) })),
+      {
+        left: edge.left,
+        right: edge.right,
+        identifying: edge.identifying,
+        label: edge.label,
+        from: fromName,
+        to: toName,
+      },
+      (values) => {
+        const before = this.spec.serialize(this.state);
+        edge.left = values.left;
+        edge.right = values.right;
+        edge.identifying = values.identifying;
+        edge.label = values.label;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+      }
+    );
+    dialog.open();
+  }
+
   /* --------------------------------------------------------------- output */
 
   private async save(): Promise<void> {
@@ -1055,5 +1602,244 @@ class MessageDialog extends Modal {
       text: text.value.trim(),
     });
     this.close();
+  }
+}
+
+/**
+ * The attribute/method editor for a class.
+ *
+ * Class members are a list — one entry per line — so this is a textarea rather
+ * than the single-line fields `TextToolModal` offers. Each line is trimmed and
+ * blank lines dropped before it is written back, matching what the side panel
+ * used to do.
+ */
+class ClassMemberDialog extends Modal {
+  private readonly title: string;
+  private readonly initial: string;
+  private readonly placeholder: string;
+  private readonly onSubmit: (value: string) => void;
+
+  constructor(
+    app: App,
+    title: string,
+    initial: string,
+    placeholder: string,
+    onSubmit: (value: string) => void
+  ) {
+    super(app);
+    this.title = title;
+    this.initial = initial;
+    this.placeholder = placeholder;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.appendChild(h("h3", { text: this.title }));
+
+    const area = h("textarea", { cls: "mtk-input mtk-prop-area" });
+    area.rows = Math.min(12, Math.max(4, this.initial.split("\n").length + 1));
+    area.value = this.initial;
+    if (this.placeholder) area.placeholder = this.placeholder;
+    area.spellcheck = false;
+    contentEl.appendChild(area);
+
+    const actions = h("div", { cls: "mtk-modal-actions" });
+    const cancel = h("button", { cls: "mtk-btn", text: t("settings.toolbar.cancel"), attr: { type: "button" } });
+    cancel.addEventListener("click", () => this.close());
+    const submit = h("button", { cls: "mtk-btn mtk-btn-primary", text: t("chart.class.confirm"), attr: { type: "button" } });
+    submit.addEventListener("click", () => {
+      this.onSubmit(area.value);
+      this.close();
+    });
+    actions.append(cancel, submit);
+    contentEl.appendChild(actions);
+
+    area.focus();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/**
+ * The relation editor for a class diagram.
+ *
+ * A relation is a type (one of the seven mermaid operators, picked from a
+ * select) plus an optional role label. The endpoints are shown read-only: the
+ * only way to re-point a relation is to delete it and draw a new one, which
+ * keeps the editor from needing a second class picker.
+ */
+class RelationDialog extends Modal {
+  private readonly relationOptions: Array<{ value: string; label: string }>;
+  private readonly initial: { op: string; role: string; from: string; to: string };
+  private readonly onSubmit: (values: { op: string; role: string }) => void;
+
+  constructor(
+    app: App,
+    relationOptions: Array<{ value: string; label: string }>,
+    initial: { op: string; role: string; from: string; to: string },
+    onSubmit: (values: { op: string; role: string }) => void
+  ) {
+    super(app);
+    this.relationOptions = relationOptions;
+    this.initial = initial;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.appendChild(h("h3", { text: t("chart.class.relTitle") }));
+    contentEl.appendChild(
+      h("p", { cls: "mtk-settings-note", text: `${this.initial.from} → ${this.initial.to}` })
+    );
+
+    const opRow = h("div", { cls: "mtk-field" });
+    opRow.appendChild(h("label", { cls: "mtk-field-label", text: t("chart.class.relation") }));
+    const opSelect = h("select", { cls: "mtk-input mtk-prop-select" });
+    for (const option of this.relationOptions) {
+      const node = h("option", { text: option.label });
+      node.value = option.value;
+      opSelect.appendChild(node);
+    }
+    opSelect.value = this.initial.op;
+    opRow.appendChild(opSelect);
+    contentEl.appendChild(opRow);
+
+    const roleRow = h("div", { cls: "mtk-field" });
+    roleRow.appendChild(h("label", { cls: "mtk-field-label", text: t("chart.class.role") }));
+    const roleInput = h("input", {
+      cls: "mtk-input",
+      attr: { type: "text", placeholder: t("chart.class.role") },
+    });
+    roleInput.value = this.initial.role;
+    roleRow.appendChild(roleInput);
+    contentEl.appendChild(roleRow);
+
+    const actions = h("div", { cls: "mtk-modal-actions" });
+    const cancel = h("button", { cls: "mtk-btn", text: t("settings.toolbar.cancel"), attr: { type: "button" } });
+    cancel.addEventListener("click", () => this.close());
+    const submit = h("button", { cls: "mtk-btn mtk-btn-primary", text: t("chart.class.confirm"), attr: { type: "button" } });
+    submit.addEventListener("click", () => {
+      this.onSubmit({ op: opSelect.value, role: roleInput.value.trim() });
+      this.close();
+    });
+    actions.append(cancel, submit);
+    contentEl.appendChild(actions);
+
+    (opRow.lastElementChild as HTMLSelectElement | null)?.focus();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/**
+ * The relation editor for an ER diagram.
+ *
+ * Unlike a class relation (one operator), an ER relation has a cardinality at
+ * each end plus a identifying/dashed flag. The endpoints are read-only — the
+ * only way to re-point is to delete and redraw — so the dialog offers two
+ * cardinality selects, the kind toggle and the optional label.
+ */
+class ErRelationDialog extends Modal {
+  private readonly cardOptions: Array<{ value: string; label: string }>;
+  private readonly initial: {
+    left: string;
+    right: string;
+    identifying: boolean;
+    label: string;
+    from: string;
+    to: string;
+  };
+  private readonly onSubmit: (values: {
+    left: string;
+    right: string;
+    identifying: boolean;
+    label: string;
+  }) => void;
+
+  constructor(
+    app: App,
+    cardOptions: Array<{ value: string; label: string }>,
+    initial: { left: string; right: string; identifying: boolean; label: string; from: string; to: string },
+    onSubmit: (values: { left: string; right: string; identifying: boolean; label: string }) => void
+  ) {
+    super(app);
+    this.cardOptions = cardOptions;
+    this.initial = initial;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.appendChild(h("h3", { text: t("chart.er.editRelation") }));
+    contentEl.appendChild(
+      h("p", { cls: "mtk-settings-note", text: `${this.initial.from} → ${this.initial.to}` })
+    );
+
+    const leftRow = this.buildCardRow(this.initial.from, this.initial.left);
+    const rightRow = this.buildCardRow(this.initial.to, this.initial.right);
+
+    const kindRow = h("div", { cls: "mtk-field" });
+    kindRow.appendChild(h("label", { cls: "mtk-field-label", text: t("chart.er.kind") }));
+    const kindSelect = h("select", { cls: "mtk-input mtk-prop-select" });
+    const solid = h("option", { text: t("chart.er.identifying") });
+    solid.value = "solid";
+    const dashed = h("option", { text: t("chart.er.nonIdentifying") });
+    dashed.value = "dashed";
+    kindSelect.append(solid, dashed);
+    kindSelect.value = this.initial.identifying ? "solid" : "dashed";
+    kindRow.appendChild(kindSelect);
+
+    const labelRow = h("div", { cls: "mtk-field" });
+    labelRow.appendChild(h("label", { cls: "mtk-field-label", text: t("chart.er.label") }));
+    const labelInput = h("input", {
+      cls: "mtk-input",
+      attr: { type: "text", placeholder: t("chart.er.label") },
+    });
+    labelInput.value = this.initial.label;
+    labelRow.appendChild(labelInput);
+
+    const actions = h("div", { cls: "mtk-modal-actions" });
+    const cancel = h("button", { cls: "mtk-btn", text: t("settings.toolbar.cancel"), attr: { type: "button" } });
+    cancel.addEventListener("click", () => this.close());
+    const submit = h("button", { cls: "mtk-btn mtk-btn-primary", text: t("chart.class.confirm"), attr: { type: "button" } });
+    submit.addEventListener("click", () => {
+      this.onSubmit({
+        left: (leftRow.lastElementChild as HTMLSelectElement).value,
+        right: (rightRow.lastElementChild as HTMLSelectElement).value,
+        identifying: (kindRow.lastElementChild as HTMLSelectElement).value === "solid",
+        label: labelInput.value.trim(),
+      });
+      this.close();
+    });
+    actions.append(cancel, submit);
+    contentEl.append(leftRow, rightRow, kindRow, labelRow, actions);
+
+    (leftRow.lastElementChild as HTMLSelectElement | null)?.focus();
+  }
+
+  private buildCardRow(endpoint: string, value: string): HTMLDivElement {
+    const row = h("div", { cls: "mtk-field" });
+    row.appendChild(h("label", { cls: "mtk-field-label", text: `${endpoint} ${t("chart.er.side")}` }));
+    const select = h("select", { cls: "mtk-input mtk-prop-select" });
+    for (const option of this.cardOptions) {
+      const node = h("option", { text: option.label });
+      node.value = option.value;
+      select.appendChild(node);
+    }
+    select.value = value;
+    row.appendChild(select);
+    return row;
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }
