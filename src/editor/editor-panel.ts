@@ -4,6 +4,7 @@ import { measureLines, measureNode, modelBounds } from "../core/measure";
 import { layoutFlow } from "../core/layout-flow";
 import { layoutMindmap, COLUMN_GAP, ROW_GAP } from "../core/layout-mindmap";
 import {
+  childrenOf,
   createModel,
   nextNodeId,
   nodeById,
@@ -525,6 +526,31 @@ export class EditorPanel {
     const shape = this.model.mode === "mindmap" ? "rect" : anchor.shape;
     const anchorSize = measureNode(anchor);
     const newSize = measureNode({ text: t("editor.newNode"), shape });
+
+    // Where the new node *wants* to sit. Children line up in the column to the
+    // right of the parent (or with existing siblings) and stack below them;
+    // siblings stack below the node they were added from. Every offset is taken
+    // from the measured sizes, so a second child lands under the first instead
+    // of on top of it.
+    let x: number;
+    let y: number;
+    if (relation === "child") {
+      const siblings = childrenOf(this.model, id);
+      x = siblings.length
+        ? siblings[0].x
+        : anchor.x + Math.round(anchorSize.w / 2 + COLUMN_GAP + newSize.w / 2);
+      if (siblings.length) {
+        let bottom = -Infinity;
+        for (const child of siblings) bottom = Math.max(bottom, child.y + measureNode(child).h / 2);
+        y = Math.round(bottom + ROW_GAP + newSize.h / 2);
+      } else {
+        y = anchor.y;
+      }
+    } else {
+      x = anchor.x;
+      y = Math.round(anchor.y + anchorSize.h / 2 + ROW_GAP + newSize.h / 2);
+    }
+
     this.pushUndo();
     const nodeId = nextNodeId(this.model);
     this.model.nodes.push({
@@ -532,8 +558,8 @@ export class EditorPanel {
       alias: "",
       text: t("editor.newNode"),
       shape,
-      x: anchor.x + (relation === "child" ? Math.round(anchorSize.w / 2 + COLUMN_GAP + newSize.w / 2) : 0),
-      y: anchor.y + (relation === "child" ? 0 : Math.round(anchorSize.h / 2 + ROW_GAP + newSize.h / 2)),
+      x,
+      y,
       key: nodeId,
       depth: 0,
       pinned: true,
@@ -546,9 +572,39 @@ export class EditorPanel {
         this.model.edges.push({ id: `e${Date.now()}b`, from: incoming.from, to: nodeId, label: "" });
       }
     }
+    this.settleBelow(nodeId);
     this.selectedId = nodeId;
     this.render();
     this.beginInlineEdit(nodeId);
+  }
+
+  /**
+   * Final safety net after a manual add: push the new node straight down until
+   * it clears every other node. The preferred spot above is already spaced, but
+   * the anchor may sit in a crowded column (dragged next to a tall neighbour, or
+   * a sibling the user moved underneath), so this guarantees the result reads
+   * even then.
+   */
+  private settleBelow(id: string): void {
+    const node = nodeById(this.model, id);
+    if (!node) return;
+    const size = measureNode(node);
+    for (let guard = 0; guard < 200; guard++) {
+      let blocker: DiagramNode | null = null;
+      for (const other of this.model.nodes) {
+        if (other.id === id) continue;
+        const otherSize = measureNode(other);
+        if (
+          Math.abs(node.x - other.x) < (size.w + otherSize.w) / 2 + 6 &&
+          Math.abs(node.y - other.y) < (size.h + otherSize.h) / 2 + 6
+        ) {
+          blocker = other;
+          break;
+        }
+      }
+      if (!blocker) break;
+      node.y = Math.round(blocker.y + measureNode(blocker).h / 2 + ROW_GAP + size.h / 2);
+    }
   }
 
   private deleteSelected(): void {
