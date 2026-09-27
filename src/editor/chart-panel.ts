@@ -4,7 +4,7 @@ import { kindById } from "../core/kinds";
 import type { ChartCanvasId, Point } from "../core/model";
 import { chartSpec } from "../charts/registry";
 import type { ChartField, ChartHandle, RegisteredSpec } from "../charts/types";
-import { chartSvgDocument, paintChart } from "../charts/paint";
+import { paintChart } from "../charts/paint";
 import { createSurface, readPalette, type DiagramSurface } from "../render/svg";
 import { fitBounds } from "../render/fit";
 import { h } from "../utils/dom";
@@ -230,12 +230,6 @@ export class ChartPanel {
     fit.addEventListener("click", () => this.fit());
     toolbar.append(zoomOut, this.zoomLabel, zoomIn, fit);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
-    const svgOut = this.buildButton("mtk-chart-export-svg", t("editor.toolbar.exportSvg"), "file-code");
-    svgOut.addEventListener("click", () => void this.exportChart("svg"));
-    const pngOut = this.buildButton("mtk-chart-export-png", t("editor.toolbar.exportPng"), "image");
-    pngOut.addEventListener("click", () => void this.exportChart("png"));
-    toolbar.append(svgOut, pngOut);
 
     toolbar.appendChild(h("span", { cls: "mtk-spacer" }));
     this.statusLabel = h("span", { cls: "mtk-status", text: t("editor.selectedNone") });
@@ -785,14 +779,4 @@ export class ChartPanel {
     await this.options.host.save(source);
   }
 
-  private async exportChart(kind: "svg" | "png"): Promise<void> {
-    const document_ = chartSvgDocument(this.spec, this.state, readPalette(this.svg), {
-      background: kind === "png",
-    });
-    if (!document_) {
-      new Notice(t("notice.emptyDiagram"));
-      return;
-    }
-    await this.options.host.exportFile(kind, document_.svg, document_.width, document_.height);
-  }
 }

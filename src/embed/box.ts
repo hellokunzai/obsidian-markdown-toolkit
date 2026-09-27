@@ -17,6 +17,7 @@ import {
 } from "../render/fit";
 import type { DiagramMode } from "../core/model";
 import { makePreviewViewport, type PreviewViewport } from "./preview-viewport";
+import { openExportMenu, type ExportKind } from "./export-block";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
 import { setCssVars } from "../utils/css-vars";
@@ -57,6 +58,8 @@ export interface DiagramBoxActions {
   onSource?: () => void;
   /** Corner icon button that shows the drawing full screen. */
   onView?: () => void;
+  /** Corner icon button that writes the drawing to a file, as a menu of formats. */
+  onExport?: (kind: ExportKind) => void;
 }
 
 export interface BuiltDiagramBox {
@@ -199,7 +202,9 @@ export function buildDiagramBox(
   paint();
 
   // The block's entries, as one family of 26px squares in the top-right corner:
-  // "edit the drawing", "show it bigger", "hand it back to markdown".
+  // "edit the drawing", "give me the file", "show it bigger", "hand it back to
+  // markdown". Whichever of them a mode asks for, they are the same squares in
+  // the same corner — see `DiagramBoxActions` for why that matters.
   //
   // Every action is an icon, never a label — a word does not fit in a 26px
   // square. Glyphs are Lucide's, borrowed rather than drawn: `square-pen` for
@@ -219,6 +224,19 @@ export function buildDiagramBox(
     applyTooltip(edit, t("embed.edit"));
     edit.addEventListener("click", () => onEdit());
     box.appendChild(edit);
+  }
+
+  const onExport = actions.onExport;
+  if (onExport) {
+    // Placed before the two "leave the drawing alone" entries so the corner
+    // reads left to right in the order the buttons were added. It is one button
+    // and a menu rather than one button per format: see `openExportMenu`.
+    const out = h("button", { cls: "mtk-embed-action mtk-embed-export" });
+    out.type = "button";
+    setIcon(out, "download");
+    applyTooltip(out, t("embed.export"));
+    out.addEventListener("click", () => openExportMenu(out, onExport));
+    box.appendChild(out);
   }
 
   if (actions.onSource) {
@@ -269,7 +287,12 @@ export function buildDiagramBox(
  * how to frame the drawing for the frame's size, hand that to the gesture
  * layer, and take it back on the way out.
  */
-export function openLightbox(host: DiagramBoxHost, source: string, mode: DiagramMode): void {
+export function openLightbox(
+  host: DiagramBoxHost,
+  source: string,
+  mode: DiagramMode,
+  onExport?: (kind: ExportKind) => void
+): void {
   if (document.querySelector(".mtk-lightbox")) return;
 
   const overlay = h("div", { cls: "mtk-lightbox" });
@@ -324,6 +347,19 @@ export function openLightbox(host: DiagramBoxHost, source: string, mode: Diagram
     if (event.target === overlay) close();
   });
   document.addEventListener("keydown", onKey);
+
+  /* The block's export entry, in the preview's own family of round buttons: the
+     drawing is the same one, so the actions around it are the same set. Added
+     first so the corner stacks left to right in the order the buttons were
+     added, exactly as the block's does. */
+  if (onExport) {
+    const out = h("button", { cls: "mtk-lightbox-action mtk-lightbox-export" });
+    out.type = "button";
+    setIcon(out, "download");
+    applyTooltip(out, t("embed.export"));
+    out.addEventListener("click", () => openExportMenu(out, onExport));
+    canvas.appendChild(out);
+  }
 
   fullButton.addEventListener("click", () => setFullscreen(!showingFull));
   canvas.appendChild(fullButton);

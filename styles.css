@@ -680,10 +680,17 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   height: 14px;
 }
 
-/* The editor's "edit" entry sits one gap to the left of the "code" entry, which
-   owns the corner: 8px inset + a 26px square + a 6px gap. */
-.mtk-embed button.mtk-embed-edit {
+/* The corner fills outwards from the right: 8px inset, then a 26px square and a
+   6px gap per step. "export" owns the second slot in both modes, so the button
+   that hands over the file always sits immediately left of the one in the
+   corner — "code" while writing, "view" while reading — and the editor's "edit"
+   entry moves out a slot to make room for it. */
+.mtk-embed button.mtk-embed-export {
   right: 40px;
+}
+
+.mtk-embed button.mtk-embed-edit {
+  right: 72px;
 }
 
 /* "code" hands the block back to its fenced source; "view" opens the drawing
@@ -694,11 +701,21 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   right: 8px;
 }
 
-/* Full-screen, read-only preview of the diagram (reading view only). */
+/* Full-screen, read-only preview of the diagram (reading view only).
+
+   The layer is stated as a number between Obsidian's own: the overlay has to
+   cover the app (`.modal-container` is `--layer-modal`, 50) but must stay
+   *under* everything Obsidian draws on top of the app — notices (60), menus
+   (65) and tooltips (70). A bigger round number here looks harmless and is not:
+   the export entry opens a `Menu`, which is a `body`-level sibling of this
+   overlay, so once this wins the comparison the menu is built, positioned
+   correctly, and painted behind a dark pane — invisible and unclickable, with
+   nothing in the console to say so. The same 1100 hid the export's own
+   confirmation notice and the corner buttons' tooltips. */
 .mtk-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: 55;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -799,6 +816,12 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 /* 32 wide + 8 of air + the close button's 14. */
 .mtk-lightbox .mtk-lightbox-full {
   right: 54px;
+}
+
+/* 32 + 8 + 54: one slot further out again, so the export entry sits immediately
+   left of the full-screen one — the same rule the block's corner follows. */
+.mtk-lightbox .mtk-lightbox-export {
+  right: 94px;
 }
 
 /* Full screen.

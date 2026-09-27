@@ -1,9 +1,8 @@
-import { App, Modal, Notice, TFile, type WorkspaceLeaf } from "obsidian";
+import { App, Modal, Notice, type WorkspaceLeaf } from "obsidian";
 import { t } from "../i18n";
 import { EditorPanel, type EditorPanelHost } from "./editor-panel";
 import { ChartPanel } from "./chart-panel";
 import { VIEW_TYPE_DIAGRAM } from "./view-type";
-import { rasterizeSvg } from "../render/export";
 import { writeBlock, type BlockTarget } from "../block/block-target";
 import { isCanvasMode, type DiagramMode, type FlowDirection, type MindmapLayout } from "../core/model";
 
@@ -203,26 +202,4 @@ export class EditorSession implements EditorPanelHost {
     new Notice(t("notice.saved"));
   }
 
-  async exportFile(kind: "svg" | "png", svg: string, width: number, height: number): Promise<void> {
-    const note = this.app.vault.getAbstractFileByPath(this.target.path);
-    const folder = note instanceof TFile ? note.parent?.path ?? "" : "";
-    const base = note instanceof TFile ? note.basename : "diagram";
-    const join = (name: string): string => (folder ? `${folder}/${name}` : name);
-
-    let path = join(`${base}.${kind}`);
-    let counter = 2;
-    while (this.app.vault.getAbstractFileByPath(path)) {
-      path = join(`${base} ${counter}.${kind}`);
-      counter += 1;
-    }
-
-    try {
-      if (kind === "svg") await this.app.vault.create(path, svg);
-      else await this.app.vault.createBinary(path, await rasterizeSvg(svg, width, height, 2));
-      new Notice(t("notice.exported", { name: path }));
-    } catch (error) {
-      console.error("MarkdownEditorPlus: export failed", error);
-      new Notice(t("notice.exportFailed"));
-    }
-  }
 }

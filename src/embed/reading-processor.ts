@@ -11,6 +11,7 @@ import { detectKind, firstMeaningfulLine } from "../core/kinds";
 import { MERMAID_LANG, type DiagramMode } from "../core/model";
 import { siblingFences, type BlockTarget } from "../block/block-target";
 import { buildDiagramBox, openLightbox, type BuiltDiagramBox, type DiagramBoxActions, type DiagramBoxHost } from "./box";
+import { exportBlockDiagram, type ExportKind } from "./export-block";
 import { h } from "../utils/dom";
 
 export interface OpenEditorRequest {
@@ -172,11 +173,36 @@ export class DiagramBlock extends MarkdownRenderChild {
   }
 
   private mount(inSource: boolean): void {
+    // Both modes carry the export entry: the drawing is the same one, and a
+    // block that can hand you the file in one mode but not the other is the
+    // drift this file exists to prevent. The preview gets the same callback, so
+    // the menu is reachable from inside it too.
+    const onExport = (kind: ExportKind): void => void this.exportDiagram(kind);
     const actions: DiagramBoxActions = inSource
-      ? { onEdit: () => void this.requestEdit() }
-      : { onView: () => openLightbox(this.host, this.source, this.mode) };
+      ? { onEdit: () => void this.requestEdit(), onExport }
+      : { onExport, onView: () => openLightbox(this.host, this.source, this.mode, onExport) };
     this.box = buildDiagramBox(this.host, this.source, this.mode, actions);
     this.containerEl.appendChild(this.box.el);
+  }
+
+  /**
+   * Writes the drawing to a file beside the note.
+   *
+   * The colours are read off the block's own element rather than off the
+   * document: `--mtk-*` is stated per surface, and an element outside
+   * `.mtk-embed` resolves the theme's grey fallbacks — an export that does not
+   * match the picture on screen is worse than no export.
+   */
+  private async exportDiagram(kind: ExportKind): Promise<void> {
+    const box = this.box;
+    if (!box) return;
+    await exportBlockDiagram(this.ownerApp, this.host.settings, {
+      file: await this.resolveFile(),
+      source: this.source,
+      mode: this.mode,
+      kind,
+      paletteFrom: box.el,
+    });
   }
 
   private drawsSourceEntry(): boolean {

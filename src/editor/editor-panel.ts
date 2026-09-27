@@ -22,7 +22,6 @@ import {
   renderDiagram,
   type DiagramSurface,
 } from "../render/svg";
-import { buildSvgDocument } from "../render/export";
 import { computeFit } from "../render/fit";
 import { setCssVars } from "../utils/css-vars";
 import { h } from "../utils/dom";
@@ -37,8 +36,6 @@ export interface EditorPanelHost {
   expand(): void;
   /** Moves this panel back into a dialog. */
   collapse(): void;
-  /** Export needs the note's folder, which the panel does not know about. */
-  exportFile(kind: "svg" | "png", svg: string, width: number, height: number): void | Promise<void>;
 }
 
 export interface EditorPanelOptions {
@@ -264,12 +261,6 @@ export class EditorPanel {
     fit.addEventListener("click", () => this.fit());
     toolbar.append(zoomOut, this.zoomLabel, zoomIn, fit);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
-    const svgOut = this.buildButton("mtk-export-svg", t("editor.toolbar.exportSvg"), "file-code");
-    svgOut.addEventListener("click", () => void this.exportDiagram("svg"));
-    const pngOut = this.buildButton("mtk-export-png", t("editor.toolbar.exportPng"), "image");
-    pngOut.addEventListener("click", () => void this.exportDiagram("png"));
-    toolbar.append(svgOut, pngOut);
 
     toolbar.appendChild(h("span", { cls: "mtk-spacer" }));
     this.statusLabel = h("span", { cls: "mtk-status", text: t("editor.selectedNone") });
@@ -1007,19 +998,6 @@ export class EditorPanel {
     const source = this.getSource();
     this.dirty = false;
     await this.options.host.save(source);
-  }
-
-  private async exportDiagram(kind: "svg" | "png"): Promise<void> {
-    const palette = readPalette(this.svg);
-    const svg = buildSvgDocument(this.model, palette, { background: kind === "png" });
-    const bounds = modelBounds(this.model);
-    if (!bounds) return;
-    await this.options.host.exportFile(
-      kind,
-      svg,
-      Math.round(bounds.x2 - bounds.x1 + 48),
-      Math.round(bounds.y2 - bounds.y1 + 48)
-    );
   }
 
   /** Number of lines in the widest label, exposed for the status tooltip. */

@@ -33,6 +33,9 @@ const en: Dict = {
 
   "embed.edit": "Edit diagram",
   "embed.view": "View diagram",
+  "embed.export": "Export diagram",
+  "embed.exportSvg": "Export SVG",
+  "embed.exportPng": "Export PNG",
   "embed.lightboxClose": "Close preview",
   "embed.lightboxFull": "Full screen",
   "embed.lightboxRestore": "Exit full screen",
@@ -59,8 +62,6 @@ const en: Dict = {
   "editor.toolbar.zoomIn": "Zoom in",
   "editor.toolbar.zoomOut": "Zoom out",
   "editor.toolbar.fit": "Fit to window",
-  "editor.toolbar.exportSvg": "Export SVG",
-  "editor.toolbar.exportPng": "Export PNG",
 
   "editor.shape.rect": "Rectangle",
   "editor.shape.stadium": "Rounded",
@@ -565,6 +566,9 @@ const zhCn: Dict = {
 
   "embed.edit": "编辑图形",
   "embed.view": "查看图形",
+  "embed.export": "导出图形",
+  "embed.exportSvg": "导出 SVG",
+  "embed.exportPng": "导出 PNG",
   "embed.lightboxClose": "关闭预览",
   "embed.lightboxFull": "全屏",
   "embed.lightboxRestore": "退出全屏",
@@ -591,8 +595,6 @@ const zhCn: Dict = {
   "editor.toolbar.zoomIn": "放大",
   "editor.toolbar.zoomOut": "缩小",
   "editor.toolbar.fit": "适配窗口",
-  "editor.toolbar.exportSvg": "导出 SVG",
-  "editor.toolbar.exportPng": "导出 PNG",
 
   "editor.shape.rect": "矩形",
   "editor.shape.stadium": "圆角",
