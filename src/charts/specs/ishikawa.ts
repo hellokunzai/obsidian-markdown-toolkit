@@ -364,5 +364,4 @@ export const ishikawaSpec: ChartSpec<FishChart> = {
     nodes: state.bones.length,
     edges: state.bones.reduce((n, bone) => n + bone.causes.length, 0),
   }),
-  hints: () => ["chart.hint.fish"],
 };

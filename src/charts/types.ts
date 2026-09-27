@@ -131,8 +131,17 @@ export interface ChartSpec<S> {
   onPick?(state: S, id: string, point: Point): boolean;
   /** A double-click on blank canvas. */
   onDoubleClick?(state: S, point: Point): string | null;
-  /** Rows of hint text shown under the canvas. */
-  hints(): string[];
+  /**
+   * Releases the placement a drag left behind, so the next `layout` puts the
+   * element back where the algorithm wants it.
+   *
+   * Only some kinds have any: a class box, an ER entity and a state node carry
+   * `pinned`, a gantt bar carries `manual`, and the other five specs are always
+   * at their computed position. Optional rather than empty for that reason —
+   * where it is missing there is genuinely nothing to release, and the panel's
+   * "tidy layout" button is then a plain relayout.
+   */
+  tidy?(state: S): void;
 }
 
 /**

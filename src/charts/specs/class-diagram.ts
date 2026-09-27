@@ -587,5 +587,12 @@ export const classSpec: ChartSpec<ClassChart> = {
     state.linking = null;
     return true;
   },
-  hints: () => ["chart.hint.drag", "chart.hint.class"],
+  /*
+   * Releases every box the user parked by hand. A dragged box is still just
+   * `class Foo` in the file — `pinned` is deliberately not part of the source
+   * text — so clearing the flag is the only way back to the computed layout.
+   */
+  tidy: (state) => {
+    for (const item of state.items) item.pinned = false;
+  },
 };

@@ -584,5 +584,12 @@ export const erSpec: ChartSpec<ErChart> = {
     state.linking = null;
     return true;
   },
-  hints: () => ["chart.hint.drag", "chart.hint.er"],
+  /*
+   * Releases every entity the user parked by hand. A dragged box is still just
+   * `ENTITY Foo` in the file — `pinned` is deliberately not part of the source
+   * text — so clearing the flag is the only way back to the computed layout.
+   */
+  tidy: (state) => {
+    for (const item of state.items) item.pinned = false;
+  },
 };

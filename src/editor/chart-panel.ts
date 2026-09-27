@@ -74,7 +74,6 @@ export class ChartPanel {
   private zoomLabel!: HTMLElement;
   private statusLabel!: HTMLElement;
   private emptyNote!: HTMLElement;
-  private expandButton!: HTMLButtonElement;
 
   private view = { k: 1, tx: 0, ty: 0 };
   private selected: string | null = null;
@@ -111,11 +110,14 @@ export class ChartPanel {
     // themselves in the right sequence is a contract nobody can see, and the
     // earlier version of this line — `insertBefore(toolbar, this.bodyWrap)` —
     // threw on construction because `bodyWrap` had never been attached at all.
-    this.root.append(header, toolbar, this.bodyWrap, this.buildHints());
+    // Three rows, no hint strip: the gesture list that used to sit under the
+    // canvas repeated what the toolbar and the property panel already say, and
+    // it cost a row of drawing. This was the last panel rendering one, so
+    // `.mtk-hints` and every `chart.hint.*` string went with it.
+    this.root.append(header, toolbar, this.bodyWrap);
 
     this.bindCanvas();
     this.bindKeyboard();
-    this.syncExpandLabel();
 
     // Attached *before* the first paint. `readPalette` resolves the `--mtk-*`
     // custom properties from the SVG, and the dark overrides are scoped
@@ -135,7 +137,6 @@ export class ChartPanel {
 
   attach(host: HTMLElement): void {
     host.appendChild(this.root);
-    this.syncExpandLabel();
     // The container just changed size; recompute the fit on the next frame.
     window.setTimeout(() => this.fit(), 0);
   }
@@ -179,33 +180,33 @@ export class ChartPanel {
     // The badge names the fence keyword, which is what actually sits in the
     // file and what someone searching the note will find.
     header.appendChild(h("span", { cls: "mtk-mode", text: kind.keyword }));
-    header.appendChild(h("span", { cls: "mtk-spacer" }));
-
-    this.expandButton = h("button", { cls: "mtk-btn mtk-expand", text: t("editor.expand") });
-    this.expandButton.type = "button";
-    const save = h("button", { cls: "mtk-btn mtk-save", text: t("editor.save") });
-    save.type = "button";
-    const close = h("button", { cls: "mtk-btn mtk-close", text: t("editor.close") });
-    close.type = "button";
-
-    this.expandButton.addEventListener("click", () => {
-      if (this.root.closest(".mtk-in-tab")) this.options.host.collapse();
-      else this.options.host.expand();
-    });
-    save.addEventListener("click", () => void this.save());
-    close.addEventListener("click", () => {
-      void (async () => {
-        if (this.dirty) await this.save();
-        this.options.host.close();
-      })();
-    });
-
-    header.append(this.expandButton, save, close);
+    // No buttons here, matching the mind-map panel: saving leads the toolbar
+    // below, and a dialog is closed by Obsidian's own affordances — the
+    // `modal-close-button` the base `Modal` class builds, Escape, or a click on
+    // the backdrop. A tab is closed from its tab header.
     return header;
   }
 
   private buildToolbar(): HTMLElement {
     const toolbar = h("div", { cls: "mtk-toolbar" });
+
+    // Saving leads the toolbar, exactly as in the mind-map panel: the header no
+    // longer carries buttons, so this is the one visible save control. It reuses
+    // the `mtk-save` class, which is what `.mtk-editor .mtk-tb.mtk-save` keys the
+    // accent fill off — the class is a style hook first and a name second.
+    const save = this.buildButton("mtk-save", t("editor.save"), "save");
+    save.addEventListener("click", () => void this.save());
+    toolbar.appendChild(save);
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
+
+    // Same button as the mind-map panel's, in the same slot: one group of
+    // whole-chart actions between save and history. It shares that panel's
+    // `mtk-tidy` class on purpose — no rule keys off it, and the two buttons
+    // are meant to read as the same control in two windows.
+    const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
+    tidy.addEventListener("click", () => this.tidy());
+    toolbar.appendChild(tidy);
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
     const undo = this.buildButton("mtk-chart-undo", t("editor.toolbar.undo"), "undo-2");
     undo.addEventListener("click", () => this.undo());
@@ -250,22 +251,6 @@ export class ChartPanel {
     this.propsEl = h("aside", { cls: "mtk-props" });
 
     this.bodyWrap.append(this.canvasWrap, this.propsEl);
-  }
-
-  private buildHints(): HTMLElement {
-    const hints = h("div", { cls: "mtk-hints" });
-    const keys = Platform.isMobile
-      ? ["chart.hint.touch", ...this.spec.hints()]
-      : ["chart.hint.pan", "chart.hint.zoom", ...this.spec.hints(), "chart.hint.delete"];
-    for (const key of keys) hints.appendChild(h("span", { cls: "mtk-hint", text: t(key) }));
-    return hints;
-  }
-
-  private syncExpandLabel(): void {
-    const inTab = Boolean(this.root.closest(".mtk-in-tab"));
-    const text = t(inTab ? "editor.collapse" : "editor.expand");
-    this.expandButton.textContent = text;
-    applyTooltip(this.expandButton, text);
   }
 
   /* --------------------------------------------------------------- loading */
@@ -550,6 +535,30 @@ export class ChartPanel {
     this.selected = null;
     this.pushUndoIfChanged(before);
     this.commit(true);
+  }
+
+  /**
+   * Drops every hand-placed element and puts the chart back on its computed
+   * layout.
+   *
+   * Four specs keep geometry the source text does not carry — a class box, an
+   * ER entity and a state node hold `pinned`, a gantt bar holds `manual` — and
+   * those flags are what make a drag stick. Releasing them is the spec's job
+   * (`spec.tidy`); the relayout, the repaint and the re-fit are this panel's.
+   * The five specs with nothing to release omit the hook and just get the
+   * relayout, which is the honest answer: their canvas is never off-grid.
+   *
+   * Undo records the gesture only when the *text* moved, which is why tidying
+   * a class diagram leaves the stack alone — a pin is invisible to `serialize`,
+   * so there is no earlier state for an undo step to return to.
+   */
+  private tidy(): void {
+    const before = this.spec.serialize(this.state);
+    this.spec.tidy?.(this.state);
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+    this.fit();
+    new Notice(t("notice.layoutDone"));
   }
 
   /* ------------------------------------------------------------- keyboard */

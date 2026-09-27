@@ -418,5 +418,4 @@ export const sequenceSpec: ChartSpec<SequenceChart> = {
   remove,
   extent: extend,
   summary: (state) => ({ nodes: state.actors.length, edges: state.messages.length }),
-  hints: () => ["chart.hint.seq"],
 };

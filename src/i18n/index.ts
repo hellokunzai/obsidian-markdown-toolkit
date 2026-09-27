@@ -49,9 +49,9 @@ const en: Dict = {
   "editor.titleMindmap": "Edit mind map",
   "editor.titleFlow": "Edit flowchart",
   "editor.save": "Save",
-  "editor.close": "Close",
-  "editor.expand": "Open as a tab",
-  "editor.collapse": "Back to the dialog",
+  // `editor.close` / `editor.expand` / `editor.collapse` went with the chart
+  // panel's header buttons. The host still implements expand/collapse/close,
+  // so the strings can come back if a button ever calls them again.
 
   "editor.toolbar.layout": "Tidy layout",
   "editor.toolbar.undo": "Undo",
@@ -402,20 +402,8 @@ const en: Dict = {
   "chart.summaryBoth": "{{nodes}} items · {{edges}} connections",
   "chart.summaryOne": "{{nodes}} items",
 
-  "chart.hint.pan": "Drag empty space to pan",
-  "chart.hint.zoom": "Scroll to zoom",
-  "chart.hint.delete": "Delete removes the selection",
-  "chart.hint.touch": "On touch: pinch to zoom, tap to select",
-  "chart.hint.drag": "Drag an element to move it",
-  "chart.hint.state": "Select a state, choose Add transition, then click the target",
-  "chart.hint.class": "Select a class, choose Add relation, then click the target",
-  "chart.hint.er": "Select an entity, choose Add relation, then click the target",
-  "chart.hint.seq": "Drag a participant sideways to reorder the columns",
-  "chart.hint.gantt": "Drag a bar to move it, or its right edge to change the duration",
-  "chart.hint.pie": "Drag a boundary to trade value between the two slices it separates",
-  "chart.hint.git": "Click a lane to add a commit on that branch",
-  "chart.hint.timeline": "Drag an event card to another period to move it",
-  "chart.hint.fish": "Drag a bone sideways to reorder the categories",
+  // No `chart.hint.*` keys: the strip they fed was the last one still being
+  // drawn, and `ChartPanel` no longer renders it.
 
   "chart.deleteState": "Delete state",
   "chart.deleteTransition": "Delete transition",
@@ -576,9 +564,8 @@ const zhCn: Dict = {
   "editor.titleMindmap": "编辑思维导图",
   "editor.titleFlow": "编辑流程图",
   "editor.save": "保存",
-  "editor.close": "关闭",
-  "editor.expand": "展开为标签页",
-  "editor.collapse": "收回为弹窗",
+  // 「关闭 / 展开为标签页 / 收回为弹窗」随图表编辑器表头的三枚按钮一并删除。
+  // host 侧的 expand/collapse/close 仍在，将来若再加按钮，把这三条文案放回来即可。
 
   "editor.toolbar.layout": "整理布局",
   "editor.toolbar.undo": "撤销",
@@ -900,20 +887,7 @@ const zhCn: Dict = {
   "chart.summaryBoth": "{{nodes}} 个元素 · {{edges}} 条连线",
   "chart.summaryOne": "{{nodes}} 个元素",
 
-  "chart.hint.pan": "拖空白处平移",
-  "chart.hint.zoom": "滚轮缩放",
-  "chart.hint.delete": "Delete 删除选中项",
-  "chart.hint.touch": "触屏：双指缩放，点按选中",
-  "chart.hint.drag": "拖元素移动位置",
-  "chart.hint.state": "选中状态，点「添加转移」，再点目标状态",
-  "chart.hint.class": "选中类，点「添加关系」，再点目标类",
-  "chart.hint.er": "选中实体，点「添加关系」，再点目标实体",
-  "chart.hint.seq": "左右拖参与者，调整列的顺序",
-  "chart.hint.gantt": "拖条身改起始日期，拖右缘改工期",
-  "chart.hint.pie": "拖分界线，在相邻两片之间挪动占比",
-  "chart.hint.git": "点某个泳道，在该分支上追加一次提交",
-  "chart.hint.timeline": "把事件卡拖到别的时间段即可换位",
-  "chart.hint.fish": "左右拖大骨，调整原因类别的顺序",
+  // 提示行已从图表编辑器移除，只喂给它的 chart.hint.* 文案一并删除。
 
   "chart.deleteState": "删除状态",
   "chart.deleteTransition": "删除转移",

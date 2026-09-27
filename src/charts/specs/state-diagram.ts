@@ -503,5 +503,13 @@ export const stateSpec: ChartSpec<StateChart> = {
     state.linking = null;
     return true;
   },
-  hints: () => ["chart.hint.drag", "chart.hint.state"],
+  /*
+   * Releases every state the user parked by hand. A dragged state is still just
+   * a `state Foo` line in the file — `pinned` is deliberately not part of the
+   * source text — so clearing the flag is the only way back to the computed
+   * layout.
+   */
+  tidy: (state) => {
+    for (const item of state.items) item.pinned = false;
+  },
 };

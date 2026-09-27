@@ -327,5 +327,4 @@ export const pieSpec: ChartSpec<PieChart> = {
   remove,
   extent: extend,
   summary: (state) => ({ nodes: state.slices.length, edges: 0 }),
-  hints: () => ["chart.hint.pie"],
 };

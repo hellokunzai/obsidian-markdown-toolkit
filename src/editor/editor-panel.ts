@@ -6,8 +6,10 @@ import { layoutMindmap, COLUMN_GAP, ROW_GAP } from "../core/layout-mindmap";
 import {
   childrenOf,
   createModel,
+  isRoot,
   nextNodeId,
   nodeById,
+  rootNodes,
   type DiagramModel,
   type DiagramNode,
   type FlowDirection,
@@ -108,7 +110,8 @@ export class EditorPanel {
     this.root.insertBefore(header, toolbar);
     // No hint strip on purpose: the gesture list read as noise under the canvas,
     // and the toolbar plus the context menu are the discoverable entry points.
-    // `ChartPanel` still renders one, so `.mtk-hints` stays in the stylesheet.
+    // `ChartPanel` dropped its copy too, so `.mtk-hints` left the stylesheet
+    // along with every `chart.hint.*` string.
 
     this.bindCanvas();
     this.bindKeyboard();
@@ -185,8 +188,11 @@ export class EditorPanel {
     // The header carries no window-level buttons on purpose. A dialog already
     // has Obsidian's own close affordances — the `modal-close-button` the base
     // `Modal` class builds, Escape, and a click on the backdrop — and a tab is
-    // closed from its tab header. `EditorPanelHost` keeps `expand`/`collapse`/
-    // `close` because `ChartPanel` still wires them up.
+    // closed from its tab header. The window-level controls this row used to
+    // hold (expand to a tab, close) are gone from both panels: `EditorPanelHost`
+    // still declares them as the container protocol and `EditorSession`
+    // implements them, but no button calls them today. Both editors put their
+    // one visible action — save — in the toolbar, at the far left.
     return header;
   }
 
@@ -279,6 +285,19 @@ export class EditorPanel {
     for (const node of this.model.nodes) {
       if (!node.text.trim()) node.text = t("editor.emptyNode");
     }
+  }
+
+  /**
+   * The single root of a mind map, or null for an empty canvas / flowchart.
+   *
+   * A mind map is defined as having exactly one root; every operation that adds
+   * a node uses this root as its attachment point so the user cannot create a
+   * second root by accident.
+   */
+  private mindmapRootId(): string | null {
+    if (this.model.mode !== "mindmap") return null;
+    const roots = rootNodes(this.model);
+    return roots.length > 0 ? roots[0].id : null;
   }
 
   /**
@@ -428,6 +447,7 @@ export class EditorPanel {
   private addNodeAtFreeSpot(): void {
     const bounds = modelBounds(this.model);
     this.pushUndo();
+    const rootId = this.mindmapRootId();
     const id = nextNodeId(this.model);
     const newSize = measureNode({ text: t("editor.newNode"), shape: "rect" });
     this.model.nodes.push({
@@ -441,6 +461,9 @@ export class EditorPanel {
       depth: 0,
       pinned: true,
     });
+    if (rootId) {
+      this.model.edges.push({ id: `e${Date.now()}`, from: rootId, to: id, label: "" });
+    }
     this.selectedId = id;
     this.render();
     this.beginInlineEdit(id);
@@ -448,6 +471,7 @@ export class EditorPanel {
 
   private addNodeNear(point: Point): void {
     this.pushUndo();
+    const rootId = this.mindmapRootId();
     const id = nextNodeId(this.model);
     this.model.nodes.push({
       id,
@@ -460,6 +484,9 @@ export class EditorPanel {
       depth: 0,
       pinned: true,
     });
+    if (rootId) {
+      this.model.edges.push({ id: `e${Date.now()}`, from: rootId, to: id, label: "" });
+    }
     this.selectedId = id;
     this.render();
     this.beginInlineEdit(id);
@@ -468,6 +495,13 @@ export class EditorPanel {
   private addRelated(id: string, relation: "child" | "sibling"): void {
     const anchor = nodeById(this.model, id);
     if (!anchor) return;
+
+    // Mind map: the root has no siblings, so a sibling request on the root is
+    // treated as adding a child instead of creating a second root.
+    if (this.model.mode === "mindmap" && relation === "sibling" && isRoot(this.model, id)) {
+      relation = "child";
+    }
+
     const shape = this.model.mode === "mindmap" ? "rect" : anchor.shape;
     const anchorSize = measureNode(anchor);
     const newSize = measureNode({ text: t("editor.newNode"), shape });
@@ -555,6 +589,27 @@ export class EditorPanel {
   private deleteSelected(): void {
     if (!this.selectedId) return;
     const id = this.selectedId;
+
+    // Mind map: deleting the root promotes its first child so the diagram
+    // stays a single-root tree instead of splitting into several roots.
+    if (this.model.mode === "mindmap" && isRoot(this.model, id)) {
+      const kids = childrenOf(this.model, id);
+      if (kids.length > 0) {
+        this.pushUndo();
+        const newRoot = kids[0];
+        for (let i = 1; i < kids.length; i++) {
+          const edge = this.model.edges.find((e) => e.from === id && e.to === kids[i].id);
+          if (edge) edge.from = newRoot.id;
+        }
+        this.model.nodes = this.model.nodes.filter((n) => n.id !== id);
+        this.model.edges = this.model.edges.filter((e) => e.from !== id && e.to !== id);
+        this.selectedId = newRoot.id;
+        this.relayout();
+        this.render();
+        return;
+      }
+    }
+
     this.pushUndo();
     const removed = this.model.edges.filter((e) => e.from === id || e.to === id).length;
     this.model.nodes = this.model.nodes.filter((n) => n.id !== id);
@@ -641,12 +696,14 @@ export class EditorPanel {
           .setIcon("corner-down-right")
           .onClick(() => this.addRelated(node.id, "child"))
       );
-      menu.addItem((item) =>
-        item
-          .setTitle(t("editor.menu.addSibling"))
-          .setIcon("plus")
-          .onClick(() => this.addRelated(node.id, "sibling"))
-      );
+      if (this.model.mode !== "mindmap" || !isRoot(this.model, node.id)) {
+        menu.addItem((item) =>
+          item
+            .setTitle(t("editor.menu.addSibling"))
+            .setIcon("plus")
+            .onClick(() => this.addRelated(node.id, "sibling"))
+        );
+      }
       menu.addSeparator();
       for (const shape of SHAPES) {
         menu.addItem((item) =>

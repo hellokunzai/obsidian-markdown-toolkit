@@ -461,5 +461,4 @@ export const gitSpec: ChartSpec<GitChart> = {
     derive(state);
     return state.commits[state.commits.length - 1]?.id ?? null;
   },
-  hints: () => ["chart.hint.git"],
 };

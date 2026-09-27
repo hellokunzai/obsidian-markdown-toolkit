@@ -527,5 +527,22 @@ export const ganttSpec: ChartSpec<GanttChart> = {
   remove,
   extent: extend,
   summary: (state) => ({ nodes: state.tasks.length, edges: state.tasks.filter((task) => task.dep).length }),
-  hints: () => ["chart.hint.gantt"],
+  /*
+   * Hands every dependent bar back to the schedule.
+   *
+   * A dragged bar keeps an explicit date and sets `manual`, which is what makes
+   * `serialize` write a date instead of `after …`. Releasing the flag is what
+   * lets the dependency set the start again — one forward pass, the order
+   * `parse` resolves them in, so a chain a → b → c settles in one go. A task
+   * with no `after` has nothing to derive from and keeps its date.
+   */
+  tidy: (state) => {
+    for (const task of state.tasks) {
+      if (!task.dep) continue;
+      const parent = state.tasks.find((other) => other.key === task.dep);
+      if (!parent) continue;
+      task.start = parent.start + parent.days;
+      task.manual = false;
+    }
+  },
 };

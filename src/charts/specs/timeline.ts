@@ -310,5 +310,4 @@ export const timelineSpec: ChartSpec<TimelineChart> = {
     nodes: state.slots.length,
     edges: state.slots.reduce((n, slot) => n + slot.events.length, 0),
   }),
-  hints: () => ["chart.hint.timeline"],
 };

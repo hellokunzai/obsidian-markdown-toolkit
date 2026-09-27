@@ -143,36 +143,13 @@
   flex: 1 1 auto;
 }
 
-.mtk-header .mtk-btn {
-  appearance: none;
-  height: auto;
-  min-width: 0;
-  min-height: 0;
-  white-space: nowrap;
-  font: inherit;
-  font-size: 12.5px;
-  padding: 5px 11px;
-  color: var(--text-normal);
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  box-shadow: none;
-  cursor: pointer;
-}
-
-.mtk-header .mtk-btn:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.mtk-header .mtk-save {
-  color: var(--text-on-accent);
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-}
-
-.mtk-header .mtk-save:hover {
-  background-color: var(--interactive-accent-hover);
-}
+/*
+ * The header used to own `.mtk-header .mtk-btn` / `.mtk-header .mtk-save` for
+ * its text buttons. Both panels now put their only action — save — in the
+ * toolbar, so those four rules went with the buttons. `.mtk-btn` elsewhere
+ * (settings, the text-tool modal) is styled by the `.modal` /
+ * `.mtk-tab-panels` rules further down, which never applied inside a header.
+ */
 
 /* ----------------------------------------------------------------- toolbar */
 
@@ -218,11 +195,9 @@
 }
 
 /*
- * Save sits in the toolbar but stays the primary action, so it reuses the
- * accent fill the header used to give it. Scoped to `.mtk-tb` as well as
- * `.mtk-save` so it outranks the plain toolbar button rules (including their
- * `:hover`), while the header still owns `.mtk-header .mtk-save` for the chart
- * editor's identical button.
+ * Save sits in the toolbar and is the primary action for both panels, so it
+ * carries the accent fill. Scoped to `.mtk-tb` as well as `.mtk-save` so it
+ * outranks the plain toolbar button rules, including their `:hover`.
  */
 .mtk-editor .mtk-tb.mtk-save {
   color: var(--text-on-accent);
@@ -362,29 +337,7 @@
   outline: none;
 }
 
-/* ------------------------------------------------------------------- hints */
-
-.mtk-hints {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  flex: 0 0 auto;
-  padding: 6px 12px;
-  border-top: 1px solid var(--background-modifier-border);
-  font-size: 11.5px;
-  color: var(--text-faint);
-}
-
-.mtk-hint::before {
-  content: "·";
-  margin-right: 6px;
-  opacity: 0.6;
-}
-
-.mtk-hint:first-child::before {
-  content: none;
-}
+/* ---------------------------------------------------------------- mobile -- */
 
 body.is-mobile .mtk-editor .mtk-tb-label,
 body.is-mobile .mtk-editor .mtk-divider {
@@ -413,11 +366,6 @@ body.is-mobile .mtk-editor .mtk-mode {
 
 body.is-mobile .mtk-editor .mtk-status {
   max-width: 46%;
-}
-
-body.is-mobile .mtk-hints {
-  gap: 4px 10px;
-  padding: 5px 9px;
 }
 
 /* ------------------------------------------------------- the chart canvases */
