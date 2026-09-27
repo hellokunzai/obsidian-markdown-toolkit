@@ -73,13 +73,12 @@ const en: Dict = {
   "editor.emptyNode": "Untitled",
   "editor.empty": "This diagram is empty. Right-click the canvas for a new node, or double-click it.",
 
-  "editor.hint.pan": "Drag the canvas to pan",
-  "editor.hint.zoom": "Scroll to zoom",
+  // The editor panel no longer renders a hint strip, so the gesture strings it
+  // used went with it. These two were already unused before that (they were
+  // dropped from the strip earlier) and are reported by `i18n-check` as
+  // pre-existing dead keys rather than swept up in this change.
   "editor.hint.dragNode": "Drag a node to move it",
   "editor.hint.dblclick": "Double-click to rename",
-  "editor.hint.blank": "Double-click empty space to add a node",
-  "editor.hint.delete": "Delete removes the node",
-  "editor.hint.touch": "On touch: pinch to zoom, hold a node for its menu",
 
   "editor.menu.rename": "Rename",
   "editor.menu.addChild": "Add child node",
@@ -601,13 +600,11 @@ const zhCn: Dict = {
   "editor.emptyNode": "空节点",
   "editor.empty": "这张图还是空的。右键空白处即可新建节点，双击空白处也可以。",
 
-  "editor.hint.pan": "拖空白处平移",
-  "editor.hint.zoom": "滚轮缩放",
+  // 编辑器面板不再渲染提示行，它用到的那些手势文案随之删除。下面这两条在
+  // 此之前就已无人引用（更早的一次调整把它们从提示行里去掉了），属存量死键，
+  // 由 `i18n-check` 报告，不并入本次改动一起清掉。
   "editor.hint.dragNode": "拖节点移动位置",
   "editor.hint.dblclick": "双击改文字",
-  "editor.hint.blank": "双击空白处新建节点",
-  "editor.hint.delete": "Delete 删除节点",
-  "editor.hint.touch": "触屏：双指缩放，长按节点呼出菜单",
 
   "editor.menu.rename": "重命名",
   "editor.menu.addChild": "添加子节点",

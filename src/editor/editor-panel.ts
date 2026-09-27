@@ -106,7 +106,9 @@ export class EditorPanel {
     this.buildCanvasInto(this.root);
     this.root.insertBefore(toolbar, this.canvasWrap);
     this.root.insertBefore(header, toolbar);
-    this.root.appendChild(this.buildHints());
+    // No hint strip on purpose: the gesture list read as noise under the canvas,
+    // and the toolbar plus the context menu are the discoverable entry points.
+    // `ChartPanel` still renders one, so `.mtk-hints` stays in the stylesheet.
 
     this.bindCanvas();
     this.bindKeyboard();
@@ -259,20 +261,6 @@ export class EditorPanel {
     this.canvasWrap.appendChild(this.inlineWrap);
 
     parent.appendChild(this.canvasWrap);
-  }
-
-  private buildHints(): HTMLElement {
-    const hints = h("div", { cls: "mtk-hints" });
-    const keys = Platform.isMobile
-      ? ["editor.hint.touch", "editor.hint.blank"]
-      : [
-          "editor.hint.pan",
-          "editor.hint.zoom",
-          "editor.hint.blank",
-          "editor.hint.delete",
-        ];
-    for (const key of keys) hints.appendChild(h("span", { cls: "mtk-hint", text: t(key) }));
-    return hints;
   }
 
   /* ---------------------------------------------------------------- loading */
