@@ -69,10 +69,9 @@ const en: Dict = {
   "editor.shape.hexagon": "Hexagon",
 
   "editor.selectedNone": "Nothing selected",
-  "editor.selected": "Selected: {{name}}",
   "editor.newNode": "New node",
   "editor.emptyNode": "Untitled",
-  "editor.empty": "This diagram is empty. Drag from a node's dot, or double-click the canvas.",
+  "editor.empty": "This diagram is empty. Right-click the canvas for a new node, or double-click it.",
 
   "editor.hint.pan": "Drag the canvas to pan",
   "editor.hint.zoom": "Scroll to zoom",
@@ -598,10 +597,9 @@ const zhCn: Dict = {
   "editor.shape.hexagon": "六边形",
 
   "editor.selectedNone": "未选中",
-  "editor.selected": "已选中：{{name}}",
   "editor.newNode": "新节点",
   "editor.emptyNode": "空节点",
-  "editor.empty": "这张图还是空的。从节点右侧的圆点拖出连线，或直接双击空白处新建节点。",
+  "editor.empty": "这张图还是空的。右键空白处即可新建节点，双击空白处也可以。",
 
   "editor.hint.pan": "拖空白处平移",
   "editor.hint.zoom": "滚轮缩放",

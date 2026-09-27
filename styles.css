@@ -59,6 +59,36 @@
   height: min(780px, 88vh);
   max-width: 94vw;
   max-height: 88vh;
+  /* Row height shared with the close button — see "dialog title row" below. */
+  --mtk-header-height: 38px;
+  /* The panel draws its own header, which takes over the row a `Modal` normally
+     reserves for a window title, so the dialog needs no top inset of its own. */
+  padding-top: 0;
+}
+
+/*
+ * Dialog title row.
+ *
+ * The base `Modal` puts an empty `.modal-header > .modal-title` ahead of the
+ * content. On its own that block is a title line-height plus a `.75em` gap —
+ * exactly the band the panel's header used to sit under, which is what left the
+ * title one row below the close button. The panel brings its own header, so the
+ * placeholder goes away and the header becomes the dialog's first row.
+ *
+ * The close button is stretched over that same row, so the glyph and the title
+ * share one axis without either side hard-coding the other's size. The header
+ * repeats the height as a fallback: a tab renders the same header but has no
+ * close button in that row.
+ */
+.modal.mtk-modal-shell .modal-header {
+  display: none;
+}
+
+.modal.mtk-modal-shell .modal-close-button {
+  top: 0;
+  height: var(--mtk-header-height);
+  display: flex;
+  align-items: center;
 }
 
 .modal.mtk-modal-shell .modal-content {
@@ -89,7 +119,11 @@
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
-  padding: 9px 12px;
+  /* A fixed row height: the dialog stretches its close button to the same value,
+     so the title and that glyph share one axis instead of coinciding by luck.
+     A tab has no close button in this row and uses the fallback. */
+  min-height: var(--mtk-header-height, 38px);
+  padding: 0 12px;
   border-bottom: 1px solid var(--background-modifier-border);
 }
 

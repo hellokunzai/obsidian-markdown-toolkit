@@ -77,11 +77,9 @@ export class EditorPanel {
   private canvasWrap!: HTMLElement;
   private svg!: SVGSVGElement;
   private zoomLabel!: HTMLElement;
-  private statusLabel!: HTMLElement;
   private emptyNote!: HTMLElement;
   private inlineWrap!: HTMLElement;
   private inlineInput!: HTMLInputElement;
-  private expandButton!: HTMLButtonElement;
 
   private view = { k: 1, tx: 0, ty: 0 };
   private selectedId: string | null = null;
@@ -112,7 +110,6 @@ export class EditorPanel {
 
     this.bindCanvas();
     this.bindKeyboard();
-    this.syncExpandLabel();
 
     // Attached before the first render, for the same reason as `ChartPanel`:
     // `readPalette` reads the `--mtk-*` custom properties off the SVG, and the
@@ -130,7 +127,6 @@ export class EditorPanel {
 
   attach(host: HTMLElement): void {
     host.appendChild(this.root);
-    this.syncExpandLabel();
     // The container just changed size; recompute the fit on the next frame.
     window.setTimeout(() => this.fit(), 0);
   }
@@ -184,25 +180,11 @@ export class EditorPanel {
       })
     );
     header.appendChild(h("span", { cls: "mtk-mode", text: this.options.modeLabel }));
-    header.appendChild(h("span", { cls: "mtk-spacer" }));
-
-    this.expandButton = h("button", { cls: "mtk-btn mtk-expand", text: t("editor.expand") });
-    this.expandButton.type = "button";
-    const close = h("button", { cls: "mtk-btn mtk-close", text: t("editor.close") });
-    close.type = "button";
-
-    this.expandButton.addEventListener("click", () => {
-      if (this.root.closest(".mtk-in-tab")) this.options.host.collapse();
-      else this.options.host.expand();
-    });
-    close.addEventListener("click", () => {
-      void (async () => {
-        if (this.dirty) await this.save();
-        this.options.host.close();
-      })();
-    });
-
-    header.append(this.expandButton, close);
+    // The header carries no window-level buttons on purpose. A dialog already
+    // has Obsidian's own close affordances — the `modal-close-button` the base
+    // `Modal` class builds, Escape, and a click on the backdrop — and a tab is
+    // closed from its tab header. `EditorPanelHost` keeps `expand`/`collapse`/
+    // `close` because `ChartPanel` still wires them up.
     return header;
   }
 
@@ -254,11 +236,8 @@ export class EditorPanel {
     const fit = this.buildButton("mtk-fit", t("editor.toolbar.fit"), "scan");
     fit.addEventListener("click", () => this.fit());
     toolbar.appendChild(fit);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
-    toolbar.appendChild(h("span", { cls: "mtk-spacer" }));
-    this.statusLabel = h("span", { cls: "mtk-status", text: t("editor.selectedNone") });
-    toolbar.appendChild(this.statusLabel);
+    // No divider (and no status readout) after "fit": the toolbar ends on the
+    // viewport group, so there is nothing left for a divider to separate.
     return toolbar;
   }
 
@@ -294,13 +273,6 @@ export class EditorPanel {
         ];
     for (const key of keys) hints.appendChild(h("span", { cls: "mtk-hint", text: t(key) }));
     return hints;
-  }
-
-  private syncExpandLabel(): void {
-    const inTab = Boolean(this.root.closest(".mtk-in-tab"));
-    const text = t(inTab ? "editor.collapse" : "editor.expand");
-    this.expandButton.textContent = text;
-    applyTooltip(this.expandButton, text);
   }
 
   /* ---------------------------------------------------------------- loading */
@@ -357,11 +329,6 @@ export class EditorPanel {
   }
 
   private updateChrome(): void {
-    const node = this.selectedId ? nodeById(this.model, this.selectedId) : null;
-    this.statusLabel.textContent = node
-      ? t("editor.selected", { name: node.text })
-      : t("editor.selectedNone");
-
     const undo = this.root.querySelector<HTMLButtonElement>(".mtk-undo");
     if (undo) undo.disabled = this.undoStack.length === 0;
     const redo = this.root.querySelector<HTMLButtonElement>(".mtk-redo");
