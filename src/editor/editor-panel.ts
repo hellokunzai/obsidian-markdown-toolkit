@@ -704,19 +704,23 @@ export class EditorPanel {
             .onClick(() => this.addRelated(node.id, "sibling"))
         );
       }
-      menu.addSeparator();
-      for (const shape of SHAPES) {
-        menu.addItem((item) =>
-          item
-            .setTitle(t(`editor.shape.${shape}`))
-            .setChecked(node.shape === shape)
-            .onClick(() => {
-              this.selectedId = node.id;
-              this.setShape(shape);
-            })
-        );
+      // Mind maps keep every node as a plain rectangle, so the shape switcher
+      // only appears for flowcharts where the five shapes are meaningful.
+      if (this.model.mode !== "mindmap") {
+        menu.addSeparator();
+        for (const shape of SHAPES) {
+          menu.addItem((item) =>
+            item
+              .setTitle(t(`editor.shape.${shape}`))
+              .setChecked(node.shape === shape)
+              .onClick(() => {
+                this.selectedId = node.id;
+                this.setShape(shape);
+              })
+          );
+        }
+        menu.addSeparator();
       }
-      menu.addSeparator();
       menu.addItem((item) =>
         item
           .setTitle(t("editor.menu.delete"))
