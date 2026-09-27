@@ -228,6 +228,11 @@ export function buildDiagramBox(
 
   const onExport = actions.onExport;
   if (onExport) {
+    // Marks the block as "has an export entry" so the corner's slot math in
+    // `styles.css` knows the editor's "edit" entry must step out one slot to
+    // make room. Blocks without export (the Live Preview widget) skip this and
+    // the edit button takes the second slot directly.
+    box.classList.add("mtk-embed-has-export");
     // Placed before the two "leave the drawing alone" entries so the corner
     // reads left to right in the order the buttons were added. It is one button
     // and a menu rather than one button per format: see `openExportMenu`.

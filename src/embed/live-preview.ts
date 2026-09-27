@@ -13,7 +13,6 @@ import { listFences, siblingFences } from "../block/block-target";
 import { detectMode } from "../core/parse";
 import { MERMAID_LANG, type DiagramMode } from "../core/model";
 import { buildDiagramBox, type BuiltDiagramBox, type DiagramBoxHost } from "./box";
-import { exportBlockDiagram, type ExportKind } from "./export-block";
 import type { DiagramBlockHost } from "./reading-processor";
 
 /**
@@ -89,10 +88,11 @@ class DiagramWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
+    // No export entry here: writing the file is a reading-time job, and the
+    // editor's corner stays at "change it" and "hand it back to markdown".
     this.box = buildDiagramBox(this.host, this.source, this.mode, {
       onEdit: () => this.openEditor(view),
       onSource: () => revealSource(view, this.bodyFrom),
-      onExport: (kind) => void this.exportDiagram(kind, view),
     });
     return this.box.el;
   }
@@ -100,26 +100,6 @@ class DiagramWidget extends WidgetType {
   destroy(): void {
     this.box?.destroy();
     this.box = null;
-  }
-
-  /**
-   * Writes the drawing to a file beside the note being edited.
-   *
-   * `editorInfoField` is where the editor keeps the file it is showing — the
-   * same field `openEditor` reads — so the file lands next to the note rather
-   * than next to whatever else the workspace happens to have active.
-   */
-  private async exportDiagram(kind: ExportKind, view: EditorView): Promise<void> {
-    const box = this.box;
-    const info = view.state.field(editorInfoField, false);
-    if (!box || !info) return;
-    await exportBlockDiagram(info.app, this.host.settings, {
-      file: info.file,
-      source: this.source,
-      mode: this.mode,
-      kind,
-      paletteFrom: box.el,
-    });
   }
 
   /**

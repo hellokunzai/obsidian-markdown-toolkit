@@ -681,15 +681,22 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 /* The corner fills outwards from the right: 8px inset, then a 26px square and a
-   6px gap per step. "export" owns the second slot in both modes, so the button
-   that hands over the file always sits immediately left of the one in the
-   corner — "code" while writing, "view" while reading — and the editor's "edit"
-   entry moves out a slot to make room for it. */
+   6px gap per step. The "code"/"view" entry claims the corner slot (a block is
+   either being written or being read, never both). The "edit" entry takes the
+   second slot by default — that is where the Live Preview widget parks it, since
+   it has no export button. When a block carries an export entry (the reading
+   view), `buildDiagramBox` tags it `mtk-embed-has-export` and the edit button
+   steps out to the third slot so "export" can own the second, always sitting
+   immediately left of the corner entry. */
 .mtk-embed button.mtk-embed-export {
   right: 40px;
 }
 
 .mtk-embed button.mtk-embed-edit {
+  right: 40px;
+}
+
+.mtk-embed-has-export button.mtk-embed-edit {
   right: 72px;
 }
 
