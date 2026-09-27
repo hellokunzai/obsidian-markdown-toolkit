@@ -304,10 +304,26 @@ function render(ctx: ChartRenderContext<SequenceChart>): void {
 function panel(state: SequenceChart, selected: string | null): ChartField[] {
   const message = state.messages.find((m) => m.id === selected);
   if (message) {
-    const from = actorById(state, message.from);
-    const to = actorById(state, message.to);
+    const actorOptions = state.actors.map((a) => ({ value: a.id, label: a.label }));
     return [
-      { kind: "note", text: `${from?.label ?? "?"} → ${to?.label ?? "?"}` },
+      {
+        kind: "select",
+        label: t("chart.seq.from"),
+        value: message.from,
+        options: actorOptions,
+        apply: (value) => {
+          if (state.actors.some((a) => a.id === value)) message.from = value;
+        },
+      },
+      {
+        kind: "select",
+        label: t("chart.seq.to"),
+        value: message.to,
+        options: actorOptions,
+        apply: (value) => {
+          if (state.actors.some((a) => a.id === value)) message.to = value;
+        },
+      },
       {
         kind: "select",
         label: t("chart.seq.arrow"),
@@ -358,14 +374,19 @@ function panel(state: SequenceChart, selected: string | null): ChartField[] {
           if (next) actor.key = next;
         },
       },
+      { kind: "button", label: t("chart.seq.addMessage"), icon: "plus", apply: () => addMessage(state, actor.id) },
       { kind: "button", label: t("chart.deleteParticipant"), icon: "trash-2", apply: () => remove(state, actor.id) },
     ];
   }
 
-  return [
-    { kind: "note", text: t("chart.seq.empty") },
+  const fields: ChartField[] = [
+    { kind: "note", text: state.actors.length === 0 ? t("chart.seq.empty") : t("chart.seq.ready") },
     { kind: "button", label: t("chart.seq.addParticipant"), icon: "plus", apply: () => add(state) },
   ];
+  if (state.actors.length > 0) {
+    fields.push({ kind: "button", label: t("chart.seq.addMessage"), icon: "plus", apply: () => addMessage(state) });
+  }
+  return fields;
 }
 
 /** Swapping the two ends is the common edit, and it keeps the arrow's own glyph. */
@@ -381,6 +402,24 @@ function add(state: SequenceChart): string {
   while (taken.includes(`P${index}`)) index += 1;
   const id = nextId(state.actors.map((a) => a.id), "p");
   state.actors.push({ id, key: `P${index}`, label: `P${index}`, x: state.actors.length * state.metrics.colW });
+  return id;
+}
+
+function addMessage(state: SequenceChart, fromId?: string): string {
+  if (state.actors.length === 0) return add(state);
+  const fromIndex = state.actors.findIndex((a) => a.id === fromId);
+  const from = state.actors[fromIndex >= 0 ? fromIndex : 0];
+  const toIndex = (fromIndex >= 0 ? fromIndex + 1 : 1) % state.actors.length;
+  const to = state.actors[toIndex] ?? from;
+  const id = nextId(state.messages.map((m) => m.id), "m");
+  state.messages.push({
+    id,
+    from: from.id,
+    to: to.id,
+    text: t("chart.seq.newMessage"),
+    arrow: "->>",
+    y: 0,
+  });
   return id;
 }
 
