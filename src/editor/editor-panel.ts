@@ -247,9 +247,13 @@ export class EditorPanel {
     this.zoomLabel = h("span", { cls: "mtk-zoom-value", text: "100%" });
     const zoomIn = this.buildButton("mtk-zoom-in", t("editor.toolbar.zoomIn"), "zoom-in");
     zoomIn.addEventListener("click", () => this.zoomBy(1.15));
+    toolbar.append(zoomOut, this.zoomLabel, zoomIn);
+    // Nudging the scale and recomputing it are different kinds of action, so
+    // "fit" sits in its own group behind a divider.
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
     const fit = this.buildButton("mtk-fit", t("editor.toolbar.fit"), "scan");
     fit.addEventListener("click", () => this.fit());
-    toolbar.append(zoomOut, this.zoomLabel, zoomIn, fit);
+    toolbar.appendChild(fit);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
     toolbar.appendChild(h("span", { cls: "mtk-spacer" }));
