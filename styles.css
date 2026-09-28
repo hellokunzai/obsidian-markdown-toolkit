@@ -99,6 +99,49 @@
   overflow: hidden;
 }
 
+/*
+ * Dialog fullscreen toggle.
+ *
+ * Sits one gap left of the native close button, matching its box so the two
+ * glyphs share a row. The values here are the *fallback*: `attachFullscreenToggle`
+ * reads the live close button at open time and copies its geometry inline, which
+ * covers themed and touch layouts. The numbers below reproduce the desktop
+ * default in case that read is ever skipped — the `×` is `inset-inline-end:
+ * var(--size-2-3)` with `padding: var(--size-2-2)`, i.e. a 6 px inset plus an
+ * icon-plus-8 box, so the offset is 6 + icon + 4 + 8 = `size-2-3 + size-2-2*3
+ * + icon`. The icon comes from `--icon-xs` (14 px on desktop, 18 px on touch),
+ * which is what both scales actually render.
+ */
+.mtk-modal-fullscreen-btn {
+  position: absolute;
+  top: var(--size-2-3);
+  inset-inline-end: calc(var(--size-2-3) + var(--size-2-2) * 3 + var(--icon-xs));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--size-2-2);
+}
+
+/* The shell stretches both buttons over the header row; see "dialog title row". */
+.modal.mtk-modal-shell .mtk-modal-fullscreen-btn {
+  top: 0;
+  height: var(--mtk-header-height);
+}
+
+/*
+ * Fullscreen state: the dialog covers the whole app window. Later in the file
+ * than `.mtk-modal-shell` on purpose — same specificity, and the shell's
+ * 1120x780 sizing has to lose to this.
+ */
+.modal.mtk-modal-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+  margin: 0;
+}
+
 .mtk-view-host {
   display: flex;
   flex-direction: column;

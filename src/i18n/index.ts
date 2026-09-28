@@ -116,6 +116,10 @@ const en: Dict = {
   "notice.colorNothing": "The selection is blank, so there is nothing to colour.",
   "notice.focusUnavailable": "This window cannot go fullscreen right now.",
 
+  // The fullscreen toggle every editing dialog carries next to its close button.
+  "modal.fullscreen": "Fullscreen",
+  "modal.fullscreenExit": "Exit fullscreen",
+
   // ---- text tools (the 文本工具 submenu) ----
   // Each tool is both a command and a menu item, so one key names both.
   "textTool.plain.name": "Get the text without syntax",
@@ -702,6 +706,10 @@ const zhCn: Dict = {
   "notice.colorNoSelection": "请先选中要上色的文字。",
   "notice.colorNothing": "选中的内容都是空行，没有可上色的文字。",
   "notice.focusUnavailable": "当前窗口暂时无法进入全屏。",
+
+  // 每个编辑弹窗右上角、关闭按钮旁的那个全屏开关。
+  "modal.fullscreen": "全屏",
+  "modal.fullscreenExit": "退出全屏",
 
   // ---- 文本工具（工具栏那个子菜单）----
   // 一个工具既是命令也是菜单项，所以一个键同时充当两者。

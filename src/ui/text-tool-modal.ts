@@ -13,6 +13,7 @@
  */
 import { Modal, type App } from "obsidian";
 import { h } from "../utils/dom";
+import { attachFullscreenToggle } from "../utils/modal-fullscreen";
 import { t } from "../i18n";
 
 export interface TextToolField {
@@ -56,6 +57,7 @@ export class TextToolModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
+    attachFullscreenToggle(this);
     contentEl.empty();
     contentEl.appendChild(h("h3", { text: this.heading }));
     if (this.note) contentEl.appendChild(h("p", { cls: "mtk-settings-note", text: this.note }));
