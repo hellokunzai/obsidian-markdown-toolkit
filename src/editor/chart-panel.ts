@@ -218,6 +218,25 @@ const GIT_KINDS = [
   ["HIGHLIGHT", "chart.git.highlight"],
 ] as const;
 
+/** Structural subset of the timeline state the right-click menu touches. Mirrors
+ * the gantt/pie/git convention: the panel stays generic and never imports the
+ * spec's `TimeSlot`/`TimelineChart` types. A timeline has two kinds of target —
+ * a period pill (`slot.id`) and an event card (`event.id`) — so the menu needs
+ * both shapes, plus a lookup that finds which slot owns a hit event. */
+interface TimelineEventShape {
+  id: string;
+  text: string;
+}
+interface TimelineSlotShape {
+  id: string;
+  period: string;
+  events: TimelineEventShape[];
+}
+interface TimelineChartShape {
+  title: string;
+  slots: TimelineSlotShape[];
+}
+
 export class ChartPanel {
   readonly root: HTMLElement;
 
@@ -413,10 +432,10 @@ export class ChartPanel {
     this.emptyNote = h("div", { cls: "mtk-empty", text: t("chart.empty") });
     this.canvasWrap.appendChild(this.emptyNote);
 
-    // State/ER diagrams and the gantt chart are edited through the right-click
-    // menu too (matching sequence and class); the git graph joins them. So the
-    // canvas keeps the whole body. The other three chart kinds still render
-    // the property panel.
+    // State/ER diagrams, the gantt chart, the pie and the git graph drive their
+    // editing from the right-click menu (matching sequence and class); the
+    // timeline joins them, so the canvas keeps the whole body. The fishbone
+    // diagram is the only kind still rendering the property panel.
     if (
       this.options.mode === "sequence" ||
       this.options.mode === "class" ||
@@ -424,7 +443,8 @@ export class ChartPanel {
       this.options.mode === "er" ||
       this.options.mode === "gantt" ||
       this.options.mode === "pie" ||
-      this.options.mode === "gitGraph"
+      this.options.mode === "gitGraph" ||
+      this.options.mode === "timeline"
     ) {
       this.bodyWrap.append(this.canvasWrap);
       return;
@@ -492,9 +512,9 @@ export class ChartPanel {
    * selection. The panel knows six field kinds and nothing about diagrams.
    */
   private renderProps(): void {
-    // State/ER diagrams, the gantt chart and the git graph have no side panel
-    // either; their editing lives in the right-click menu (and the dialogs
-    // opened from it).
+    // State/ER diagrams, the gantt chart, the pie, the git graph and the
+    // timeline have no side panel either; their editing lives in the
+    // right-click menu (and the dialogs opened from it).
     if (
       this.options.mode === "sequence" ||
       this.options.mode === "class" ||
@@ -503,6 +523,7 @@ export class ChartPanel {
       this.options.mode === "gantt" ||
       this.options.mode === "pie" ||
       this.options.mode === "gitGraph" ||
+      this.options.mode === "timeline" ||
       !this.propsEl
     )
       return;
@@ -1007,9 +1028,9 @@ export class ChartPanel {
       { passive: false }
     );
 
-    // Sequence, class, state, ER diagrams, the gantt chart and the git graph drive
-    // all editing from the right-click menu; the other three chart kinds keep their
-    // left-click-to-select + side-panel.
+    // Sequence, class, state, ER diagrams, the gantt chart, the pie, the git
+    // graph and the timeline drive all editing from the right-click menu; the
+    // fishbone diagram keeps its left-click-to-select + side-panel.
     svg.addEventListener("contextmenu", (event: MouseEvent) => {
       if (
         this.options.mode !== "sequence" &&
@@ -1018,7 +1039,8 @@ export class ChartPanel {
         this.options.mode !== "er" &&
         this.options.mode !== "gantt" &&
         this.options.mode !== "pie" &&
-        this.options.mode !== "gitGraph"
+        this.options.mode !== "gitGraph" &&
+        this.options.mode !== "timeline"
       )
         return;
       event.preventDefault();
@@ -1028,6 +1050,7 @@ export class ChartPanel {
       else if (this.options.mode === "er") this.openErMenu(event);
       else if (this.options.mode === "pie") this.openPieMenu(event);
       else if (this.options.mode === "gitGraph") this.openGitMenu(event);
+      else if (this.options.mode === "timeline") this.openTimelineMenu(event);
       else this.openGanttMenu(event);
     });
   }
@@ -2003,6 +2026,169 @@ export class ChartPanel {
    */
   private rederive(): void {
     this.state = this.spec.parse(this.spec.serialize(this.state));
+  }
+
+  /* ----------------------------------------------------- timeline context menu */
+
+  /**
+   * Right-click menu for the timeline. Its side panel is gone too, so editing a
+   * period, its cards and the whole-chart title all live here.
+   *
+   * A timeline has two kinds of target and both carry a bare id (no prefix, as
+   * opposed to the gantt's `bar:`/`rz:` grips): a period pill (`slot.id`) and an
+   * event card (`event.id`). A hit id resolves as either, which is unambiguous
+   * because the spec mints slots with a `t` prefix and events with a `v` one.
+   */
+  private openTimelineMenu(event: MouseEvent): void {
+    const chart = this.state as TimelineChartShape;
+    const hitId = this.elementIdFromEvent(event);
+    const target = hitId ? this.findTimelineTarget(chart, hitId) : null;
+    const menu = new Menu();
+
+    if (target) {
+      const { slot, event: hitEvent } = target;
+      // Highlight whichever shape the menu is about, matching the other menus.
+      this.selected = hitEvent ? hitEvent.id : slot.id;
+      this.commit(false);
+
+      if (hitEvent) {
+        menu.addItem((mi) =>
+          mi
+            .setTitle(t("chart.timeline.editEvent"))
+            .setIcon("pencil")
+            .onClick(() => this.openTimelineEventDialog(hitEvent))
+        );
+        menu.addItem((mi) =>
+          mi
+            .setTitle(t("chart.deleteEvent"))
+            .setIcon("trash-2")
+            .onClick(() => this.deleteById(hitEvent.id))
+        );
+        menu.showAtMouseEvent(event);
+        return;
+      }
+
+      menu.addItem((mi) =>
+        mi
+          .setTitle(t("chart.timeline.editPeriod"))
+          .setIcon("pencil")
+          .onClick(() => this.openTimelinePeriodDialog(slot))
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.timeline.addEvent")).setIcon("plus").onClick(() => this.addTimelineEvent(slot))
+      );
+      menu.addSeparator();
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.deletePeriod")).setIcon("trash-2").onClick(() => this.deleteById(slot.id))
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    // Blank canvas (or the axis line): the two whole-chart actions. `addPeriod`
+    // routes through the generic `addOne`, which is exactly the spec's `add`.
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.timeline.addPeriod")).setIcon("plus").onClick(() => this.addOne())
+    );
+    menu.addItem((mi) =>
+      mi
+        .setTitle(t("chart.timeline.editTitle"))
+        .setIcon("pencil")
+        .onClick(() => this.openTimelineTitleDialog())
+    );
+    menu.showAtMouseEvent(event);
+  }
+
+  /** Resolves a hit id to the period pill or the event card it names. */
+  private findTimelineTarget(
+    chart: TimelineChartShape,
+    id: string
+  ): { slot: TimelineSlotShape; event: TimelineEventShape | null } | null {
+    for (const slot of chart.slots) {
+      if (slot.id === id) return { slot, event: null };
+      const event = slot.events.find((entry) => entry.id === id);
+      if (event) return { slot, event };
+    }
+    return null;
+  }
+
+  private openTimelineEventDialog(event: TimelineEventShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.timeline.editEvent"),
+      "",
+      [{ key: "text", label: t("chart.timeline.event"), value: event.text }],
+      t("chart.class.confirm"),
+      (values) => {
+        const text = values.text.trim();
+        if (!text) return t("chart.timeline.eventRequired");
+        const before = this.spec.serialize(this.state);
+        event.text = text;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private openTimelinePeriodDialog(slot: TimelineSlotShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.timeline.editPeriod"),
+      "",
+      [{ key: "period", label: t("chart.timeline.period"), value: slot.period }],
+      t("chart.class.confirm"),
+      (values) => {
+        const period = values.period.trim();
+        if (!period) return t("chart.timeline.periodRequired");
+        const before = this.spec.serialize(this.state);
+        slot.period = period;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private openTimelineTitleDialog(): void {
+    const chart = this.state as TimelineChartShape;
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.timeline.editTitle"),
+      "",
+      [{ key: "title", label: t("chart.timeline.title"), value: chart.title }],
+      t("chart.class.confirm"),
+      (values) => {
+        const before = this.spec.serialize(this.state);
+        chart.title = values.title.trim();
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  /**
+   * Appends an event to a period.
+   *
+   * `ChartSpec` exposes `add` (a whole period) but not the spec's `addEvent`, so
+   * rather than widening the interface this repeats the spec's own two lines:
+   * same `nextId` generator, same `newEvent` label, same shape. Going through
+   * `serialize -> edit a line -> parse` would mean re-deriving the parser's line
+   * classification to locate the right line, which is far more fragile.
+   */
+  private addTimelineEvent(slot: TimelineSlotShape): void {
+    const chart = this.state as TimelineChartShape;
+    const taken = chart.slots.reduce<string[]>((ids, entry) => ids.concat(entry.events.map((e) => e.id)), []);
+    const id = nextId(taken, "v");
+    const before = this.spec.serialize(this.state);
+    slot.events.push({ id, text: t("chart.timeline.newEvent") });
+    this.selected = id;
+    this.pushUndoIfChanged(before);
+    this.commit(true);
   }
 
   /* --------------------------------------------------------------- output */
