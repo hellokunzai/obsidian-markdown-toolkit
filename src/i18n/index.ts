@@ -531,6 +531,10 @@ const en: Dict = {
   "chart.pie.share": "{{percent}}% of the total",
   "chart.pie.title": "Title",
   "chart.pie.value": "Value",
+  "chart.pie.editSlice": "Edit slice",
+  "chart.pie.editTitle": "Edit title",
+  "chart.pie.nameRequired": "Label is required",
+  "chart.pie.invalidValue": "Value must be a positive number",
 
   "chart.git.addBranch": "Add branch",
   "chart.git.addCommit": "Add commit",
@@ -1049,6 +1053,10 @@ const zhCn: Dict = {
   "chart.pie.share": "占总量的 {{percent}}%",
   "chart.pie.title": "标题",
   "chart.pie.value": "数值",
+  "chart.pie.editSlice": "编辑扇区",
+  "chart.pie.editTitle": "编辑标题",
+  "chart.pie.nameRequired": "名称不能为空",
+  "chart.pie.invalidValue": "数值必须是大于 0 的数字",
 
   "chart.git.addBranch": "添加分支",
   "chart.git.addCommit": "添加提交",

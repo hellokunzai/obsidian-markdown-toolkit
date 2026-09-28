@@ -171,6 +171,19 @@ interface GanttChartShape {
   tasks: GanttTaskShape[];
 }
 
+/** Structural subset of the pie state the right-click menu touches. Mirrors the
+ * gantt convention: the panel stays generic and never imports the spec's
+ * `Slice`/`PieChart` types; these are the two fields the slice dialog reads. */
+interface PieSliceShape {
+  id: string;
+  label: string;
+  value: number;
+}
+interface PieChartShape {
+  title: string;
+  slices: PieSliceShape[];
+}
+
 export class ChartPanel {
   readonly root: HTMLElement;
 
@@ -374,7 +387,8 @@ export class ChartPanel {
       this.options.mode === "class" ||
       this.options.mode === "state" ||
       this.options.mode === "er" ||
-      this.options.mode === "gantt"
+      this.options.mode === "gantt" ||
+      this.options.mode === "pie"
     ) {
       this.bodyWrap.append(this.canvasWrap);
       return;
@@ -450,6 +464,7 @@ export class ChartPanel {
       this.options.mode === "state" ||
       this.options.mode === "er" ||
       this.options.mode === "gantt" ||
+      this.options.mode === "pie" ||
       !this.propsEl
     )
       return;
@@ -947,7 +962,8 @@ export class ChartPanel {
         this.options.mode !== "class" &&
         this.options.mode !== "state" &&
         this.options.mode !== "er" &&
-        this.options.mode !== "gantt"
+        this.options.mode !== "gantt" &&
+        this.options.mode !== "pie"
       )
         return;
       event.preventDefault();
@@ -955,6 +971,7 @@ export class ChartPanel {
       else if (this.options.mode === "class") this.openClassMenu(event);
       else if (this.options.mode === "state") this.openStateMenu(event);
       else if (this.options.mode === "er") this.openErMenu(event);
+      else if (this.options.mode === "pie") this.openPieMenu(event);
       else this.openGanttMenu(event);
     });
   }
@@ -1623,6 +1640,93 @@ export class ChartPanel {
         task.start = start;
         task.days = days;
         task.manual = true;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  /* --------------------------------------------------- pie context menu */
+
+  /**
+   * Right-click menu for the pie chart. The side panel is gone for this chart
+   * too, so editing a slice — rename, change value, delete — and the title live
+   * here, matching the gantt/sequence/class/state/er menus. The boundary grips
+   * (`cut:n`) are untouched: those are drag interactions, not menu actions.
+   */
+  private openPieMenu(event: MouseEvent): void {
+    const chart = this.state as PieChartShape;
+    // Slice ids carry no prefix; grip ids do (`cut:n`), so ignore anything with a
+    // colon — a right-click on a boundary falls through to the empty-area menu
+    // (add slice / edit title), which is the sensible default there.
+    const hitId = this.elementIdFromEvent(event);
+    const slice = hitId && !hitId.includes(":") ? chart.slices.find((s) => s.id === hitId) : null;
+    const menu = new Menu();
+
+    if (!slice) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.pie.addSlice")).setIcon("plus").onClick(() => this.addOne())
+      );
+      menu.addItem((item) =>
+        item.setTitle(t("chart.pie.editTitle")).setIcon("pencil").onClick(() => this.openPieTitleDialog())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    // Highlight the slice while its menu is open, matching the other chart menus.
+    this.selected = slice.id;
+    this.commit(false);
+
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.pie.editSlice")).setIcon("pencil").onClick(() => this.openPieSliceDialog(slice))
+    );
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.deleteSlice")).setIcon("trash-2").onClick(() => this.deleteById(slice.id))
+    );
+    menu.showAtMouseEvent(event);
+  }
+
+  private openPieSliceDialog(slice: PieSliceShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.pie.editSlice"),
+      "",
+      [
+        { key: "label", label: t("chart.pie.label"), value: slice.label },
+        { key: "value", label: t("chart.pie.value"), value: String(slice.value) },
+      ],
+      t("chart.class.confirm"),
+      (values) => {
+        const label = values.label.trim();
+        if (!label) return t("chart.pie.nameRequired");
+        const value = Number(values.value);
+        if (!Number.isFinite(value) || value <= 0) return t("chart.pie.invalidValue");
+        const before = this.spec.serialize(this.state);
+        slice.label = label;
+        // Keep two decimals and never below the floor the spec enforces on write.
+        slice.value = Math.max(0.5, Math.round(value * 100) / 100);
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private openPieTitleDialog(): void {
+    const chart = this.state as PieChartShape;
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.pie.editTitle"),
+      "",
+      [{ key: "title", label: t("chart.pie.title"), value: chart.title }],
+      t("chart.class.confirm"),
+      (values) => {
+        const before = this.spec.serialize(this.state);
+        chart.title = values.title.trim();
         this.pushUndoIfChanged(before);
         this.commit(true);
         return null;
