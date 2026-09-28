@@ -207,6 +207,18 @@ export class EditorPanel {
     toolbar.appendChild(save);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
+    const undo = this.buildButton("mtk-undo", t("editor.toolbar.undo"), "undo-2");
+    undo.addEventListener("click", () => this.undo());
+    const redo = this.buildButton("mtk-redo", t("editor.toolbar.redo"), "redo-2");
+    redo.addEventListener("click", () => this.redo());
+    toolbar.append(undo, redo);
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
+
+    // Adding a node, deleting it and picking its shape all live in the
+    // right-click menu (see openContextMenu), so the toolbar only carries the
+    // whole-canvas actions: layout, history and viewport. The tidy button leads
+    // the viewport group, sitting right before zoom-out, mirroring the chart
+    // panel's toolbar order.
     const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
     tidy.addEventListener("click", () => {
       this.pushUndo();
@@ -221,17 +233,6 @@ export class EditorPanel {
     });
     toolbar.appendChild(tidy);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
-    const undo = this.buildButton("mtk-undo", t("editor.toolbar.undo"), "undo-2");
-    undo.addEventListener("click", () => this.undo());
-    const redo = this.buildButton("mtk-redo", t("editor.toolbar.redo"), "redo-2");
-    redo.addEventListener("click", () => this.redo());
-    toolbar.append(undo, redo);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
-    // Adding a node, deleting it and picking its shape all live in the
-    // right-click menu (see openContextMenu), so the toolbar only carries the
-    // whole-canvas actions: layout, history and viewport.
     const zoomOut = this.buildButton("mtk-zoom-out", t("editor.toolbar.zoomOut"), "zoom-out");
     zoomOut.addEventListener("click", () => this.zoomBy(1 / 1.15));
     this.zoomLabel = h("span", { cls: "mtk-zoom-value", text: "100%" });

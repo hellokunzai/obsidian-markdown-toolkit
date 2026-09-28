@@ -405,21 +405,19 @@ export class ChartPanel {
     toolbar.appendChild(save);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
-    // Same button as the mind-map panel's, in the same slot: one group of
-    // whole-chart actions between save and history. It shares that panel's
-    // `mtk-tidy` class on purpose — no rule keys off it, and the two buttons
-    // are meant to read as the same control in two windows.
-    const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
-    tidy.addEventListener("click", () => this.tidy());
-    toolbar.appendChild(tidy);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
     const undo = this.buildButton("mtk-chart-undo", t("editor.toolbar.undo"), "undo-2");
     undo.addEventListener("click", () => this.undo());
     const redo = this.buildButton("mtk-chart-redo", t("editor.toolbar.redo"), "redo-2");
     redo.addEventListener("click", () => this.redo());
     toolbar.append(undo, redo);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
+
+    // Same button as the mind-map panel's. It shares that panel's `mtk-tidy`
+    // class on purpose — no rule keys off it, and the two buttons are meant to
+    // read as the same control in two windows. It leads the viewport group,
+    // sitting right before zoom-out.
+    const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
+    tidy.addEventListener("click", () => this.tidy());
 
     // No add/delete buttons here: every chart kind adds and removes items from
     // its right-click menu, so the toolbar skips straight to the zoom group.
@@ -430,6 +428,8 @@ export class ChartPanel {
     zoomIn.addEventListener("click", () => this.zoomBy(1.15));
     // No fit button either: the panel re-fits on attach, on tidy and after
     // container resizes, so there is nothing left for a manual fit to do.
+    toolbar.append(tidy);
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
     toolbar.append(zoomOut, this.zoomLabel, zoomIn);
     return toolbar;
   }
