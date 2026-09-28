@@ -162,15 +162,15 @@ export class EditorPanel {
 
   /* ---------------------------------------------------------------- chrome */
 
+  /** Icon-only toolbar button; `label` feeds the tooltip / accessible name. */
   private buildButton(cls: string, label: string, icon?: string): HTMLButtonElement {
-    const button = h("button", { cls: `mtk-tb ${cls}` });
+    const button = h("button", { cls: `mtk-tb mtk-tb-icon-btn ${cls}`, attr: { "aria-label": label } });
     button.type = "button";
     if (icon) {
       const glyph = h("span", { cls: "mtk-tb-icon" });
       setIcon(glyph, icon);
       button.appendChild(glyph);
     }
-    if (label) button.appendChild(h("span", { cls: "mtk-tb-label", text: label }));
     applyTooltip(button, label);
     return button;
   }
@@ -238,14 +238,6 @@ export class EditorPanel {
     const zoomIn = this.buildButton("mtk-zoom-in", t("editor.toolbar.zoomIn"), "zoom-in");
     zoomIn.addEventListener("click", () => this.zoomBy(1.15));
     toolbar.append(zoomOut, this.zoomLabel, zoomIn);
-    // Nudging the scale and recomputing it are different kinds of action, so
-    // "fit" sits in its own group behind a divider.
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-    const fit = this.buildButton("mtk-fit", t("editor.toolbar.fit"), "scan");
-    fit.addEventListener("click", () => this.fit());
-    toolbar.appendChild(fit);
-    // No divider (and no status readout) after "fit": the toolbar ends on the
-    // viewport group, so there is nothing left for a divider to separate.
     return toolbar;
   }
 

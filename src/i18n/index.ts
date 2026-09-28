@@ -59,7 +59,6 @@ const en: Dict = {
   "editor.toolbar.addNode": "Add node",
   "editor.toolbar.zoomIn": "Zoom in",
   "editor.toolbar.zoomOut": "Zoom out",
-  "editor.toolbar.fit": "Fit to window",
 
   "editor.shape.rect": "Rectangle",
   "editor.shape.stadium": "Rounded",
@@ -650,7 +649,6 @@ const zhCn: Dict = {
   "editor.toolbar.addNode": "新增节点",
   "editor.toolbar.zoomIn": "放大",
   "editor.toolbar.zoomOut": "缩小",
-  "editor.toolbar.fit": "适配窗口",
 
   "editor.shape.rect": "矩形",
   "editor.shape.stadium": "圆角",

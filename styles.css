@@ -244,6 +244,17 @@ body.styled-scrollbars .mtk-modal-fullscreen-btn {
   cursor: pointer;
 }
 
+/*
+ * The chart panel's toolbar buttons are icon-only (the label lives in the
+ * tooltip / aria-label), so they take square-ish padding around the 14px
+ * glyph. Scoped to `mtk-tb-icon-btn` because the mind-map panel's `.mtk-tb`
+ * buttons still carry text and keep the roomier rule above.
+ */
+.mtk-editor .mtk-tb.mtk-tb-icon-btn {
+  gap: 0;
+  padding: 5px 6px;
+}
+
 .mtk-editor .mtk-tb:hover {
   background-color: var(--background-modifier-hover);
 }
@@ -278,10 +289,6 @@ body.styled-scrollbars .mtk-modal-fullscreen-btn {
   display: inline-flex;
   align-items: center;
   --icon-size: 14px;
-}
-
-.mtk-editor .mtk-tb-label {
-  line-height: 1.2;
 }
 
 .mtk-editor .mtk-divider {
@@ -390,13 +397,16 @@ body.styled-scrollbars .mtk-modal-fullscreen-btn {
 
 /* ---------------------------------------------------------------- mobile -- */
 
-body.is-mobile .mtk-editor .mtk-tb-label,
 body.is-mobile .mtk-editor .mtk-divider {
   display: none;
 }
 
 body.is-mobile .mtk-editor .mtk-tb {
   padding: 6px 9px;
+}
+
+body.is-mobile .mtk-editor .mtk-tb.mtk-tb-icon-btn {
+  padding: 6px;
 }
 
 body.is-mobile .mtk-toolbar {

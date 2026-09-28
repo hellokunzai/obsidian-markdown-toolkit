@@ -366,15 +366,15 @@ export class ChartPanel {
 
   /* ---------------------------------------------------------------- chrome */
 
+  /** Icon-only toolbar button; `label` feeds the tooltip / accessible name. */
   private buildButton(cls: string, label: string, icon?: string): HTMLButtonElement {
-    const button = h("button", { cls: `mtk-tb ${cls}` });
+    const button = h("button", { cls: `mtk-tb mtk-tb-icon-btn ${cls}`, attr: { "aria-label": label } });
     button.type = "button";
     if (icon) {
       const glyph = h("span", { cls: "mtk-tb-icon" });
       setIcon(glyph, icon);
       button.appendChild(glyph);
     }
-    if (label) button.appendChild(h("span", { cls: "mtk-tb-label", text: label }));
     applyTooltip(button, label);
     return button;
   }
