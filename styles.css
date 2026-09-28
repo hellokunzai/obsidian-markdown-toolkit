@@ -75,20 +75,22 @@
  * title one row below the close button. The panel brings its own header, so the
  * placeholder goes away and the header becomes the dialog's first row.
  *
- * The close button is stretched over that same row, so the glyph and the title
- * share one axis without either side hard-coding the other's size. The header
- * repeats the height as a fallback: a tab renders the same header but has no
- * close button in that row.
+ * Both top-right buttons keep the box Obsidian gives them — `--icon-xs` plus a
+ * `--size-2-2` of padding on each side — and are centred in that row by a
+ * shared `top`. Stretching them over the whole row instead would paint a tall
+ * hover background, and the toggle copies the close button's box, so the two
+ * would then disagree with the `×` in every other dialog, which is a square.
+ * Splitting the row's leftover space also lands on the pixel the native `top`
+ * already used, so nothing moves. The header repeats the row height as a
+ * fallback: a tab renders the same header but has no close button in that row.
  */
 .modal.mtk-modal-shell .modal-header {
   display: none;
 }
 
-.modal.mtk-modal-shell .modal-close-button {
-  top: 0;
-  height: var(--mtk-header-height);
-  display: flex;
-  align-items: center;
+.modal.mtk-modal-shell .modal-close-button,
+.modal.mtk-modal-shell .mtk-modal-fullscreen-btn {
+  top: calc((var(--mtk-header-height) - var(--icon-xs) - var(--size-2-2) * 2) / 2);
 }
 
 .modal.mtk-modal-shell .modal-content {
@@ -107,25 +109,27 @@
  * reads the live close button at open time and copies its geometry inline, which
  * covers themed and touch layouts. The numbers below reproduce the desktop
  * default in case that read is ever skipped — the `×` is `inset-inline-end:
- * var(--size-2-3)` with `padding: var(--size-2-2)`, i.e. a 6 px inset plus an
- * icon-plus-8 box, so the offset is 6 + icon + 4 + 8 = `size-2-3 + size-2-2*3
- * + icon`. The icon comes from `--icon-xs` (14 px on desktop, 18 px on touch),
- * which is what both scales actually render.
+ * var(--size-2-3)` with `padding: var(--size-2-2)`, so the offset is its 6 px
+ * inset + its 8 px of padding + the icon + an 8 px gap, i.e.
+ * `size-2-3 + size-2-2 * 4 + icon`. The icon comes from `--icon-xs` (14 px on
+ * desktop, 18 px on touch), which is what both scales actually render.
+ *
+ * No taller box anywhere on purpose: the hover background *is* the box, so a
+ * stretched one paints a tall stripe next to the `×`'s square. The explicit
+ * height below is the close button's own — without it the bare `button` rule in
+ * `app.css` would hand this element `var(--input-height)` and do the stretching
+ * for us whenever the measured copy is skipped. The shell only moves the shared
+ * `top` — see "dialog title row".
  */
 .mtk-modal-fullscreen-btn {
   position: absolute;
   top: var(--size-2-3);
-  inset-inline-end: calc(var(--size-2-3) + var(--size-2-2) * 3 + var(--icon-xs));
+  inset-inline-end: calc(var(--size-2-3) + var(--size-2-2) * 4 + var(--icon-xs));
+  height: calc(var(--icon-xs) + var(--size-2-2) * 2);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--size-2-2);
-}
-
-/* The shell stretches both buttons over the header row; see "dialog title row". */
-.modal.mtk-modal-shell .mtk-modal-fullscreen-btn {
-  top: 0;
-  height: var(--mtk-header-height);
 }
 
 /*

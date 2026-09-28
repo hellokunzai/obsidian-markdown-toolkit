@@ -25,11 +25,22 @@ const FULLSCREEN_CLASS = "mtk-modal-fullscreen";
 const ICON_ENTER = "maximize";
 const ICON_EXIT = "minimize-2";
 
-/** Obsidian's own class for the `×`; we copy its box. */
-const CLOSE_SELECTOR = ".modal-close-button";
+/**
+ * Obsidian's own class for the `×`; we copy its box.
+ *
+ * The `:not()` keeps this on the native button even though the toggle is built
+ * from the same parent: the two must never be confused for one another.
+ */
+const CLOSE_SELECTOR = ".modal-close-button:not(.mtk-modal-fullscreen-btn)";
 
-/** Breathing room between the toggle and the close button it sits beside. */
-const GAP = 4;
+/**
+ * Breathing room between the toggle and the close button it sits beside.
+ *
+ * One full step on Obsidian's scale (`--size-4-2`). Measured against the native
+ * pair: at 4 the two glyphs read as one smudged cluster, at 12 they stop reading
+ * as a pair at all; 8 leaves them clearly separate while still grouped.
+ */
+const GAP = 8;
 
 /** Adds the toggle button to a dialog. Call once from `onOpen`. */
 export function attachFullscreenToggle(modal: Modal): void {
@@ -51,12 +62,20 @@ export function attachFullscreenToggle(modal: Modal): void {
   // so it survives the panel redrawing everything inside `contentEl`.
   modalEl.appendChild(button);
   mirrorCloseButton(modalEl, button);
+  // The first read can land before the dialog has its final layout, and an
+  // inline box outranks the stylesheet — so read again on the next frame, when
+  // the `×` is certainly laid out. The button is gone if the dialog closed in
+  // between, which is why the check leads.
+  window.requestAnimationFrame(() => {
+    if (button.isConnected) mirrorCloseButton(modalEl, button);
+  });
 }
 
 /**
  * Copies the native close button's box onto the toggle and shifts it one gap
  * left, so the two glyphs share a row by construction rather than by matching
- * hard-coded numbers.
+ * hard-coded numbers — and share a *shape*: this copies the height verbatim, so
+ * hovering paints the same square for both.
  *
  * Measuring beats guessing here: the `×` is sized from `--icon-xs`, which the
  * desktop theme sets to 14 px and touch layouts raise to 18, and its box grows
