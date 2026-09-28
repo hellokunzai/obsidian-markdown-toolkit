@@ -1,7 +1,7 @@
 /**
  * The fullscreen toggle in a dialog's top-right corner.
  *
- * Every editing dialog gets one, sitting left of the native close button. The
+ * Every editing dialog gets one, sitting beside the native close button. The
  * mode it toggles is maximization rather than browser fullscreen: the dialog
  * stretches over the whole app window via one class, and comes back with a
  * second press. That keeps everything the dialogs rely on working untouched —
@@ -26,7 +26,7 @@ const ICON_ENTER = "maximize";
 const ICON_EXIT = "minimize-2";
 
 /**
- * Obsidian's own class for the `×`; we copy its box.
+ * Obsidian's own class for the `×`; we copy its box and its place.
  *
  * The `:not()` keeps this on the native button even though the toggle is built
  * from the same parent: the two must never be confused for one another.
@@ -36,9 +36,10 @@ const CLOSE_SELECTOR = ".modal-close-button:not(.mtk-modal-fullscreen-btn)";
 /**
  * Breathing room between the toggle and the close button it sits beside.
  *
- * One full step on Obsidian's scale (`--size-4-2`). Measured against the native
- * pair: at 4 the two glyphs read as one smudged cluster, at 12 they stop reading
- * as a pair at all; 8 leaves them clearly separate while still grouped.
+ * One full step on Obsidian's scale (`--size-4-2`), and repeated as the fallback
+ * in `styles.css` — the two must stay in step. Measured against the native pair:
+ * at 4 the two hover backgrounds read as one smudged block, at 12 they stop
+ * reading as a pair at all; 8 leaves them clearly separate while still grouped.
  */
 const GAP = 8;
 
@@ -72,30 +73,67 @@ export function attachFullscreenToggle(modal: Modal): void {
 }
 
 /**
- * Copies the native close button's box onto the toggle and shifts it one gap
- * left, so the two glyphs share a row by construction rather than by matching
- * hard-coded numbers — and share a *shape*: this copies the height verbatim, so
- * hovering paints the same square for both.
+ * Places the toggle one gap to the inline-start of the native `×`, copying its
+ * `top` and its whole box — `width` as well as `height` — so the two share a row
+ * and, hovering, paint the same square.
  *
- * Measuring beats guessing here: the `×` is sized from `--icon-xs`, which the
- * desktop theme sets to 14 px and touch layouts raise to 18, and its box grows
- * by the same amount. One computed-style read covers both.
+ * Everything positional comes off the two *laid-out* elements rather than off
+ * the `×`'s declarations, and that is the point. The stylesheet can only hold
+ * one fallback number, and the app has more than one layout: `body.styled-scrollbars`
+ * moves the close button from 6 px to 12 px off the edge, so a fallback tuned
+ * for one of them sits 6 px wrong on the other — 6 px being enough to make the
+ * two hover backgrounds overlap. Reading the `×`'s *declared* inset is no better:
+ * a theme may pin it with the physical `right` and leave `inset-inline-end` at
+ * `auto`, and then the declaration describes nothing at all. Two rectangles and
+ * a subtraction have neither problem, because they are what the user is looking
+ * at.
+ *
+ * Measuring beats guessing on the box as well: the `×` is sized from
+ * `svg.svg-icon`'s `--icon-size`, which resolves to `--icon-m` on desktop and
+ * `--icon-xs` on touch, and its box grows by the same amount. One computed-style
+ * read covers every layout.
+ *
+ * `width` is copied alongside `height` and not left to the stylesheet, because
+ * the toggle is a `<button>` and the `×` is a `<div>`. `app.css` zeroes the
+ * button border (`button { border: 0 }`), so the two boxes have the same
+ * content-and-padding width — but that is the app's rule, not ours, and a theme
+ * that paints a button border would swell the toggle alone by 4 px, which is
+ * enough to push its hover square into the `×`'s. Taking the measured box makes
+ * the size independent of whose rule is winning.
  *
  * Safe to measure now — Obsidian appends the dialog to the document *before* it
  * calls `onOpen`, so the `×` is already laid out. If a future version reorders
  * that, or a theme removes the button, the stylesheet's own fallback values
- * still place the toggle sensibly.
+ * still place the toggle sensibly; the second pass above covers a first read
+ * that landed too early.
  */
 function mirrorCloseButton(modalEl: HTMLElement, button: HTMLElement): void {
   const close = modalEl.querySelector<HTMLElement>(CLOSE_SELECTOR);
   if (!close) return;
 
-  const style = getComputedStyle(close);
-  button.style.top = style.top;
-  button.style.height = style.height;
-  if (style.insetInlineEnd && style.insetInlineEnd !== "auto") {
-    // Composed on the close button's own logical inset, so this mirrors
-    // correctly under RTL as well.
-    button.style.insetInlineEnd = `calc(${style.insetInlineEnd} + ${close.offsetWidth}px + ${GAP}px)`;
+  const closeStyle = getComputedStyle(close);
+  button.style.top = closeStyle.top;
+  button.style.width = closeStyle.width;
+  button.style.height = closeStyle.height;
+
+  const modalStyle = getComputedStyle(modalEl);
+  const modalRect = modalEl.getBoundingClientRect();
+  const closeRect = close.getBoundingClientRect();
+  const rtl = modalStyle.direction === "rtl";
+  // An absolutely positioned child is placed inside the modal's *padding* box,
+  // while the border sits outside it — so it has to come off the edge the insets
+  // are actually measured from.
+  const border = parseFloat(rtl ? modalStyle.borderLeftWidth : modalStyle.borderRightWidth) || 0;
+  const paddingBoxEnd = modalRect.right - border;
+
+  if (rtl) {
+    // The `×` is on the left there, so a slot further from that edge is the
+    // inline-start one. Writing both sides keeps the pair from straddling the
+    // box (an absolutely positioned element with both insets set stretches).
+    button.style.insetInlineEnd = "auto";
+    button.style.insetInlineStart = `${paddingBoxEnd - closeRect.right + GAP}px`;
+  } else {
+    button.style.insetInlineStart = "auto";
+    button.style.insetInlineEnd = `${paddingBoxEnd - closeRect.left + GAP}px`;
   }
 }
