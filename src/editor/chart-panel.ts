@@ -249,8 +249,14 @@ export class ChartPanel {
 
   attach(host: HTMLElement): void {
     host.appendChild(this.root);
-    // The container just changed size; recompute the fit on the next frame.
-    window.setTimeout(() => this.fit(), 0);
+    // The container just changed size; repaint with the real width first so
+    // width-dependent specs (e.g. the gantt chart's dayW) recompute, then fit
+    // again on the next frame. Skipping the repaint left stale dimensions and
+    // caused the gantt chart to open zoomed to maxScale (e.g. 300%).
+    window.setTimeout(() => {
+      this.repaint();
+      this.fit();
+    }, 0);
   }
 
   destroy(): void {
