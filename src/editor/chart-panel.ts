@@ -273,7 +273,6 @@ export class ChartPanel {
   private propsEl!: HTMLElement;
   private svg!: SVGSVGElement;
   private zoomLabel!: HTMLElement;
-  private statusLabel!: HTMLElement;
   private emptyNote!: HTMLElement;
 
   private view = { k: 1, tx: 0, ty: 0 };
@@ -432,11 +431,6 @@ export class ChartPanel {
     // No fit button either: the panel re-fits on attach, on tidy and after
     // container resizes, so there is nothing left for a manual fit to do.
     toolbar.append(zoomOut, this.zoomLabel, zoomIn);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
-    toolbar.appendChild(h("span", { cls: "mtk-spacer" }));
-    this.statusLabel = h("span", { cls: "mtk-status", text: t("editor.selectedNone") });
-    toolbar.appendChild(this.statusLabel);
     return toolbar;
   }
 
@@ -511,12 +505,6 @@ export class ChartPanel {
   }
 
   private updateChrome(): void {
-    const summary = this.spec.summary(this.state);
-    this.statusLabel.textContent =
-      summary.edges > 0
-        ? t("chart.summaryBoth", { nodes: summary.nodes, edges: summary.edges })
-        : t("chart.summaryOne", { nodes: summary.nodes });
-
     const undo = this.root.querySelector<HTMLButtonElement>(".mtk-chart-undo");
     if (undo) undo.disabled = this.undoStack.length === 0;
     const redo = this.root.querySelector<HTMLButtonElement>(".mtk-chart-redo");

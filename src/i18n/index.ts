@@ -67,7 +67,6 @@ const en: Dict = {
   "editor.shape.diamond": "Diamond",
   "editor.shape.hexagon": "Hexagon",
 
-  "editor.selectedNone": "Nothing selected",
   "editor.newNode": "New node",
   "editor.emptyNode": "Untitled",
   "editor.empty": "This diagram is empty. Right-click the canvas for a new node, or double-click it.",
@@ -659,7 +658,6 @@ const zhCn: Dict = {
   "editor.shape.diamond": "菱形",
   "editor.shape.hexagon": "六边形",
 
-  "editor.selectedNone": "未选中",
   "editor.newNode": "新节点",
   "editor.emptyNode": "空节点",
   "editor.empty": "这张图还是空的。右键空白处即可新建节点，双击空白处也可以。",

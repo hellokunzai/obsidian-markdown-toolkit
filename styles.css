@@ -203,10 +203,6 @@ body.styled-scrollbars .mtk-modal-fullscreen-btn {
   color: var(--text-faint);
 }
 
-.mtk-editor .mtk-spacer {
-  flex: 1 1 auto;
-}
-
 /*
  * The header used to own `.mtk-header .mtk-btn` / `.mtk-header .mtk-save` for
  * its text buttons. Both panels now put their only action — save — in the
@@ -301,15 +297,6 @@ body.styled-scrollbars .mtk-modal-fullscreen-btn {
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
-}
-
-.mtk-editor .mtk-status {
-  font-size: 11.5px;
-  color: var(--text-faint);
-  max-width: 40%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 /* ------------------------------------------------------------------ canvas */
@@ -426,10 +413,6 @@ body.is-mobile .mtk-editor .mtk-title {
 
 body.is-mobile .mtk-editor .mtk-mode {
   display: none;
-}
-
-body.is-mobile .mtk-editor .mtk-status {
-  max-width: 46%;
 }
 
 /* ------------------------------------------------------- the chart canvases */
