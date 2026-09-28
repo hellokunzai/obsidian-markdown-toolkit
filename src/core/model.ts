@@ -33,7 +33,8 @@ export type ChartCanvasId =
   | "pie"
   | "gitGraph"
   | "timeline"
-  | "ishikawa";
+  | "ishikawa"
+  | "bar";
 
 /**
  * Every kind that can be opened in a visual editor, keyed by the kind's id.

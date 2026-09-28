@@ -362,6 +362,8 @@ const en: Dict = {
   "kind.timeline.scene": "Events in order",
   "kind.ishikawa.name": "Fishbone diagram",
   "kind.ishikawa.scene": "Root cause analysis",
+  "kind.bar.name": "Bar chart",
+  "kind.bar.scene": "Compare values across categories",
 
   // Bodies only. The ```mermaid fence around them is added on insert, so a
   // template can never disagree with the one language every diagram shares.
@@ -386,6 +388,7 @@ const en: Dict = {
   // bare `ishikawa` draws nothing. See `core/kinds.ts`.
   "template.kind.ishikawa":
     "ishikawa-beta\n  Problem\n    Category one\n      Specific cause\n    Category two\n      Specific cause\n",
+  "template.kind.bar": 'xychart-beta\n  title "Monthly spend"\n  x-axis [Food, Transport, Housing]\n  y-axis 0 --> 2000\n  bar [1200, 500, 2000]\n',
 
   // The chart canvases. Nine diagram types edit through one shared panel
   // (`editor/chart-panel.ts`), so the wording is split the same way: `chart.*`
@@ -535,6 +538,22 @@ const en: Dict = {
   "chart.pie.editTitle": "Edit title",
   "chart.pie.nameRequired": "Label is required",
   "chart.pie.invalidValue": "Value must be a positive number",
+
+  "chart.deleteBar": "Delete bar",
+  "chart.bar.addBar": "Add bar",
+  "chart.bar.addLeft": "Add bar on the left",
+  "chart.bar.addRight": "Add bar on the right",
+  "chart.bar.confirm": "Confirm",
+  "chart.bar.editBar": "Edit bar",
+  "chart.bar.editTitle": "Edit title",
+  "chart.bar.empty": "No bars yet. Add one to start.",
+  "chart.bar.label": "Label",
+  "chart.bar.value": "Value",
+  "chart.bar.newBar": "New bar",
+  "chart.bar.title": "Title",
+  "chart.bar.nameRequired": "Label cannot be empty",
+  "chart.bar.invalidValue": "Value must be a positive number",
+  "chart.bar.valueHint": "Drag the top handle to change the value, or drag the bar to reorder.",
 
   "chart.git.addBranch": "Add branch",
   "chart.git.addCommit": "Add commit",
@@ -911,6 +930,8 @@ const zhCn: Dict = {
   "kind.timeline.scene": "事件时间轴",
   "kind.ishikawa.name": "鱼骨图",
   "kind.ishikawa.scene": "故障根因分析",
+  "kind.bar.name": "柱状图",
+  "kind.bar.scene": "各分类数值对比",
 
   "template.kind.mindmap": "mindmap\n  [中心主题]\n    分支一\n    分支二\n",
   "template.kind.flowchart": "flowchart TD\n  a[开始] --> b{判断}\n  b -->|是| c[结束]\n  b -->|否| a\n",
@@ -930,6 +951,7 @@ const zhCn: Dict = {
   // mermaid 里鱼骨图的关键字带 -beta 后缀，光写 ishikawa 是画不出来的。
   "template.kind.ishikawa":
     "ishikawa-beta\n  问题\n    原因类别一\n      具体原因\n    原因类别二\n      具体原因\n",
+  "template.kind.bar": 'xychart-beta\n  title "月度支出"\n  x-axis [餐饮, 交通, 居住]\n  y-axis 0 --> 2000\n  bar [1200, 500, 2000]\n',
 
   // 九种图表共用同一个面板（editor/chart-panel.ts），词条也照这个层次分：
   // chart.* 是每个画布都有的外壳，chart.<图种>.* 是那张画布自己的说法，
@@ -1076,6 +1098,22 @@ const zhCn: Dict = {
   "chart.pie.editTitle": "编辑标题",
   "chart.pie.nameRequired": "名称不能为空",
   "chart.pie.invalidValue": "数值必须是大于 0 的数字",
+
+  "chart.deleteBar": "删除柱子",
+  "chart.bar.addBar": "添加柱子",
+  "chart.bar.addLeft": "在左侧添加柱子",
+  "chart.bar.addRight": "在右侧添加柱子",
+  "chart.bar.confirm": "确定",
+  "chart.bar.editBar": "编辑柱子",
+  "chart.bar.editTitle": "编辑标题",
+  "chart.bar.empty": "还没有柱子。先添加一个。",
+  "chart.bar.label": "标签",
+  "chart.bar.value": "数值",
+  "chart.bar.newBar": "新柱子",
+  "chart.bar.title": "标题",
+  "chart.bar.nameRequired": "标签不能为空",
+  "chart.bar.invalidValue": "数值必须是大于 0 的数字",
+  "chart.bar.valueHint": "拖柱顶圆点改数值，拖柱身换顺序。",
 
   "chart.git.addBranch": "添加分支",
   "chart.git.addCommit": "添加提交",

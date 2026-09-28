@@ -7,6 +7,7 @@ import { ganttSpec } from "./specs/gantt";
 import { gitSpec } from "./specs/git-graph";
 import { ishikawaSpec } from "./specs/ishikawa";
 import { pieSpec } from "./specs/pie";
+import { barSpec } from "./specs/bar-chart";
 import { sequenceSpec } from "./specs/sequence";
 import { stateSpec } from "./specs/state-diagram";
 import { timelineSpec } from "./specs/timeline";
@@ -32,6 +33,7 @@ const TABLE: Record<ChartCanvasId, RegisteredSpec> = {
   gitGraph: loose(gitSpec),
   timeline: loose(timelineSpec),
   ishikawa: loose(ishikawaSpec),
+  bar: loose(barSpec),
 };
 
 export function chartSpec(id: ChartCanvasId): RegisteredSpec {

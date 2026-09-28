@@ -7,6 +7,7 @@ import { RELATION_GROUPS } from "../charts/specs/class-diagram";
 import { CARD_OPTIONS } from "../charts/specs/er-diagram";
 import { GIT_LANE_PREFIX } from "../charts/specs/git-graph";
 import { dayNum, dayStr } from "../charts/specs/gantt";
+import type { BarChart, Bar } from "../charts/specs/bar-chart";
 import type { ChartField, ChartHandle, RegisteredSpec } from "../charts/types";
 import { nextId } from "../charts/draw";
 import { paintChart } from "../charts/paint";
@@ -788,7 +789,7 @@ export class ChartPanel {
   /** Strips the gantt grip prefixes (`bar:`/`rz:`) from a hit id; returns the id
    * untouched for every other chart kind. */
   private bareId(id: string): string {
-    return id.startsWith("bar:") ? id.slice(4) : id.startsWith("rz:") ? id.slice(3) : id;
+    return id.startsWith("bar:") ? id.slice(4) : id.startsWith("val:") ? id.slice(4) : id.startsWith("rz:") ? id.slice(3) : id;
   }
 
   /**
@@ -845,6 +846,34 @@ export class ChartPanel {
         this.deleteSelected();
         event.preventDefault();
         return;
+      }
+      // Bar chart: arrow keys reorder / nudge the selected bar, mirroring the
+      // mind map's node nudging. No other chart kind binds arrows here.
+      if (this.options.mode === "bar" && this.selected) {
+        const chart = this.state as BarChart;
+        const i = chart.bars.findIndex((b) => b.id === this.bareId(this.selected ?? ""));
+        if (i >= 0) {
+          if (event.key === "ArrowLeft" && i > 0) {
+            this.swapBar(i, i - 1);
+            event.preventDefault();
+            return;
+          }
+          if (event.key === "ArrowRight" && i < chart.bars.length - 1) {
+            this.swapBar(i, i + 1);
+            event.preventDefault();
+            return;
+          }
+          if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+            const bar = chart.bars[i];
+            const before = this.spec.serialize(this.state);
+            const factor = event.key === "ArrowUp" ? 1.1 : 0.9;
+            bar.value = Math.max(1, Math.round(bar.value * factor));
+            this.pushUndoIfChanged(before);
+            this.commit(false);
+            event.preventDefault();
+            return;
+          }
+        }
       }
       if (event.key === "Escape" && this.selected) {
         this.selected = null;
@@ -1063,7 +1092,8 @@ export class ChartPanel {
         this.options.mode !== "pie" &&
         this.options.mode !== "gitGraph" &&
         this.options.mode !== "timeline" &&
-        this.options.mode !== "ishikawa"
+        this.options.mode !== "ishikawa" &&
+        this.options.mode !== "bar"
       )
         return;
       event.preventDefault();
@@ -1075,6 +1105,7 @@ export class ChartPanel {
       else if (this.options.mode === "gitGraph") this.openGitMenu(event);
       else if (this.options.mode === "timeline") this.openTimelineMenu(event);
       else if (this.options.mode === "ishikawa") this.openFishMenu(event);
+      else if (this.options.mode === "bar") this.openBarMenu(event);
       else this.openGanttMenu(event);
     });
   }
@@ -1836,6 +1867,114 @@ export class ChartPanel {
       }
     );
     dialog.open();
+  }
+
+  private openBarMenu(event: MouseEvent): void {
+    const chart = this.state as BarChart;
+    const hitId = this.elementIdFromEvent(event);
+    const bare = hitId ? this.bareId(hitId) : null;
+    const bar = bare ? chart.bars.find((b) => b.id === bare) : null;
+    const menu = new Menu();
+
+    if (!bar) {
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.bar.addBar")).setIcon("plus").onClick(() => this.addOne())
+      );
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.bar.editTitle")).setIcon("pencil").onClick(() => this.openBarTitleDialog())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    // Highlight the bar while its menu is open, matching the other chart menus.
+    this.selected = `bar:${bar.id}`;
+    this.commit(false);
+
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.bar.editBar")).setIcon("pencil").onClick(() => this.openBarDialog(bar))
+    );
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.bar.addLeft")).setIcon("arrow-left").onClick(() => this.insertBar(bar.id, 0))
+    );
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.bar.addRight")).setIcon("arrow-right").onClick(() => this.insertBar(bar.id, 1))
+    );
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.deleteBar")).setIcon("trash-2").onClick(() => this.deleteById(`bar:${bar.id}`))
+    );
+    menu.showAtMouseEvent(event);
+  }
+
+  private openBarDialog(bar: Bar): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.bar.editBar"),
+      "",
+      [
+        { key: "label", label: t("chart.bar.label"), value: bar.label },
+        { key: "value", label: t("chart.bar.value"), value: String(bar.value) },
+      ],
+      t("chart.bar.confirm"),
+      (values) => {
+        const label = values.label.trim();
+        if (!label) return t("chart.bar.nameRequired");
+        const value = Number(values.value);
+        if (!Number.isFinite(value) || value <= 0) return t("chart.bar.invalidValue");
+        const before = this.spec.serialize(this.state);
+        bar.label = label;
+        bar.value = Math.max(1, Math.round(value * 100) / 100);
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private openBarTitleDialog(): void {
+    const chart = this.state as BarChart;
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.bar.editTitle"),
+      "",
+      [{ key: "title", label: t("chart.bar.title"), value: chart.title }],
+      t("chart.bar.confirm"),
+      (values) => {
+        const before = this.spec.serialize(this.state);
+        chart.title = values.title.trim();
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private insertBar(nearId: string, offset: number): void {
+    const chart = this.state as BarChart;
+    const before = this.spec.serialize(this.state);
+    const idx = chart.bars.findIndex((b) => b.id === nearId);
+    const at = idx < 0 ? chart.bars.length : idx + offset;
+    const id = nextId(chart.bars.map((b) => b.id), "b");
+    const largest = chart.bars.reduce((max, b) => Math.max(max, b.value), 0);
+    const bar: Bar = { id, label: t("chart.bar.newBar"), value: Math.max(1, Math.round(largest / 4) || 10) };
+    chart.bars.splice(Math.min(chart.bars.length, Math.max(0, at)), 0, bar);
+    this.selected = `bar:${id}`;
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+    this.openBarDialog(bar);
+  }
+
+  private swapBar(i: number, j: number): void {
+    const chart = this.state as BarChart;
+    const before = this.spec.serialize(this.state);
+    const arr = chart.bars;
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+    this.pushUndoIfChanged(before);
+    this.commit(false);
   }
 
   /* ---------------------------------------------------- git-graph context menu */

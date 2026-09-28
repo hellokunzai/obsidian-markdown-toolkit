@@ -147,6 +147,15 @@ export const DIAGRAM_KINDS: DiagramKind[] = [
     sceneKey: "kind.ishikawa.scene",
     templateKey: "template.kind.ishikawa",
   },
+  {
+    id: "bar",
+    keyword: "xychart-beta",
+    pattern: /^xychart-beta\b/i,
+    mode: "bar",
+    nameKey: "kind.bar.name",
+    sceneKey: "kind.bar.scene",
+    templateKey: "template.kind.bar",
+  },
 ];
 
 const BY_ID = new Map(DIAGRAM_KINDS.map((kind) => [kind.id, kind]));
