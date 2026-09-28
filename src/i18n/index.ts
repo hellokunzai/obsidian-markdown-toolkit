@@ -57,7 +57,6 @@ const en: Dict = {
   "editor.toolbar.undo": "Undo",
   "editor.toolbar.redo": "Redo",
   "editor.toolbar.addNode": "Add node",
-  "editor.toolbar.delete": "Delete",
   "editor.toolbar.zoomIn": "Zoom in",
   "editor.toolbar.zoomOut": "Zoom out",
   "editor.toolbar.fit": "Fit to window",
@@ -400,7 +399,6 @@ const en: Dict = {
   // vocabulary, and `chart.rel.*` names the seven class-diagram relations,
   // which are mermaid's terms rather than this plugin's.
   "chart.title": "Edit {{kind}}",
-  "chart.add": "Add",
   "chart.cancel": "Cancel",
   "chart.release": "Release position",
   "chart.empty": "Nothing here yet. Add an item, or double-click the canvas.",
@@ -651,7 +649,6 @@ const zhCn: Dict = {
   "editor.toolbar.undo": "撤销",
   "editor.toolbar.redo": "重做",
   "editor.toolbar.addNode": "新增节点",
-  "editor.toolbar.delete": "删除",
   "editor.toolbar.zoomIn": "放大",
   "editor.toolbar.zoomOut": "缩小",
   "editor.toolbar.fit": "适配窗口",
@@ -965,10 +962,9 @@ const zhCn: Dict = {
   // chart.* 是每个画布都有的外壳，chart.<图种>.* 是那张画布自己的说法，
   // chart.rel.* 是类图七种关系——它们是 mermaid 的术语，不是这个插件的发明。
   "chart.title": "编辑{{kind}}",
-  "chart.add": "新增",
   "chart.cancel": "取消",
   "chart.release": "解除固定",
-  "chart.empty": "这张图还是空的。用「新增」加第一项，或双击空白处。",
+  "chart.empty": "这张图还是空的。右键画布加第一项，或双击空白处。",
   "chart.props.title": "属性",
   "chart.props.none": "这里没有可编辑的内容。",
   "chart.summaryBoth": "{{nodes}} 个元素 · {{edges}} 条连线",

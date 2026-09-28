@@ -422,21 +422,16 @@ export class ChartPanel {
     toolbar.append(undo, redo);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
-    const add = this.buildButton("mtk-chart-add", t("chart.add"), "plus");
-    add.addEventListener("click", () => this.addOne());
-    const remove = this.buildButton("mtk-chart-delete", t("editor.toolbar.delete"), "trash-2");
-    remove.addEventListener("click", () => this.deleteSelected());
-    toolbar.append(add, remove);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-
+    // No add/delete buttons here: every chart kind adds and removes items from
+    // its right-click menu, so the toolbar skips straight to the zoom group.
     const zoomOut = this.buildButton("mtk-chart-zoom-out", t("editor.toolbar.zoomOut"), "zoom-out");
     zoomOut.addEventListener("click", () => this.zoomBy(1 / 1.15));
     this.zoomLabel = h("span", { cls: "mtk-zoom-value", text: "100%" });
     const zoomIn = this.buildButton("mtk-chart-zoom-in", t("editor.toolbar.zoomIn"), "zoom-in");
     zoomIn.addEventListener("click", () => this.zoomBy(1.15));
-    const fit = this.buildButton("mtk-chart-fit", t("editor.toolbar.fit"), "scan");
-    fit.addEventListener("click", () => this.fit());
-    toolbar.append(zoomOut, this.zoomLabel, zoomIn, fit);
+    // No fit button either: the panel re-fits on attach, on tidy and after
+    // container resizes, so there is nothing left for a manual fit to do.
+    toolbar.append(zoomOut, this.zoomLabel, zoomIn);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
     toolbar.appendChild(h("span", { cls: "mtk-spacer" }));
@@ -522,8 +517,6 @@ export class ChartPanel {
         ? t("chart.summaryBoth", { nodes: summary.nodes, edges: summary.edges })
         : t("chart.summaryOne", { nodes: summary.nodes });
 
-    const remove = this.root.querySelector<HTMLButtonElement>(".mtk-chart-delete");
-    if (remove) remove.disabled = !this.selected;
     const undo = this.root.querySelector<HTMLButtonElement>(".mtk-chart-undo");
     if (undo) undo.disabled = this.undoStack.length === 0;
     const redo = this.root.querySelector<HTMLButtonElement>(".mtk-chart-redo");
