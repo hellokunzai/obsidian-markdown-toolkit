@@ -13,8 +13,12 @@ import type { Bounds, ChartField, ChartRenderContext, ChartSpec } from "../types
  * which branch". Dragging one across lanes would describe a rewrite of the
  * branch structure, which the `gitGraph` syntax has no way to express (it is a
  * sequence of `commit` / `branch` / `merge` commands, not a set of positions).
- * So the edit that replaces dragging is a click: click a lane, get a commit on
- * it, appended with the `checkout` that makes it land on the branch you picked.
+ *
+ * So the edit that replaces dragging is "add commit", which appends a `commit`
+ * on the lane you point at — `onClick` below, driven from the panel's
+ * right-click menu. A bare click on a lane used to do the same, and no longer
+ * does: a click that silently extended history was far too easy to trigger by
+ * accident.
  */
 
 type GitEvent =
@@ -62,6 +66,16 @@ const LANE_H = 50;
 const ORIGIN_X = 46;
 const ORIGIN_Y = 64;
 const R = 7.5;
+
+/**
+ * Hit-test prefix for a branch.
+ *
+ * The lane label and the lane line both carry `lane:<name>` as their `data-mtk`,
+ * so either one can be right-clicked to rename the branch. Exported because the
+ * panel owns the right-click menu and has to recognise it — one shared constant
+ * beats the same literal written down in two files.
+ */
+export const GIT_LANE_PREFIX = "lane:";
 
 function create(): GitChart {
   return { events: [], commits: [], lanes: ["main"] };
@@ -243,13 +257,19 @@ function render(ctx: ChartRenderContext<GitChart>): void {
 
   state.lanes.forEach((name, index) => {
     const y = ORIGIN_Y + index * LANE_H;
+    // Label and line both answer to the lane's id, so the branch can be renamed
+    // by right-clicking either. A commit sitting on the lane still wins the hit
+    // test — it is drawn above the line and carries its own id — which is what
+    // we want: on a commit, the menu is about that commit.
+    const laneId = `${GIT_LANE_PREFIX}${name}`;
     // The lane line makes the row a drop target the user can aim at.
     path(wires, `M${ORIGIN_X - 22} ${y} L${extend(state)?.x2 ?? 200} ${y}`, {
       stroke: palette.stroke,
       sw: 1,
       dash: "2 7",
+      id: laneId,
     });
-    caption(gutter, name, 4, y, { size: 12, color: palette.text, weight: 600 });
+    caption(gutter, name, 4, y, { size: 12, color: palette.text, weight: 600, id: laneId });
   });
 
   const byId = new Map(state.commits.map((c) => [c.id, c]));
@@ -451,8 +471,9 @@ export const gitSpec: ChartSpec<GitChart> = {
   extent: extend,
   summary: (state) => ({ nodes: state.commits.length, edges: state.commits.reduce((n, c) => n + c.parents.length, 0) }),
   onClick: (state, point) => {
-    // Clicking *is* the edit here: it lands a commit on the lane you clicked,
-    // prefixed with the `checkout` that makes the syntax put it there.
+    // Appends a commit on the lane the point falls in, prefixed with the
+    // `checkout` that makes the syntax put it there. The panel calls this from
+    // the right-click menu's "add commit" — not from a bare click.
     const lane = laneIndexAt(state, point.y);
     const name = state.lanes[lane];
     if (!name) return null;

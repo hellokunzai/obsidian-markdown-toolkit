@@ -5,6 +5,7 @@ import type { ChartCanvasId, Point } from "../core/model";
 import { chartSpec } from "../charts/registry";
 import { RELATION_GROUPS } from "../charts/specs/class-diagram";
 import { CARD_OPTIONS } from "../charts/specs/er-diagram";
+import { GIT_LANE_PREFIX } from "../charts/specs/git-graph";
 import { dayNum, dayStr } from "../charts/specs/gantt";
 import type { ChartField, ChartHandle, RegisteredSpec } from "../charts/types";
 import { nextId } from "../charts/draw";
@@ -183,6 +184,39 @@ interface PieChartShape {
   title: string;
   slices: PieSliceShape[];
 }
+
+/** Structural subset of the git-graph state the right-click menu touches. Mirrors
+ * the gantt/pie convention: the panel stays generic and never imports the spec's
+ * `CommitNode`/`GitChart` types. The commit dialog needs the node's id, kind
+ * and the index of the event it was replayed from (so it can mutate the right
+ * `events` entry — `commit.seq` is not the same slot once a branch/checkout
+ * sits between two commits). `events`/`lanes` are the only other fields the
+ * menu reads (to derive a unique branch name and to build the id dialog note). */
+interface GitEventLike {
+  t: string;
+  id?: string;
+  kind?: string;
+  name?: string;
+  text?: string;
+}
+interface GitCommitShape {
+  id: string;
+  kind: string;
+  lane: number;
+  eventIndex: number;
+}
+interface GitChartShape {
+  commits: GitCommitShape[];
+  events: GitEventLike[];
+  lanes: string[];
+}
+
+/** The three commit kinds the git graph understands, in menu order. */
+const GIT_KINDS = [
+  ["NORMAL", "chart.git.normal"],
+  ["REVERSE", "chart.git.reverse"],
+  ["HIGHLIGHT", "chart.git.highlight"],
+] as const;
 
 export class ChartPanel {
   readonly root: HTMLElement;
@@ -380,15 +414,17 @@ export class ChartPanel {
     this.canvasWrap.appendChild(this.emptyNote);
 
     // State/ER diagrams and the gantt chart are edited through the right-click
-    // menu too (matching sequence and class), so the canvas keeps the whole body.
-    // The other four chart kinds still render the property panel.
+    // menu too (matching sequence and class); the git graph joins them. So the
+    // canvas keeps the whole body. The other three chart kinds still render
+    // the property panel.
     if (
       this.options.mode === "sequence" ||
       this.options.mode === "class" ||
       this.options.mode === "state" ||
       this.options.mode === "er" ||
       this.options.mode === "gantt" ||
-      this.options.mode === "pie"
+      this.options.mode === "pie" ||
+      this.options.mode === "gitGraph"
     ) {
       this.bodyWrap.append(this.canvasWrap);
       return;
@@ -456,8 +492,9 @@ export class ChartPanel {
    * selection. The panel knows six field kinds and nothing about diagrams.
    */
   private renderProps(): void {
-    // State/ER diagrams and the gantt chart have no side panel either; their
-    // editing lives in the right-click menu (and the task dialog opened from it).
+    // State/ER diagrams, the gantt chart and the git graph have no side panel
+    // either; their editing lives in the right-click menu (and the dialogs
+    // opened from it).
     if (
       this.options.mode === "sequence" ||
       this.options.mode === "class" ||
@@ -465,6 +502,7 @@ export class ChartPanel {
       this.options.mode === "er" ||
       this.options.mode === "gantt" ||
       this.options.mode === "pie" ||
+      this.options.mode === "gitGraph" ||
       !this.propsEl
     )
       return;
@@ -788,7 +826,11 @@ export class ChartPanel {
 
       this.moved = false;
       this.pendingUndo = null;
-      this.hitId = this.elementIdFromEvent(event);
+      // A lane's id (`lane:<name>`) exists only for the right-click menu; on a
+      // pointer gesture it has to read as blank canvas, otherwise pressing a lane
+      // line would stop panning and a click would "select" the branch itself.
+      const hit = this.elementIdFromEvent(event);
+      this.hitId = hit && hit.startsWith(GIT_LANE_PREFIX) ? null : hit;
       const handle = this.hitId ? this.handles.get(this.hitId) ?? null : null;
 
       if (handle && handle.axis !== "none") {
@@ -865,6 +907,11 @@ export class ChartPanel {
         this.pinch.ready = false;
         this.pinch.distance = 0;
       }
+      // A right-button release must never be treated as a canvas click: the git
+      // graph's `onClick` drops a commit where you click, so without this guard a
+      // right-click would both open the context menu and append a commit. The
+      // pointer bookkeeping above still runs first so no pointer is left behind.
+      if (event.type === "pointerup" && event.pointerType === "mouse" && event.button !== 0) return;
       const drag = this.drag;
       const hitId = this.hitId;
       const moved = this.moved;
@@ -918,7 +965,14 @@ export class ChartPanel {
         this.commit(false);
         return;
       }
-      const created = this.spec.onClick?.(this.state, point) ?? null;
+      // A bare click no longer drops a commit on the git graph — that moved into
+      // the right-click menu, because a click that silently extended history was
+      // far too easy to trigger by accident. (The spec's `onClick` is still the
+      // lane-aware "append here" that the menu calls; it just is not click-driven
+      // any more.) Every other kind leaves `onClick` undefined, so for them a
+      // click on blank canvas still only clears the selection.
+      const created =
+        this.options.mode === "gitGraph" ? null : this.spec.onClick?.(this.state, point) ?? null;
       this.selected = created;
       this.pushUndoIfChanged(before);
       this.commit(created !== null);
@@ -953,8 +1007,8 @@ export class ChartPanel {
       { passive: false }
     );
 
-    // Sequence, class, state, ER diagrams and the gantt chart drive all editing
-    // from the right-click menu; the other four chart kinds keep their
+    // Sequence, class, state, ER diagrams, the gantt chart and the git graph drive
+    // all editing from the right-click menu; the other three chart kinds keep their
     // left-click-to-select + side-panel.
     svg.addEventListener("contextmenu", (event: MouseEvent) => {
       if (
@@ -963,7 +1017,8 @@ export class ChartPanel {
         this.options.mode !== "state" &&
         this.options.mode !== "er" &&
         this.options.mode !== "gantt" &&
-        this.options.mode !== "pie"
+        this.options.mode !== "pie" &&
+        this.options.mode !== "gitGraph"
       )
         return;
       event.preventDefault();
@@ -972,6 +1027,7 @@ export class ChartPanel {
       else if (this.options.mode === "state") this.openStateMenu(event);
       else if (this.options.mode === "er") this.openErMenu(event);
       else if (this.options.mode === "pie") this.openPieMenu(event);
+      else if (this.options.mode === "gitGraph") this.openGitMenu(event);
       else this.openGanttMenu(event);
     });
   }
@@ -1733,6 +1789,220 @@ export class ChartPanel {
       }
     );
     dialog.open();
+  }
+
+  /* ---------------------------------------------------- git-graph context menu */
+
+  /**
+   * Right-click menu for the git graph. Its side panel is gone too, so editing a
+   * commit — its id, its kind, deleting it — and adding a commit or a branch all
+   * live here.
+   *
+   * This is the one chart where a plain click is *also* an edit: `onClick` drops
+   * a commit on the lane you clicked. The menu complements that rather than
+   * replacing it — left-click adds a commit where you point, right-click edits
+   * what is already on the canvas. (A right-button release is kept out of the
+   * click path by the guard in `finish`.)
+   */
+  private openGitMenu(event: MouseEvent): void {
+    const chart = this.state as GitChartShape;
+    // Commit ids carry no prefix (unlike the gantt's `bar:`/`rz:` grips), so a
+    // hit id maps straight to a commit.
+    const hitId = this.elementIdFromEvent(event);
+    const commit = hitId ? chart.commits.find((c) => c.id === hitId) : null;
+    const menu = new Menu();
+
+    if (commit) {
+      // Highlight the commit while its menu is open, matching the other menus.
+      this.selected = commit.id;
+      this.commit(false);
+
+      // A merge commit comes from a `merge` command, not a `commit` one: it has
+      // no id or kind of its own (the id is derived as `mN`, the kind is always
+      // MERGE), so only deletion applies to it.
+      const source = chart.events[commit.eventIndex];
+      if (source?.t === "commit") {
+        menu.addItem((mi) =>
+          mi.setTitle(t("chart.git.editId")).setIcon("pencil").onClick(() => this.openGitCommitDialog(commit, source))
+        );
+        menu.addSeparator();
+        // Kind is a three-way choice, so it is a labelled group of three checked
+        // items rather than a dialog: one click, and the current value reads as a
+        // tick. (The bundled Obsidian API exposes no `setSubmenu`, but a submenu
+        // for three options would be more hover than it is worth anyway.)
+        menu.addItem((mi) => mi.setTitle(t("chart.git.kind")).setIsLabel(true));
+        for (const [kind, label] of GIT_KINDS) {
+          menu.addItem((mi) =>
+            mi.setTitle(t(label)).setChecked(commit.kind === kind).onClick(() => this.setGitKind(source, kind))
+          );
+        }
+        menu.addSeparator();
+      }
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.git.deleteCommit")).setIcon("trash-2").onClick(() => this.deleteById(commit.id))
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    // A lane — its label or its dashed line — answers to `lane:<name>`. A commit
+    // literally named `lane:x` would have matched above, which is the right
+    // tie-break: that id does name a real commit on this canvas.
+    const rawLane = hitId?.startsWith(GIT_LANE_PREFIX) ? hitId.slice(GIT_LANE_PREFIX.length) : null;
+    const lane = rawLane !== null && chart.lanes.includes(rawLane) ? rawLane : null;
+
+    if (lane !== null) {
+      // Only lane 0 is fixed: the spec's replay hardcodes the first branch as
+      // "main", so it has no `branch` command to rewrite and cannot be renamed.
+      // The item stays visible but disabled, so the capability is discoverable
+      // rather than mysteriously absent on exactly one row.
+      const renamable = chart.lanes.indexOf(lane) > 0;
+      menu.addItem((mi) =>
+        mi
+          .setTitle(renamable ? t("chart.git.renameBranch") : t("chart.git.renameBlocked"))
+          .setIcon("pencil")
+          .setDisabled(!renamable)
+          .onClick(() => this.renameGitBranch(lane))
+      );
+      menu.addSeparator();
+    }
+
+    // Offered on a lane as well as on blank canvas: pulling the menu up on a
+    // branch is the natural gesture for "add something here".
+    menu.addItem((item) =>
+      item.setTitle(t("chart.git.addCommit")).setIcon("plus").onClick(() => this.addCommitAt(event))
+    );
+    menu.addItem((item) =>
+      item.setTitle(t("chart.git.addBranch")).setIcon("git-branch").onClick(() => this.addGitBranch())
+    );
+    menu.showAtMouseEvent(event);
+  }
+
+  /**
+   * Renames a branch, rewriting every command that names it.
+   *
+   * A branch name is not stored once: `branch`, `checkout` and `merge` all carry
+   * it, and the replay rebuilds the lanes from those commands. Rewriting only the
+   * `branch` line would leave every `checkout` pointing at a lane that no longer
+   * exists — the commits after it would quietly stay on the old one.
+   */
+  private renameGitBranch(oldName: string): void {
+    const chart = this.state as GitChartShape;
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.git.renameBranch"),
+      "",
+      [{ key: "name", label: t("chart.git.branchName"), value: oldName }],
+      t("chart.class.confirm"),
+      (values) => {
+        const name = values.name.trim();
+        if (!name) return t("chart.git.nameRequired");
+        if (name === oldName) return null;
+        if (chart.lanes.includes(name)) return t("chart.git.nameTaken");
+        const before = this.spec.serialize(this.state);
+        // Only `branch` / `checkout` / `merge` events carry a `name`; commit and
+        // raw events have nothing here to rewrite.
+        for (const event of chart.events) {
+          if (event.name === oldName) event.name = name;
+        }
+        this.rederive();
+        this.pushUndoIfChanged(before);
+        this.commit(false);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  /**
+   * Appends a commit on the lane under the cursor.
+   *
+   * Routed through the spec's own `onClick` so the right-click version lands
+   * exactly where a left-click would — same lane, same `checkout` prefix —
+   * rather than a second implementation that could drift from the first.
+   */
+  private addCommitAt(event: MouseEvent): void {
+    const point = this.toModelCoords(event.clientX, event.clientY);
+    const before = this.spec.serialize(this.state);
+    const created = this.spec.onClick?.(this.state, point) ?? null;
+    this.selected = created;
+    this.pushUndoIfChanged(before);
+    this.commit(created !== null);
+  }
+
+  /**
+   * Appends a `branch` command.
+   *
+   * `ChartSpec` does not expose git's `addBranch`, so rather than widening the
+   * interface the command is appended to the serialized source and the spec's
+   * own parser rebuilds the derived state. The name is de-duplicated the same
+   * way the spec's version does it, so the two never disagree.
+   */
+  private addGitBranch(): void {
+    const chart = this.state as GitChartShape;
+    const taken = new Set(chart.lanes);
+    let index = chart.lanes.length;
+    let name = `branch${index}`;
+    while (taken.has(name)) {
+      index += 1;
+      name = `branch${index}`;
+    }
+    const before = this.spec.serialize(this.state);
+    const next = `${before.trimEnd()}\n  branch ${name}\n`;
+    this.state = this.spec.parse(next);
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+  }
+
+  private openGitCommitDialog(commit: GitCommitShape, event: GitEventLike): void {
+    const chart = this.state as GitChartShape;
+    const eventIndex = commit.eventIndex;
+    const index = chart.commits.findIndex((c) => c.id === commit.id);
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.git.editId"),
+      t("chart.git.position", { lane: chart.lanes[commit.lane] ?? "-", n: String(index + 1) }),
+      [{ key: "id", label: t("chart.git.id"), value: commit.id }],
+      t("chart.class.confirm"),
+      (values) => {
+        const id = values.id.trim();
+        if (!id) return t("chart.git.idRequired");
+        const before = this.spec.serialize(this.state);
+        event.id = id;
+        this.rederive();
+        // The id can be de-duplicated on re-derivation (`init` -> `init-2`), so
+        // re-resolve the node from the event it was replayed from rather than
+        // trusting the typed value.
+        this.selected =
+          (this.state as GitChartShape).commits.find((c) => c.eventIndex === eventIndex)?.id ?? id;
+        this.pushUndoIfChanged(before);
+        this.commit(false);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  /** Switches a commit's kind (normal / reverse / highlight). */
+  private setGitKind(event: GitEventLike, kind: string): void {
+    const before = this.spec.serialize(this.state);
+    event.kind = kind;
+    this.rederive();
+    this.pushUndoIfChanged(before);
+    this.commit(false);
+  }
+
+  /**
+   * Rebuilds the derived state from the event stream.
+   *
+   * The git graph's `layout()` is a no-op — a commit's position is a
+   * *consequence* of replaying the events — so after editing an event's id or
+   * kind a plain `commit()` would redraw the old commit: `commits` is only
+   * recomputed by `parse`/`derive`. Round-tripping through the spec's own
+   * `serialize`/`parse` refreshes it without the panel reaching into the spec.
+   */
+  private rederive(): void {
+    this.state = this.spec.parse(this.spec.serialize(this.state));
   }
 
   /* --------------------------------------------------------------- output */

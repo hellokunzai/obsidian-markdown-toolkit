@@ -133,8 +133,12 @@ export interface ChartSpec<S> {
   fit?: { maxScale?: number };
   summary(state: S): ChartSummary;
   /**
-   * A click on blank canvas — used by charts where clicking *is* the edit
-   * (a git graph inserts a commit on the lane you click).
+   * Places a new element at a point on blank canvas — for charts where *where*
+   * you pointed carries meaning (a git graph appends a commit on the lane the
+   * point falls in).
+   *
+   * The panel drives this from the right-click menu's "add" action rather than
+   * from a bare click, so a stray click cannot silently extend the diagram.
    *
    * Clicking an existing element never reaches here: the renderer marks every
    * shape with `data-mtk`, so the panel resolves those by DOM hit-testing, which
