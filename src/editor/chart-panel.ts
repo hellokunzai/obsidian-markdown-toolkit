@@ -468,7 +468,8 @@ export class ChartPanel {
       this.options.mode === "pie" ||
       this.options.mode === "gitGraph" ||
       this.options.mode === "timeline" ||
-      this.options.mode === "ishikawa"
+      this.options.mode === "ishikawa" ||
+      this.options.mode === "bar"
     ) {
       this.bodyWrap.append(this.canvasWrap);
       return;
@@ -549,6 +550,7 @@ export class ChartPanel {
       this.options.mode === "gitGraph" ||
       this.options.mode === "timeline" ||
       this.options.mode === "ishikawa" ||
+      this.options.mode === "bar" ||
       !this.propsEl
     )
       return;
