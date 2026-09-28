@@ -59,6 +59,14 @@ interface GanttChart {
   passthrough: string[];
   /** The axis is only recomputed on layout, so a drag cannot rescale mid-gesture. */
   axis: { minDay: number; maxDay: number };
+  /**
+   * Pixels per day, filled by `render` from the surface width. A gantt chart is
+   * a time axis, so it wants to spread across the column it is given rather than
+   * sit at a fixed 15px/day that only reaches full width by being magnified
+   * (which would also magnify the date labels and task names). 0 until `render`
+   * has seen a width; `extent` and `barX` fall back to `DAY_W` then.
+   */
+  dayW: number;
 }
 
 const HEADER_RE = /^gantt\b/i;
@@ -68,11 +76,18 @@ const SECTION_RE = /^section\s+(.+)$/i;
 const TASK_RE = /^(.+?)\s*:\s*(.+)$/;
 
 const DAY_W = 15;
-const LABEL_W = 176;
-const ROW_H = 32;
+/**
+ * Fallback day width (px) used when no surface width is known — export, and any
+ * caller that paints before the layout has settled. The live embed and editor
+ * pass the real width in through `ChartRenderContext.width`, which overrides this.
+ */
+const ROW_H = 36;
 const SECTION_H = 26;
-const BAR_H = 18;
-const HEAD_H = 34;
+const BAR_H = 26;
+/** Title band at the top; the `title` line is drawn centred inside it. */
+const TITLE_H = 34;
+/** Date-label band under the rows; full `YYYY-MM-DD` captions live here. */
+const AXIS_H = 26;
 const KNOWN_TAGS = ["done", "active", "crit", "milestone"];
 
 const DAY_MS = 86400000;
@@ -115,7 +130,7 @@ function durationStr(days: number): string {
 }
 
 function create(): GanttChart {
-  return { title: "", format: "YYYY-MM-DD", tasks: [], passthrough: [], axis: { minDay: 0, maxDay: 1 } };
+  return { title: "", format: "YYYY-MM-DD", tasks: [], passthrough: [], axis: { minDay: 0, maxDay: 1 }, dayW: 0 };
 }
 
 function parse(source: string): GanttChart {
@@ -255,7 +270,7 @@ function axisOf(chart: GanttChart): { minDay: number; maxDay: number } {
 
 function layout(chart: GanttChart): void {
   chart.axis = axisOf(chart);
-  let y = HEAD_H;
+  let y = TITLE_H;
   let section = "";
   for (const task of chart.tasks) {
     if (task.section !== section) {
@@ -268,9 +283,10 @@ function layout(chart: GanttChart): void {
 }
 
 function barX(chart: GanttChart, task: GanttTask): { x: number; w: number } {
+  const dw = chart.dayW > 0 ? chart.dayW : DAY_W;
   return {
-    x: LABEL_W + (task.start - chart.axis.minDay) * DAY_W,
-    w: Math.max(6, task.days * DAY_W),
+    x: (task.start - chart.axis.minDay) * dw,
+    w: Math.max(6, task.days * dw),
   };
 }
 
@@ -280,44 +296,80 @@ function extend(chart: GanttChart): Bounds | null {
   const min = Math.min(chart.axis.minDay, live.minDay);
   const max = Math.max(chart.axis.maxDay, live.maxDay);
   const last = chart.tasks[chart.tasks.length - 1];
+  const dw = chart.dayW > 0 ? chart.dayW : DAY_W;
   return {
     x1: 0,
     y1: 0,
-    x2: LABEL_W + (max - chart.axis.minDay) * DAY_W + 24,
-    y2: last.y + ROW_H,
+    // The plot starts at day 0 of the axis and ends at the last grid line; no
+    // extra margin here — the framing maths adds its own padding, and the first
+    // and last date captions are anchored to the edges so they stay inside.
+    x2: (max - chart.axis.minDay) * dw,
+    y2: last.y + ROW_H / 2 + AXIS_H,
   };
 }
 
 function render(ctx: ChartRenderContext<GanttChart>): void {
   const { layer, state, palette, selected, interactive, grip } = ctx;
-  const chartX = LABEL_W;
   const axis = state.axis;
   const span = Math.max(1, axis.maxDay - axis.minDay);
-  const step = Math.max(1, Math.ceil(span / 12));
-  const bottom = extend(state)?.y2 ?? HEAD_H + ROW_H;
+  // Width-aware day width: when the surface reports a width, spread the axis
+  // across it so bars fill the column instead of a fixed 15px/day model that
+  // only reaches full width by being magnified (which also magnifies the text).
+  // Without a width (export/legacy) it falls back to the fixed model width.
+  const surfaceWidth = ctx.width ?? 0;
+  const dayW = surfaceWidth > 0
+    ? Math.max(8, surfaceWidth / span)
+    : state.dayW > 0 ? state.dayW : DAY_W;
+  state.dayW = dayW;
+  const chartX = 0;
+  // One vertical rule per day — the column is now wide enough for it.
+  const step = 1;
+  // A "YYYY-MM-DD" caption is ~56px wide; label every day the column fits one,
+  // otherwise step just enough days that the captions no longer collide.
+  const labelW = textWidth("0000-00-00", 10.5) + 6;
+  const labelStep = dayW >= labelW ? 1 : Math.ceil(labelW / dayW);
+  const plotBottom = state.tasks.length
+    ? state.tasks[state.tasks.length - 1].y + ROW_H / 2
+    : TITLE_H + ROW_H;
 
   const axisLayer = group(layer, "mtk-chart-axis");
   const bars = group(layer, "mtk-chart-nodes");
   const labels = group(layer, "mtk-chart-labels");
 
-  // Day grid. A tick every `step` days keeps a 90-day schedule readable where
-  // a line per day would be a solid block of colour.
-  for (let day = axis.minDay; day <= axis.maxDay; day += step) {
-    const x = chartX + (day - axis.minDay) * DAY_W;
-    line(axisLayer, x, HEAD_H, x, bottom, { stroke: palette.stroke, sw: 1, dash: "3 5" });
-    caption(axisLayer, dayStr(day).slice(5), x + 3, HEAD_H / 2 + 4, {
-      size: 10.5,
+  // The `title` line, centred over the plot area.
+  if (state.title) {
+    caption(labels, state.title, chartX + (span * dayW) / 2, TITLE_H / 2, {
+      size: 13,
       color: palette.edgeText,
+      anchor: "middle",
+      weight: 600,
     });
   }
-  line(axisLayer, chartX, HEAD_H, chartX + span * DAY_W, HEAD_H, { stroke: palette.stroke, sw: 1 });
+
+  // Day grid. Solid verticals running from below the title through the rows
+  // down to the axis band, one full date caption under its own line every
+  // `labelStep` days (see above for why captions cannot reuse `step`).
+  for (let day = axis.minDay; day <= axis.maxDay; day += step) {
+    const x = chartX + (day - axis.minDay) * dayW;
+    line(axisLayer, x, TITLE_H, x, plotBottom, { stroke: palette.edge, sw: 1 });
+    if ((day - axis.minDay) % labelStep === 0) {
+      // Centre-anchored: `labelStep` keeps consecutive captions far enough
+      // apart not to collide, and the half-caption that hangs past the first
+      // and last grid line lands in the framing padding, not off-canvas.
+      caption(labels, dayStr(day), x, plotBottom + AXIS_H / 2, {
+        size: 10.5,
+        color: palette.edgeText,
+        anchor: "middle",
+      });
+    }
+  }
 
   let section = "";
   for (const task of state.tasks) {
     if (task.section !== section) {
       section = task.section;
       if (section) {
-        line(labels, 0, task.y - ROW_H / 2 - SECTION_H / 2 + 2, chartX + span * DAY_W, task.y - ROW_H / 2 - SECTION_H / 2 + 2, {
+        line(labels, 0, task.y - ROW_H / 2 - SECTION_H / 2 + 2, chartX + span * dayW, task.y - ROW_H / 2 - SECTION_H / 2 + 2, {
           stroke: palette.stroke,
           sw: 1,
         });
@@ -329,11 +381,9 @@ function render(ctx: ChartRenderContext<GanttChart>): void {
       }
     }
 
-    caption(labels, task.name, chartX - 12, task.y, { size: 11.5, color: palette.text, anchor: "end", id: task.id });
-
     const { x, w } = barX(state, task);
     const g = group(bars, "mtk-chart-node");
-    if (selected === task.id) halo(g, x, task.y - BAR_H / 2, w, BAR_H, palette.accent, 6);
+    if (selected === task.id) halo(g, x, task.y - BAR_H / 2, w, BAR_H, palette.accent, 9);
 
     const done = task.tags.includes("done");
     const milestone = task.tags.includes("milestone");
@@ -347,13 +397,29 @@ function render(ctx: ChartRenderContext<GanttChart>): void {
         stroke,
         id: task.id,
       });
+      // A diamond is too small to hold its name; read it from the right.
+      caption(labels, task.name, x + size + 6, task.y, {
+        size: 11,
+        color: palette.text,
+        anchor: "start",
+      });
     } else {
-      box(g, { x, y: task.y - BAR_H / 2, w, h: BAR_H, rx: 5, fill, stroke, id: task.id });
-      if (task.days >= 2) {
-        caption(g, durationStr(task.days), x + w / 2, task.y, {
-          size: 10.5,
-          color: palette.edgeText,
+      box(g, { x, y: task.y - BAR_H / 2, w, h: BAR_H, rx: 4, fill, stroke, id: task.id });
+      // The task name lives inside the bar. A bar too short for its own name
+      // (one-day tasks, mostly) reads it from the right edge instead.
+      const inside = textWidth(task.name, 11) <= w - 10;
+      if (inside) {
+        // `done`'s tick occupies the left edge — slide the name past it.
+        caption(g, task.name, x + w / 2 + (done ? 8 : 0), task.y, {
+          size: 11,
+          color: palette.text,
           anchor: "middle",
+        });
+      } else {
+        caption(labels, task.name, x + w + 6, task.y, {
+          size: 11,
+          color: palette.text,
+          anchor: "start",
         });
       }
       if (done) {
@@ -384,7 +450,10 @@ function render(ctx: ChartRenderContext<GanttChart>): void {
       begin: () => ({ start: task.start }),
       drag: (dx, _dy, start) => {
         const origin = start as { start: number };
-        task.start = Math.round(origin.start + dx / DAY_W);
+        // `dx` arrives in model coordinates (screen delta already divided by the
+        // viewport scale), and the model is `dayW` px per day — not the legacy
+        // 15px — so the day conversion must use the live `dayW`.
+        task.start = Math.round(origin.start + dx / dayW);
         task.manual = true;
       },
     });
@@ -398,7 +467,7 @@ function render(ctx: ChartRenderContext<GanttChart>): void {
       begin: () => ({ days: task.days }),
       drag: (dx, _dy, start) => {
         const origin = start as { days: number };
-        task.days = Math.max(1, Math.round(origin.days + dx / DAY_W));
+        task.days = Math.max(1, Math.round(origin.days + dx / dayW));
         task.manual = true;
       },
     });
@@ -526,6 +595,11 @@ export const ganttSpec: ChartSpec<GanttChart> = {
   add,
   remove,
   extent: extend,
+  // A short schedule is a row of bars spanning the width it is given, not a
+  // postage stamp centred in the canvas — lift the generic 1.15 framing cap
+  // (see `ChartSpec.fit`) so the embed, the editor and the lightbox scale it
+  // up to the available width instead of leaving the margins empty.
+  fit: { maxScale: 3 },
   summary: (state) => ({ nodes: state.tasks.length, edges: state.tasks.filter((task) => task.dep).length }),
   /*
    * Hands every dependent bar back to the schedule.

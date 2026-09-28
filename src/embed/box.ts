@@ -12,6 +12,7 @@ import {
   computeFit,
   fitBounds,
   fitBoundsToWidth,
+  type AutoFitOptions,
   type FitBoundsBox,
   type Viewport,
 } from "../render/fit";
@@ -133,14 +134,35 @@ export function buildDiagramBox(
             ? t("chart.summaryBoth", { nodes: counts.nodes, edges: counts.edges })
             : t("chart.summaryOne", { nodes: counts.nodes });
 
+        // A preliminary bounds check (fallback width) decides whether to draw at
+        // all; the real, width-aware paint is deferred until the canvas actually
+        // has a width, because a width-aware spec (the gantt) spreads its axis to
+        // fill the column and must be laid out against the real width.
         const bounds = spec.extent(state);
         if (bounds) {
           const surface = createSurface(canvas);
-          paintChart(surface, spec, state, {
-            palette: readPalette(surface.svg),
-            interactive: false,
-          });
-          fit = () => sizeTo(surface.layer, bounds);
+          const palette = readPalette(surface.svg);
+          let lastWidth = 0;
+          let lastBounds: FitBoundsBox | null = null;
+          fit = () => {
+            const width = canvas.clientWidth;
+            if (!width) return;
+            // Re-paint only when the width changed (a width-aware chart needs a
+            // fresh layout at the new width; the rest are unaffected but cheap).
+            if (width !== lastWidth) {
+              spec.layout(state);
+              paintChart(surface, spec, state, { palette, interactive: false, width });
+              lastBounds = spec.extent(state);
+              lastWidth = width;
+            }
+            if (lastBounds) {
+              // The spec's fit override wins over the generic cap (see `ChartSpec.fit`).
+              sizeTo(surface.layer, lastBounds, {
+                ...INLINE_FIT,
+                maxScale: spec.fit?.maxScale ?? INLINE_FIT.maxScale,
+              });
+            }
+          };
         }
       } else {
         const parsed = parseDiagram(source, mode);
@@ -192,9 +214,9 @@ export function buildDiagramBox(
    * Guarded once here rather than at each caller: the first paint runs before
    * layout, and every resize afterwards comes through the same path.
    */
-  const sizeTo = (layer: SVGGElement, bounds: FitBoundsBox): void => {
+  const sizeTo = (layer: SVGGElement, bounds: FitBoundsBox, options: AutoFitOptions = INLINE_FIT): void => {
     if (!canvas.clientWidth) return;
-    const fitted = fitBoundsToWidth(bounds, canvas.clientWidth, INLINE_FIT);
+    const fitted = fitBoundsToWidth(bounds, canvas.clientWidth, options);
     setCssVars(canvas, { "--mtk-canvas-h": `${fitted.boxHeight}px` });
     applyViewport(layer, fitted.view);
   };
@@ -394,16 +416,34 @@ export function openLightbox(
   if (isChartMode(mode)) {
     const spec = chartSpec(mode);
     const state = spec.parse(source);
+    const palette = readPalette(surface.svg);
+    let lastWidth = 0;
+    // Frames the drawing at the canvas's current size. A width-aware spec (the
+    // gantt) re-lays-out to fill the width, so it is re-painted whenever the
+    // width changes; the rest only repaint on the first frame.
+    const draw = (): Viewport | null => {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (!width || !height) return null;
+      if (width !== lastWidth) {
+        spec.layout(state);
+        paintChart(surface, spec, state, { palette, interactive: false, width });
+        lastWidth = width;
+      }
+      const bounds = spec.extent(state);
+      if (!bounds) return null;
+      return fitBounds(bounds, width, height, {
+        ...LIGHTBOX_FIT,
+        maxScale: spec.fit?.maxScale ?? LIGHTBOX_FIT.maxScale,
+        anchorLeft: false,
+      });
+    };
+    // Paint once up front (no width) so the preview is never blank before the
+    // first re-frame, then let the preview viewport take over at the real size.
     spec.layout(state);
-    paintChart(surface, spec, state, { palette: readPalette(surface.svg), interactive: false });
-    const bounds = spec.extent(state);
-    if (bounds) {
-      fit = () =>
-        fitBounds(bounds, canvas.clientWidth, canvas.clientHeight, {
-          ...LIGHTBOX_FIT,
-          anchorLeft: false,
-        });
-    }
+    paintChart(surface, spec, state, { palette, interactive: false, width: 0 });
+    const initial = draw();
+    if (initial) fit = draw;
   } else {
     const parsed = parseDiagram(source, mode);
     if (!parsed.ok) {

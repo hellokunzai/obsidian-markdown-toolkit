@@ -517,6 +517,11 @@ const en: Dict = {
   "chart.gantt.newTask": "New task",
   "chart.gantt.section": "Phase",
   "chart.gantt.start": "Start date",
+  "chart.gantt.editTask": "Edit task",
+  "chart.gantt.nameRequired": "Task name cannot be empty.",
+  "chart.gantt.invalidDate": "Enter the date as YYYY-MM-DD.",
+  "chart.gantt.invalidDays": "Duration must be a whole number of days (at least 1).",
+  "chart.gantt.formatHint": "Format: YYYY-MM-DD, e.g. 2026-09-01.",
 
   "chart.pie.addSlice": "Add slice",
   "chart.pie.conserve": "The total is fixed: a boundary only trades value between the two slices it separates.",
@@ -1030,6 +1035,11 @@ const zhCn: Dict = {
   "chart.gantt.newTask": "新任务",
   "chart.gantt.section": "所属阶段",
   "chart.gantt.start": "起始日期",
+  "chart.gantt.editTask": "编辑任务",
+  "chart.gantt.nameRequired": "任务名称不能为空。",
+  "chart.gantt.invalidDate": "日期需写成 YYYY-MM-DD 格式。",
+  "chart.gantt.invalidDays": "工期需为 ≥1 的整数（天）。",
+  "chart.gantt.formatHint": "格式：YYYY-MM-DD，例如 2026-09-01。",
 
   "chart.pie.addSlice": "添加扇区",
   "chart.pie.conserve": "总量是固定的：拖动分界线只是在它隔开的相邻两片之间挪数值。",

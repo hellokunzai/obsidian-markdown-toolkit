@@ -5,6 +5,7 @@ import type { ChartCanvasId, Point } from "../core/model";
 import { chartSpec } from "../charts/registry";
 import { RELATION_GROUPS } from "../charts/specs/class-diagram";
 import { CARD_OPTIONS } from "../charts/specs/er-diagram";
+import { dayNum, dayStr } from "../charts/specs/gantt";
 import type { ChartField, ChartHandle, RegisteredSpec } from "../charts/types";
 import { nextId } from "../charts/draw";
 import { paintChart } from "../charts/paint";
@@ -150,6 +151,24 @@ interface ErChartShape {
   items: EntityItemShape[];
   edges: EntityEdgeShape[];
   linking: string | null;
+}
+
+/** Structural subset of the gantt state the right-click menu touches. The panel
+ * stays generic and never imports the spec's `GanttTask`/`GanttChart` types; this
+ * is the four fields the edit dialog reads or mutates. */
+interface GanttTaskShape {
+  id: string;
+  name: string;
+  section: string;
+  /** Days since epoch, matching the spec's `start`. */
+  start: number;
+  days: number;
+  /** Set true the moment a date/duration is edited, so the spec stops writing
+   * `after <key>` for this row. */
+  manual: boolean;
+}
+interface GanttChartShape {
+  tasks: GanttTaskShape[];
 }
 
 export class ChartPanel {
@@ -341,14 +360,15 @@ export class ChartPanel {
     this.emptyNote = h("div", { cls: "mtk-empty", text: t("chart.empty") });
     this.canvasWrap.appendChild(this.emptyNote);
 
-    // State/ER diagrams are edited through the right-click menu too (matching
-    // sequence and class), so the canvas keeps the whole body. The other five
-    // chart kinds still render the property panel.
+    // State/ER diagrams and the gantt chart are edited through the right-click
+    // menu too (matching sequence and class), so the canvas keeps the whole body.
+    // The other four chart kinds still render the property panel.
     if (
       this.options.mode === "sequence" ||
       this.options.mode === "class" ||
       this.options.mode === "state" ||
-      this.options.mode === "er"
+      this.options.mode === "er" ||
+      this.options.mode === "gantt"
     ) {
       this.bodyWrap.append(this.canvasWrap);
       return;
@@ -376,6 +396,9 @@ export class ChartPanel {
       selected: this.selected,
       interactive: true,
       grips: this.handles,
+      // The surface width so a width-aware spec (the gantt) can spread to fill
+      // the column; `fit()` later reads the resulting bounds and frames it.
+      width: this.canvasWrap.clientWidth,
     });
     this.applyViewTransform();
     this.updateChrome();
@@ -413,13 +436,14 @@ export class ChartPanel {
    * selection. The panel knows six field kinds and nothing about diagrams.
    */
   private renderProps(): void {
-    // State/ER diagrams have no side panel either; their editing lives in the
-    // right-click menu (and the transition/relation dialog opened from it).
+    // State/ER diagrams and the gantt chart have no side panel either; their
+    // editing lives in the right-click menu (and the task dialog opened from it).
     if (
       this.options.mode === "sequence" ||
       this.options.mode === "class" ||
       this.options.mode === "state" ||
       this.options.mode === "er" ||
+      this.options.mode === "gantt" ||
       !this.propsEl
     )
       return;
@@ -574,7 +598,9 @@ export class ChartPanel {
     }
     this.view = fitBounds(bounds, width, height, {
       padding: Platform.isMobile ? 22 : 34,
-      maxScale: Platform.isMobile ? 1 : 1.15,
+      // A spec may ask to fill more of the canvas than the generic cap allows
+      // (the gantt does — an empty margin either side reads as a broken axis).
+      maxScale: this.spec.fit?.maxScale ?? (Platform.isMobile ? 1 : 1.15),
       anchorLeft: Platform.isMobile,
     });
     this.applyViewTransform();
@@ -646,10 +672,20 @@ export class ChartPanel {
   private deleteSelected(): void {
     if (!this.selected) return;
     const before = this.spec.serialize(this.state);
-    this.spec.remove(this.state, this.selected);
+    // The gantt's grip ids carry a `bar:`/`rz:` prefix; the spec's `remove`
+    // wants the bare task id, so strip it. Other chart kinds never use those
+    // prefixes, so this is a no-op for them and the toolbar Delete stays
+    // consistent across every chart.
+    this.spec.remove(this.state, this.bareId(this.selected));
     this.selected = null;
     this.pushUndoIfChanged(before);
     this.commit(true);
+  }
+
+  /** Strips the gantt grip prefixes (`bar:`/`rz:`) from a hit id; returns the id
+   * untouched for every other chart kind. */
+  private bareId(id: string): string {
+    return id.startsWith("bar:") ? id.slice(4) : id.startsWith("rz:") ? id.slice(3) : id;
   }
 
   /**
@@ -896,22 +932,24 @@ export class ChartPanel {
       { passive: false }
     );
 
-    // Sequence, class, state and ER diagrams drive all editing from the
-    // right-click menu; the other five chart kinds keep their left-click-to-
-    // select + side-panel.
+    // Sequence, class, state, ER diagrams and the gantt chart drive all editing
+    // from the right-click menu; the other four chart kinds keep their
+    // left-click-to-select + side-panel.
     svg.addEventListener("contextmenu", (event: MouseEvent) => {
       if (
         this.options.mode !== "sequence" &&
         this.options.mode !== "class" &&
         this.options.mode !== "state" &&
-        this.options.mode !== "er"
+        this.options.mode !== "er" &&
+        this.options.mode !== "gantt"
       )
         return;
       event.preventDefault();
       if (this.options.mode === "sequence") this.openSequenceMenu(event);
       else if (this.options.mode === "class") this.openClassMenu(event);
       else if (this.options.mode === "state") this.openStateMenu(event);
-      else this.openErMenu(event);
+      else if (this.options.mode === "er") this.openErMenu(event);
+      else this.openGanttMenu(event);
     });
   }
 
@@ -1496,6 +1534,92 @@ export class ChartPanel {
         edge.label = values.label;
         this.pushUndoIfChanged(before);
         this.commit(true);
+      }
+    );
+    dialog.open();
+  }
+
+  /* ----------------------------------------------------- gantt context menu */
+
+  /**
+   * Right-click menu for the gantt chart. Like the class/state/ER menus, the
+   * side panel is gone, so every edit — add a task, edit a task, delete a task —
+   * is reached from here. Dragging a bar (move) or its right edge (resize) stays
+   * as before: the menu is for the fields a drag cannot reach (name, phase,
+   * date, duration), and for removing a row.
+   *
+   * The grip ids carry a `bar:` / `rz:` prefix (the move/resize handles); the
+   * real task id is what follows it, so it is stripped before the task lookup.
+   */
+  private openGanttMenu(event: MouseEvent): void {
+    const chart = this.state as GanttChartShape;
+    const rawId = this.elementIdFromEvent(event);
+    const taskId = rawId ? this.bareId(rawId) : null;
+    const task = taskId ? chart.tasks.find((t) => t.id === taskId) : null;
+    const menu = new Menu();
+
+    if (!task) {
+      menu.addItem((item) =>
+        item.setTitle(t("chart.gantt.addTask")).setIcon("plus").onClick(() => this.addOne())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    // Highlight the bar while its menu is open, matching how the other chart
+    // menus focus the element they act on.
+    this.selected = task.id;
+    this.commit(false);
+
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.gantt.editTask")).setIcon("pencil").onClick(() => this.openGanttTaskDialog(task))
+    );
+    menu.addItem((mi) =>
+      mi.setTitle(t("chart.deleteTask")).setIcon("trash-2").onClick(() => this.deleteById(task.id))
+    );
+    menu.showAtMouseEvent(event);
+  }
+
+  /**
+   * The task editor. It carries the four fields the (removed) side panel offered
+   * for a task — name, phase, start date, duration — but as a modal so the canvas
+   * keeps its full width. Validation lives here and reports back inline (a bad
+   * date or a sub-one duration leaves the dialog open with a message) so the
+   * user is looking at the field that is wrong rather than a toast that fades.
+   */
+  private openGanttTaskDialog(task: GanttTaskShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.gantt.editTask"),
+      "",
+      [
+        { key: "name", label: t("chart.gantt.name"), value: task.name },
+        { key: "section", label: t("chart.gantt.section"), value: task.section },
+        {
+          key: "start",
+          label: t("chart.gantt.start"),
+          value: dayStr(task.start),
+          hint: t("chart.gantt.formatHint"),
+        },
+        { key: "days", label: t("chart.gantt.days"), value: String(task.days) },
+      ],
+      t("chart.class.confirm"),
+      (values) => {
+        const name = values.name.trim();
+        if (!name) return t("chart.gantt.nameRequired");
+        const start = dayNum(values.start);
+        if (start === null) return t("chart.gantt.invalidDate");
+        const days = Number(values.days);
+        if (!Number.isInteger(days) || days < 1) return t("chart.gantt.invalidDays");
+        const before = this.spec.serialize(this.state);
+        task.name = name;
+        task.section = values.section.trim();
+        task.start = start;
+        task.days = days;
+        task.manual = true;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
       }
     );
     dialog.open();

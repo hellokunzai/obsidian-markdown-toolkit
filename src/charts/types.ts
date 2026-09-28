@@ -89,6 +89,14 @@ export interface ChartRenderContext<S> {
   interactive: boolean;
   /** Registers a grip the user can drag. */
   grip(handle: ChartHandle): void;
+  /**
+   * Available pixel width of the drawing surface, or 0/undefined when the
+   * caller does not know it yet. Time-axis charts (the gantt) spread their axis
+   * to fill this width so bars fill the column instead of a fixed model width
+   * that only reaches full size by being magnified — which would also magnify
+   * the text. Charts that do not care about width ignore it.
+   */
+  width?: number;
 }
 
 export interface ChartSummary {
@@ -111,6 +119,18 @@ export interface ChartSpec<S> {
   add(state: S): string;
   remove(state: S, id: string): void;
   extent(state: S): Bounds | null;
+  /**
+   * Viewport fit override, read by the editors and the note embed when they
+   * frame this chart.
+   *
+   * The generic ceiling (1.15 in both) exists so a two-node diagram is not
+   * magnified to fill the screen. A time-axis chart reads as broken under the
+   * same ceiling: a short schedule centres itself in a sea of empty canvas,
+   * and a schedule is supposed to spread across the width it is given. A spec
+   * that wants that declares a higher ceiling here rather than every caller
+   * learning each chart's preference.
+   */
+  fit?: { maxScale?: number };
   summary(state: S): ChartSummary;
   /**
    * A click on blank canvas — used by charts where clicking *is* the edit

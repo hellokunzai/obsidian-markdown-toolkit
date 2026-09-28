@@ -29,6 +29,11 @@ export interface ChartPaintOptions {
    * about what the shape means.
    */
   grips?: Map<string, ChartHandle>;
+  /**
+   * Available pixel width of the drawing surface, 0 when unknown. Forwarded to
+   * the spec's `render` so width-aware charts (the gantt) can spread to fill it.
+   */
+  width?: number;
 }
 
 export function paintChart(
@@ -48,6 +53,7 @@ export function paintChart(
     grip: (handle) => {
       options.grips?.set(handle.id, handle);
     },
+    width: options.width ?? 0,
   });
   if (options.grips?.size) applyCursors(surface.layer, options.grips);
 }
@@ -100,13 +106,17 @@ export function chartSvgDocument(
   palette: Palette,
   options: ChartExportOptions = {}
 ): ChartSvgDocument | null {
-  const bounds = spec.extent(state);
-  if (!bounds) return null;
-
   const padding = options.padding ?? 26;
+  // A fixed export width so a width-aware chart (the gantt) lays itself out to
+  // fill it; the bounds are then read back *after* the paint, because the paint
+  // is what resolves the chart's day width from this width.
+  const exportWidth = 820;
   const host = document.createElement("div");
   const surface = createSurface(host);
-  paintChart(surface, spec, state, { palette, interactive: false });
+  paintChart(surface, spec, state, { palette, interactive: false, width: exportWidth });
+
+  const bounds = spec.extent(state);
+  if (!bounds) return null;
 
   const width = Math.max(1, Math.round(bounds.x2 - bounds.x1 + padding * 2));
   const height = Math.max(1, Math.round(bounds.y2 - bounds.y1 + padding * 2));
