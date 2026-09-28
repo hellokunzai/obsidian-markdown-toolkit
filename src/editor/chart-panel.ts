@@ -237,6 +237,27 @@ interface TimelineChartShape {
   slots: TimelineSlotShape[];
 }
 
+/** Structural subset of the fishbone state the right-click menu touches. Same
+ * convention as the gantt/pie/git/timeline blocks above: the panel stays
+ * generic and never imports the spec's `Bone`/`Cause` types. A fishbone has
+ * three kinds of target — the problem head (`"head"`), a category bone
+ * (`bone.id`) and a cause (`cause.id`) — and only the head carries a literal
+ * id (bones are minted with a `b` prefix, causes with a `u` one), which is why
+ * `head` is matched first and by equality rather than by prefix. */
+interface FishCauseShape {
+  id: string;
+  text: string;
+}
+interface FishBoneShape {
+  id: string;
+  text: string;
+  causes: FishCauseShape[];
+}
+interface FishChartShape {
+  problem: string;
+  bones: FishBoneShape[];
+}
+
 export class ChartPanel {
   readonly root: HTMLElement;
 
@@ -432,10 +453,10 @@ export class ChartPanel {
     this.emptyNote = h("div", { cls: "mtk-empty", text: t("chart.empty") });
     this.canvasWrap.appendChild(this.emptyNote);
 
-    // State/ER diagrams, the gantt chart, the pie and the git graph drive their
-    // editing from the right-click menu (matching sequence and class); the
-    // timeline joins them, so the canvas keeps the whole body. The fishbone
-    // diagram is the only kind still rendering the property panel.
+    // State/ER diagrams, the gantt chart, the pie, the git graph and the
+    // timeline drive their editing from the right-click menu (matching sequence
+    // and class); the fishbone diagram joins them, so every chart kind now keeps
+    // the whole body and none renders the property panel.
     if (
       this.options.mode === "sequence" ||
       this.options.mode === "class" ||
@@ -444,7 +465,8 @@ export class ChartPanel {
       this.options.mode === "gantt" ||
       this.options.mode === "pie" ||
       this.options.mode === "gitGraph" ||
-      this.options.mode === "timeline"
+      this.options.mode === "timeline" ||
+      this.options.mode === "ishikawa"
     ) {
       this.bodyWrap.append(this.canvasWrap);
       return;
@@ -512,8 +534,8 @@ export class ChartPanel {
    * selection. The panel knows six field kinds and nothing about diagrams.
    */
   private renderProps(): void {
-    // State/ER diagrams, the gantt chart, the pie, the git graph and the
-    // timeline have no side panel either; their editing lives in the
+    // State/ER diagrams, the gantt chart, the pie, the git graph, the timeline
+    // and the fishbone diagram have no side panel: their editing lives in the
     // right-click menu (and the dialogs opened from it).
     if (
       this.options.mode === "sequence" ||
@@ -524,6 +546,7 @@ export class ChartPanel {
       this.options.mode === "pie" ||
       this.options.mode === "gitGraph" ||
       this.options.mode === "timeline" ||
+      this.options.mode === "ishikawa" ||
       !this.propsEl
     )
       return;
@@ -1028,9 +1051,8 @@ export class ChartPanel {
       { passive: false }
     );
 
-    // Sequence, class, state, ER diagrams, the gantt chart, the pie, the git
-    // graph and the timeline drive all editing from the right-click menu; the
-    // fishbone diagram keeps its left-click-to-select + side-panel.
+    // Every chart kind drives all editing from the right-click menu now; none
+    // keeps the old left-click-to-select + side-panel.
     svg.addEventListener("contextmenu", (event: MouseEvent) => {
       if (
         this.options.mode !== "sequence" &&
@@ -1040,7 +1062,8 @@ export class ChartPanel {
         this.options.mode !== "gantt" &&
         this.options.mode !== "pie" &&
         this.options.mode !== "gitGraph" &&
-        this.options.mode !== "timeline"
+        this.options.mode !== "timeline" &&
+        this.options.mode !== "ishikawa"
       )
         return;
       event.preventDefault();
@@ -1051,6 +1074,7 @@ export class ChartPanel {
       else if (this.options.mode === "pie") this.openPieMenu(event);
       else if (this.options.mode === "gitGraph") this.openGitMenu(event);
       else if (this.options.mode === "timeline") this.openTimelineMenu(event);
+      else if (this.options.mode === "ishikawa") this.openFishMenu(event);
       else this.openGanttMenu(event);
     });
   }
@@ -2186,6 +2210,159 @@ export class ChartPanel {
     const id = nextId(taken, "v");
     const before = this.spec.serialize(this.state);
     slot.events.push({ id, text: t("chart.timeline.newEvent") });
+    this.selected = id;
+    this.pushUndoIfChanged(before);
+    this.commit(true);
+  }
+
+  /* ----------------------------------------------------- fishbone context menu */
+
+  /**
+   * Right-click menu for the fishbone diagram. Its side panel is gone too, so
+   * editing the problem, the category bones and their causes all lives here.
+   *
+   * Three kinds of target, and only the head carries a literal id (the spine,
+   * the arrow and the head box all write `data-mtk: "head"`): a category bone
+   * (`bone.id`) and a cause (`cause.id`) are minted by the spec's `nextId`, so a
+   * hit id resolves to one of them unambiguously — but the head has to be
+   * checked first, and by equality rather than by prefix.
+   */
+  private openFishMenu(event: MouseEvent): void {
+    const chart = this.state as FishChartShape;
+    const hitId = this.elementIdFromEvent(event);
+    const menu = new Menu();
+
+    // Blank canvas (or the bare spine): the two whole-chart actions. `addBone`
+    // routes through the generic `addOne`, which is exactly the spec's `add`.
+    if (!hitId) {
+      menu.addItem((mi) => mi.setTitle(t("chart.fish.addBone")).setIcon("plus").onClick(() => this.addOne()));
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.fish.editProblem")).setIcon("pencil").onClick(() => this.openFishProblemDialog())
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    // Highlight whichever shape the menu is about, matching the other menus.
+    this.selected = hitId;
+    this.commit(false);
+
+    if (hitId === "head") {
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.fish.editProblem")).setIcon("pencil").onClick(() => this.openFishProblemDialog())
+      );
+      menu.addItem((mi) => mi.setTitle(t("chart.fish.addBone")).setIcon("plus").onClick(() => this.addOne()));
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const owner = chart.bones.find((bone) => bone.causes.some((cause) => cause.id === hitId));
+    const cause = owner?.causes.find((entry) => entry.id === hitId);
+    if (owner && cause) {
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.fish.editCause")).setIcon("pencil").onClick(() => this.openFishCauseDialog(cause))
+      );
+      menu.addSeparator();
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.deleteCause")).setIcon("trash-2").onClick(() => this.deleteById(cause.id))
+      );
+      menu.showAtMouseEvent(event);
+      return;
+    }
+
+    const bone = chart.bones.find((entry) => entry.id === hitId);
+    if (bone) {
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.fish.editBone")).setIcon("pencil").onClick(() => this.openFishBoneDialog(bone))
+      );
+      menu.addItem((mi) => mi.setTitle(t("chart.fish.addCause")).setIcon("plus").onClick(() => this.addFishCause(bone)));
+      menu.addSeparator();
+      menu.addItem((mi) =>
+        mi.setTitle(t("chart.deleteBone")).setIcon("trash-2").onClick(() => this.deleteById(bone.id))
+      );
+    }
+    menu.showAtMouseEvent(event);
+  }
+
+  private openFishProblemDialog(): void {
+    const chart = this.state as FishChartShape;
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.fish.editProblem"),
+      "",
+      [{ key: "problem", label: t("chart.fish.problem"), value: chart.problem }],
+      t("chart.class.confirm"),
+      (values) => {
+        // The problem may be cleared: serialising an empty one falls back to the
+        // `problem` label, exactly as the old side panel allowed.
+        const before = this.spec.serialize(this.state);
+        chart.problem = values.problem.trim();
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private openFishBoneDialog(bone: FishBoneShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.fish.editBone"),
+      "",
+      [{ key: "text", label: t("chart.fish.bone"), value: bone.text }],
+      t("chart.class.confirm"),
+      (values) => {
+        const text = values.text.trim();
+        if (!text) return t("chart.fish.boneRequired");
+        const before = this.spec.serialize(this.state);
+        bone.text = text;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  private openFishCauseDialog(cause: FishCauseShape): void {
+    const dialog = new TextToolModal(
+      this.options.app,
+      t("chart.fish.editCause"),
+      "",
+      [{ key: "text", label: t("chart.fish.cause"), value: cause.text }],
+      t("chart.class.confirm"),
+      (values) => {
+        const text = values.text.trim();
+        if (!text) return t("chart.fish.causeRequired");
+        const before = this.spec.serialize(this.state);
+        cause.text = text;
+        this.pushUndoIfChanged(before);
+        this.commit(true);
+        return null;
+      }
+    );
+    dialog.open();
+  }
+
+  /**
+   * Appends a cause to a category bone.
+   *
+   * `ChartSpec` exposes `add` (a whole bone) but not the spec's `addCause`, so
+   * rather than widening the interface this repeats the spec's own two lines:
+   * same `nextId` generator, same `newCause` label, same shape. Going through
+   * `serialize -> edit a line -> parse` would mean re-deriving the parser's
+   * indent classification to locate the right line, which is far more fragile.
+   */
+  private addFishCause(bone: FishBoneShape): void {
+    const chart = this.state as FishChartShape;
+    const taken = chart.bones.reduce<string[]>(
+      (ids, entry) => ids.concat(entry.id).concat(entry.causes.map((cause) => cause.id)),
+      []
+    );
+    const id = nextId(taken, "u");
+    const before = this.spec.serialize(this.state);
+    bone.causes.push({ id, text: t("chart.fish.newCause") });
     this.selected = id;
     this.pushUndoIfChanged(before);
     this.commit(true);
