@@ -281,19 +281,3 @@ export function renderDiagram(
   surface.layer.replaceChildren(fragment);
 }
 
-/** Size of the drawing in model coordinates. */
-export function modelExtent(model: DiagramModel): { w: number; h: number } {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const node of model.nodes) {
-    const size = measureNode(node);
-    minX = Math.min(minX, node.x - size.w / 2);
-    minY = Math.min(minY, node.y - size.h / 2);
-    maxX = Math.max(maxX, node.x + size.w / 2);
-    maxY = Math.max(maxY, node.y + size.h / 2);
-  }
-  if (!Number.isFinite(minX)) return { w: 0, h: 0 };
-  return { w: maxX - minX, h: maxY - minY };
-}

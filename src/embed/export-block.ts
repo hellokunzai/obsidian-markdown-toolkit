@@ -107,8 +107,10 @@ function buildDocument(
   const background = request.kind === "png";
 
   // A chart lays itself out in its own coordinate space and hands back its own
-  // bounds, so it comes with a size; a node graph is centred on (0, 0) and has
-  // to be measured. Two builders, one shape — same split the editor panels use.
+  // bounds, so it comes with a size; a node graph is measured with `modelBounds`
+  // because neither layout is centred on (0, 0) — a mindmap's root sits at x = 0
+  // with unequal left/right spans, and a flow graph starts at the top-left. Two
+  // builders, one shape — same split the editor panels use.
   if (isChartMode(request.mode)) {
     const spec = chartSpec(request.mode);
     const state = spec.parse(request.source);

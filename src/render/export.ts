@@ -1,5 +1,6 @@
 import type { DiagramModel } from "../core/model";
-import { modelExtent, createSurface, renderDiagram, setAttrs, type Palette } from "./svg";
+import { modelBounds } from "../core/measure";
+import { createSurface, renderDiagram, setAttrs, type Palette } from "./svg";
 
 /**
  * Standalone SVG / PNG output.
@@ -22,19 +23,34 @@ export function buildSvgDocument(model: DiagramModel, palette: Palette, options:
   const surface = createSurface(host);
   renderDiagram(surface, model, { interactive: false, selectedId: null }, palette);
 
-  const extent = modelExtent(model);
-  const width = Math.max(1, Math.round(extent.w + padding * 2));
-  const height = Math.max(1, Math.round(extent.h + padding * 2));
+  const bounds = modelBounds(model);
+  // An empty model has no bounds; emit a tiny transparent canvas rather than
+  // throwing. Every real caller filters empty models out earlier, but staying
+  // safe here keeps `buildSvgDocument` usable from tests and future callers.
+  if (!bounds) {
+    setAttrs(surface.svg, { viewBox: "0 0 1 1", width: 1, height: 1 });
+    surface.svg.removeAttribute("class");
+    const empty = new XMLSerializer().serializeToString(surface.svg);
+    return `<?xml version="1.0" encoding="UTF-8"?>\n${empty}`;
+  }
 
-  const viewBox = `${Math.round(-extent.w / 2 - padding)} ${Math.round(-extent.h / 2 - padding)} ${width} ${height}`;
+  // The drawing is *not* centred on (0, 0): a mindmap's root sits at x = 0 with
+  // unequal left/right spans, and a flow graph starts at the top-left. Deriving
+  // the viewBox from the real bounding box (not a symmetric assumption) is what
+  // stops the right side from being clipped.
+  const ox = Math.round(bounds.x1 - padding);
+  const oy = Math.round(bounds.y1 - padding);
+  const width = Math.max(1, Math.round(bounds.x2 - bounds.x1 + padding * 2));
+  const height = Math.max(1, Math.round(bounds.y2 - bounds.y1 + padding * 2));
+  const viewBox = `${ox} ${oy} ${width} ${height}`;
   setAttrs(surface.svg, { viewBox, width, height });
   surface.svg.removeAttribute("class");
 
   if (options.background) {
     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     setAttrs(rect, {
-      x: Math.round(-extent.w / 2 - padding),
-      y: Math.round(-extent.h / 2 - padding),
+      x: ox,
+      y: oy,
       width,
       height,
       fill: palette.surface,

@@ -95,10 +95,10 @@ export interface ChartExportOptions {
  *
  * Same contract as `buildSvgDocument`: no dependency on the plugin's
  * stylesheet, every colour carried as a presentation attribute, and a wrapper
- * that supplies the viewBox and the size. The one difference is the origin — a
- * graph model is centred on `(0, 0)`, while a chart lays itself out in its own
- * coordinate space, so the viewBox is taken straight from the spec's bounds
- * rather than assumed to be symmetric.
+ * that supplies the viewBox and the size. The one difference is where those
+ * bounds come from — a chart asks its spec, a node graph asks `modelBounds` —
+ * but both measure the drawing instead of assuming where it sits, because
+ * neither kind of layout puts it at the origin.
  */
 export function chartSvgDocument(
   spec: RegisteredSpec,
