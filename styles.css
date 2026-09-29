@@ -1208,6 +1208,86 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   margin-left: auto;
 }
 
+/*
+ * ---- toolbar tab: the filter row ----
+ *
+ * Deliberately the same card as the "add" block above it. The two are the two
+ * halves of one job — one offers rows, the other finds the ones already there
+ * — and the list below reads as the answer to both.
+ *
+ * The copy takes the leftover width and the input keeps a width of its own,
+ * so the pair wraps under each other in a narrow pane instead of squeezing
+ * the sentence into a column of single words (the same lesson as the "add"
+ * card's buttons).
+ */
+.mtk-toolbar-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.mtk-toolbar-search-copy {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.mtk-toolbar-search-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+.mtk-toolbar-search-desc {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.55;
+}
+.mtk-toolbar-search-input {
+  flex: 0 0 auto;
+  width: 220px;
+}
+
+/* Takes the list's place, and its box, when a search finds nothing. */
+.mtk-toolbar-search-empty {
+  margin: 14px 0 0;
+  padding: 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.mtk-toolbar-search-empty[hidden] {
+  display: none;
+}
+
+/*
+ * Rows the search has taken out. They stay in the list — only their display
+ * changes — because the reorder code reads the list's children by position.
+ * The second class in the selector is what beats `.mtk-toolbar-cmd`'s
+ * `display: grid`, without depending on which rule is written last.
+ */
+.mtk-toolbar-cmd-list .mtk-toolbar-cmd-filtered {
+  display: none;
+}
+.mtk-toolbar-cmd-list.is-no-match {
+  display: none;
+}
+/*
+ * A filtered list is not a list you can reorder. The rows out of sight still
+ * hold their places in the array, so a drag among the visible ones would be
+ * deciding where the invisible ones end up. The handle steps aside until the
+ * box is cleared — `visibility` rather than `display`, so no column moves and
+ * the rows do not jump sideways as you type. It also takes the handle out of
+ * the tab order, which is the keyboard path of the same gesture.
+ */
+.mtk-toolbar-cmd-list.is-filtering .mtk-toolbar-cmd-grip {
+  visibility: hidden;
+}
+
 /* ---- toolbar tab: the command list ---- */
 .mtk-toolbar-cmd-list {
   list-style: none;

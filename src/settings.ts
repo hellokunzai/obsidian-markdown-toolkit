@@ -174,6 +174,35 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   deleteOrphanedOnNoteDelete: false,
 };
 
+/**
+ * Marks a toolbar row that the search box has filtered out.
+ *
+ * A class rather than `hidden` or an inline style, for two reasons: the rows
+ * are hidden and shown again on every keystroke (so the toggle has to be
+ * cheap and CSS-only), and the reorder code reads the list's children by
+ * position — leaving the rows in place keeps that reading valid whether or
+ * not a search is running.
+ */
+const FILTERED_ROW = "mtk-toolbar-cmd-filtered";
+
+/**
+ * The text a row is searched by: the name it is drawn with, plus the command
+ * id a leaf shows underneath it — so `undo` and `editor:undo` both find the
+ * same button, whichever language the name happens to be in.
+ *
+ * A section heading is the exception. It has no command to run, and its id
+ * line is the literal words for "section heading", so including it would
+ * return every heading in the toolbar for a query that has nothing to do
+ * with headings.
+ */
+function searchText(row: HTMLElement): string {
+  const header = row.querySelector(":scope > .mtk-toolbar-cmd") ?? row;
+  const name = header.querySelector(".mtk-toolbar-cmd-name")?.textContent ?? "";
+  if (row.classList.contains("is-group")) return name;
+  const id = header.querySelector(".mtk-toolbar-cmd-id")?.textContent ?? "";
+  return `${name} ${id}`;
+}
+
 export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private readonly plugin: MarkdownEditorPlusPlugin;
   /**
@@ -185,6 +214,16 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * would look like a button that does nothing.
    */
   private readonly openSubmenus = new Set<string>();
+
+  /**
+   * What is typed in the toolbar's search box.
+   *
+   * Kept here for the same reason `openSubmenus` is: every edit — an add, a
+   * delete, a rename, a reorder — re-renders the list, and a filter that
+   * forgot its own text would drop the user back onto the full list halfway
+   * through the search they were using to find the row.
+   */
+  private toolbarQuery = "";
 
   constructor(app: App, plugin: MarkdownEditorPlusPlugin) {
     super(app, plugin);
@@ -377,8 +416,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     host.replaceChildren();
     const commands = this.plugin.settings.toolbarCommands;
 
-    host.appendChild(this.buildAddCard(host));
-
     const list = h("ul", { cls: "mtk-toolbar-cmd-list" });
     if (commands.length === 0) {
       list.appendChild(
@@ -387,7 +424,23 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     } else {
       for (const cmd of commands) list.appendChild(this.buildRow(host, commands, list, cmd, null));
     }
+
+    // Two different sentences, so two different elements: "nothing here yet"
+    // belongs to the list, "nothing matched what you typed" belongs to the
+    // search and takes the list's place for as long as it is true.
+    const noMatch = h("p", {
+      cls: "mtk-toolbar-search-empty",
+      text: t("settings.toolbar.searchEmpty"),
+      attr: { hidden: "hidden" },
+    });
+
+    host.appendChild(this.buildAddCard(host));
+    // Nothing to search before the first command is added.
+    if (commands.length > 0) host.appendChild(this.buildToolbarSearch(list, noMatch));
     host.appendChild(list);
+    host.appendChild(noMatch);
+
+    this.applyToolbarFilter(list, noMatch);
   }
 
   /**
@@ -437,6 +490,123 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
 
     card.appendChild(actions);
     return card;
+  }
+
+  /**
+   * The search box that sits between the "add" card and the list.
+   *
+   * A box rather than a second picker: with a toolbar the user has settled
+   * on, the everyday job is finding a row that is already there, and on this
+   * tab the list is the only thing long enough to need help finding.
+   *
+   * It filters in place instead of re-rendering the tab — a rebuild on every
+   * keystroke would take the caret back out of the box. The box is refilled
+   * from `toolbarQuery` so a rebuild caused by something else (adding a
+   * command, deleting a row) hands back the same filtered view.
+   */
+  private buildToolbarSearch(list: HTMLElement, noMatch: HTMLElement): HTMLElement {
+    const row = h("div", { cls: "mtk-toolbar-search" });
+
+    const copy = h("div", { cls: "mtk-toolbar-search-copy" });
+    copy.appendChild(
+      h("div", { cls: "mtk-toolbar-search-title", text: t("settings.toolbar.searchTitle") })
+    );
+    copy.appendChild(
+      h("p", { cls: "mtk-toolbar-search-desc", text: t("settings.toolbar.searchDesc") })
+    );
+    row.appendChild(copy);
+
+    const input = h("input", {
+      cls: "mtk-toolbar-search-input",
+      attr: {
+        type: "search",
+        spellcheck: "false",
+        placeholder: t("settings.toolbar.searchPlaceholder"),
+        "aria-label": t("settings.toolbar.searchTitle"),
+      },
+    });
+    input.value = this.toolbarQuery;
+    input.addEventListener("input", () => {
+      this.toolbarQuery = input.value;
+      this.applyToolbarFilter(list, noMatch);
+    });
+    row.appendChild(input);
+    return row;
+  }
+
+  /**
+   * Shows only the rows whose name — or command id — contains the query.
+   *
+   * Nothing is carried between passes: each keystroke is answered afresh from
+   * three facts (the query, the row's own text, `openSubmenus`), so clearing
+   * the box restores exactly the list the user had, rather than whatever the
+   * last search left behind. A submenu survives when it matches itself **or**
+   * when a row inside it does, and a submenu kept only by a child is opened —
+   * a hit inside a collapsed menu is a hit nobody can see.
+   */
+  private applyToolbarFilter(list: HTMLElement, noMatch: HTMLElement): void {
+    const needle = this.toolbarQuery.trim().toLowerCase();
+    let visible = 0;
+    for (const row of Array.from(list.children)) {
+      if (row instanceof HTMLElement && this.filterRow(row, needle)) visible += 1;
+    }
+
+    const filtering = needle.length > 0;
+    const none = filtering && visible === 0;
+    // `is-filtering` is what takes the drag handles out of play: the hidden
+    // rows keep their place in the array, so a drag among the visible ones
+    // would be deciding where the invisible ones go.
+    list.classList.toggle("is-filtering", filtering);
+    list.classList.toggle("is-no-match", none);
+    noMatch.toggleAttribute("hidden", !none);
+  }
+
+  /** Filters one row, and answers whether it stayed visible. */
+  private filterRow(row: HTMLElement, needle: string): boolean {
+    const kids = row.querySelector(":scope > .mtk-toolbar-cmd-children");
+    let childHit = false;
+    if (kids) {
+      for (const child of Array.from(kids.children)) {
+        if (!(child instanceof HTMLElement)) continue;
+        const hit = this.filterRow(child, needle);
+        // The "nothing in here yet" hint is a row on screen but not a result.
+        if (hit && !child.classList.contains("mtk-toolbar-cmd-child-empty")) childHit = true;
+      }
+    }
+
+    const filtering = needle.length > 0;
+    const shown = !filtering || childHit || searchText(row).toLowerCase().includes(needle);
+    row.classList.toggle(FILTERED_ROW, !shown);
+    if (kids instanceof HTMLElement) this.applyGroupOpen(row, kids, filtering, childHit);
+    return shown;
+  }
+
+  /**
+   * Opens or closes one submenu for the current pass.
+   *
+   * Rebuilt from `openSubmenus` every time and never written back to it, so a
+   * search borrows the layout without changing it: the user's own collapsed
+   * submenus come back the moment the box is cleared.
+   */
+  private applyGroupOpen(
+    row: HTMLElement,
+    kids: HTMLElement,
+    filtering: boolean,
+    childHit: boolean
+  ): void {
+    const empty =
+      kids.children.length === 0 ||
+      kids.querySelector(":scope > .mtk-toolbar-cmd-child-empty") !== null;
+    const userOpen = empty || this.openSubmenus.has(row.getAttribute("data-cmd-id") ?? "");
+    const open = userOpen || (filtering && childHit);
+
+    kids.toggleAttribute("hidden", !open);
+    row.classList.toggle("is-open", open);
+    // "Add a command in here" is a question. While filtering, the list is
+    // answering one, so the invitation steps aside until the box is cleared.
+    row
+      .querySelector(":scope > .mtk-toolbar-add-child")
+      ?.toggleAttribute("hidden", filtering || !open);
   }
 
   /**
