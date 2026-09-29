@@ -56,12 +56,13 @@ export function isGroupLabel(cmd: ToolbarCommand): boolean {
   return cmd.groupLabel === true;
 }
 
-function command(id: string, commandId: string, icon: string): ToolbarCommand {
-  // No label: the registry already carries a name for each of these ids —
-  // the core commands in the app's own language, and the brush through this
-  // plugin's own t(). Writing 38 labels here would pin them to whatever
-  // locale was active on install, and cost 38 keys.
-  return { id, commandId, label: "", icon };
+function command(id: string, commandId: string, icon: string, label: string = ""): ToolbarCommand {
+  // Most entries carry no label: the registry already carries a name for each
+  // of these ids — the core commands in the app's own language, and the brush
+  // through this plugin's own t(). A handful of entries opt into a literal
+  // label so the default bar reads the way the user asked for, in Chinese, on
+  // first install — without pinning every entry to one locale.
+  return { id, commandId, label, icon };
 }
 
 function submenu(id: string, icon: string, labelKey: string, children: ToolbarCommand[]): ToolbarCommand {
@@ -182,7 +183,7 @@ export function diagramSubmenu(): ToolbarCommand {
  * is the single place that says the toolbar has to treat this one differently.
  */
 export function fontColorEntry(): ToolbarCommand {
-  return command(FONT_COLOR_TOOL_ID, FONT_COLOR_COMMAND_ID, FONT_COLOR_ICON);
+  return command(FONT_COLOR_TOOL_ID, FONT_COLOR_COMMAND_ID, FONT_COLOR_ICON, "字体颜色");
 }
 
 /**
@@ -192,7 +193,7 @@ export function fontColorEntry(): ToolbarCommand {
  * a five-column grid of circles, which no native `Menu` can hold.
  */
 export function backgroundColorEntry(): ToolbarCommand {
-  return command(BACKGROUND_COLOR_TOOL_ID, BACKGROUND_COLOR_COMMAND_ID, BACKGROUND_COLOR_ICON);
+  return command(BACKGROUND_COLOR_TOOL_ID, BACKGROUND_COLOR_COMMAND_ID, BACKGROUND_COLOR_ICON, "背景颜色");
 }
 
 /**
@@ -205,7 +206,7 @@ export function backgroundColorEntry(): ToolbarCommand {
  * because the absence of a panel is a decision rather than an oversight.
  */
 export function focusModeEntry(): ToolbarCommand {
-  return command(FOCUS_MODE_TOOL_ID, FOCUS_MODE_COMMAND_ID, FOCUS_MODE_ICON);
+  return command(FOCUS_MODE_TOOL_ID, FOCUS_MODE_COMMAND_ID, FOCUS_MODE_ICON, "全屏专注");
 }
 
 /** Which panel a toolbar press opens, when it opens one at all. */
@@ -229,61 +230,63 @@ export function colorPanelFor(cmd: ToolbarCommand): ColorPanel | null {
 /**
  * The toolbar a fresh install starts with.
  *
- * Ported from `obsidian-editing-toolbar`'s `menuCommands`: the same top-level
- * entries, in the same order, with the same five submenus. The ids are the one
- * difference. That plugin's defaults point at its own commands
- * (`editing-toolbar:toggle-bold` and friends), which do not exist here, so
- * copying them verbatim would produce a toolbar of buttons that all report
- * "command not found". Each entry is mapped to the core command that does the
- * same job instead.
+ * Ported from `obsidian-editing-toolbar`'s `menuCommands` and then reordered and
+ * relabelled at the user's request. The top-level shape is the same — undo/redo
+ * first, the format painter and clear-format right after, then headings, then
+ * the inline formats, then the bundled submenus, then the colour/align/focus
+ * entries the plugin registers itself — but the exact sequence and a few
+ * literal labels differ from the original default:
  *
- * The list is shorter than the original because the rest has no core
- * equivalent: superscript and subscript, and the reference's second full-screen
- * command, which only collapses the sidebars. The one full-screen command it
- * does carry is worth having, so — like the format painter, the text-tools
- * submenu, the alignment submenu and the two colour buttons — it points at a
- * command this plugin registers itself.
+ *   undo, redo, format-brush, clear-format,
+ *   heading-2, heading-3, menu-heading (header-n: 1/4/5/6),
+ *   bold, italic, strikethrough, underline, highlight,
+ *   text-tools, attach-file, insert-table,
+ *   menu-quote, menu-insert, menu-diagram, menu-list,
+ *   cycle-checklist, text-align, font-color, background-color, focus-mode
+ *
+ * The 编辑 (cut/copy/paste/line-move) submenu from the reference plugin is
+ * dropped: the same jobs live in the native right-click menu and on the
+ * keyboard, so a second copy on the bar was clutter.
  */
 export function defaultToolbarCommands(): ToolbarCommand[] {
   return [
-    command("undo", "editor:undo", "undo-2"),
-    command("redo", "editor:redo", "redo-2"),
-    command("clear-format", "editor:clear-formatting", "eraser"),
-    // The one non-core entry: the painter is this plugin's own command, so
-    // the id carries the plugin prefix. It sits where the reference puts it,
-    // right after the eraser.
-    command("format-brush", "markdown-toolkit:toggle-format-brush", "paintbrush"),
-    command("heading-2", "editor:set-heading-2", "heading-2"),
-    command("heading-3", "editor:set-heading-3", "heading-3"),
-    command("bold", "editor:toggle-bold", "bold"),
-    command("italic", "editor:toggle-italics", "italic"),
-    command("strikethrough", "editor:toggle-strikethrough", "strikethrough"),
-    // The second non-core entry, for the same reason as the brush: no core
-    // command writes an underline, so this one is the plugin's own.
-    command("underline", "markdown-toolkit:toggle-underline", "underline"),
-    command("highlight", "editor:toggle-highlight", "highlighter"),
-    // The whole text-tools submenu, every item of which is this plugin's own
-    // command. It sits where the reference plugin puts it: straight after the
-    // colour commands, before the menus that only rearrange the document.
-    textToolsSubmenu(),
+    command("undo", "editor:undo", "undo-2", "撤销编辑"),
+    command("redo", "editor:redo", "redo-2", "重做编辑"),
 
-    submenu("menu-heading", "heading", "settings.toolbar.group.heading", [
+    // The painter is this plugin's own command, so the id carries the prefix.
+    // It sits right after undo/redo, ahead of the erasers and headings, at the
+    // user's request.
+    command("format-brush", "markdown-toolkit:toggle-format-brush", "paintbrush", "格式刷"),
+    command("clear-format", "editor:clear-formatting", "eraser", "清除文本格式"),
+
+    command("heading-2", "editor:set-heading-2", "heading-2", "标题 2"),
+    command("heading-3", "editor:set-heading-3", "heading-3", "标题 3"),
+
+    // Heading 1/4/5/6 only: 2 and 3 are already top-level buttons above, so
+    // repeating them here would be two ways to do the same thing. The button
+    // glyph is `lucide-heading` (a registered Obsidian icon id) per the
+    // requested layout.
+    submenu("menu-heading", "lucide-heading", "settings.toolbar.group.heading", [
       command("menu-heading-1", "editor:set-heading-1", "heading-1"),
       command("menu-heading-4", "editor:set-heading-4", "heading-4"),
       command("menu-heading-5", "editor:set-heading-5", "heading-5"),
       command("menu-heading-6", "editor:set-heading-6", "heading-6"),
     ]),
 
+    command("bold", "editor:toggle-bold", "bold"),
+    command("italic", "editor:toggle-italics", "italic"),
+    command("strikethrough", "editor:toggle-strikethrough", "strikethrough"),
+    // The second non-core entry, for the same reason as the brush: no core
+    // command writes an underline, so this one is the plugin's own.
+    command("underline", "markdown-toolkit:toggle-underline", "underline", "下划线"),
+    command("highlight", "editor:toggle-highlight", "highlighter"),
+
+    // The whole text-tools submenu, every item of which is this plugin's own
+    // command. It sits where the user put it: right after the inline formats.
+    textToolsSubmenu(),
+
     command("attach-file", "editor:attach-file", "paperclip"),
     command("insert-table", "editor:insert-table", "table"),
-
-    submenu("menu-edit", "pencil", "settings.toolbar.group.edit", [
-      command("menu-edit-cut", "editor:cut", "scissors"),
-      command("menu-edit-copy", "editor:copy", "copy"),
-      command("menu-edit-paste", "editor:paste", "clipboard-paste"),
-      command("menu-edit-line-up", "editor:swap-line-up", "arrow-up"),
-      command("menu-edit-line-down", "editor:swap-line-down", "arrow-down"),
-    ]),
 
     submenu("menu-quote", "text-quote", "settings.toolbar.group.quote", [
       command("menu-quote-block", "editor:toggle-blockquote", "text-quote"),
@@ -316,9 +319,8 @@ export function defaultToolbarCommands(): ToolbarCommand[] {
 
     command("cycle-checklist", "editor:cycle-list-checklist", "list-checks"),
 
-    // Last, rather than beside the block commands the reference plugin groups
-    // them with: these are the entries this plugin registers itself, and the
-    // end of the list is where a fresh install will look for them.
+    // text-align, then the plugin's own colour panels and focus mode, close
+    // the bar — the entries a fresh install looks for at the end.
     textAlignSubmenu(),
     fontColorEntry(),
     backgroundColorEntry(),
