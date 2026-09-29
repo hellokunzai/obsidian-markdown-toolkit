@@ -98,54 +98,92 @@
 }
 
 /*
- * Dialog fullscreen toggle.
+ * Dialog corner buttons — the fullscreen toggle (our `.mtk-modal-fullscreen-btn`)
+ * and the native close `×` (`.modal-close-button`) — share the round, bordered,
+ * shadowed look of the preview lightbox's own corner buttons (`.mtk-lightbox-action`).
  *
- * Sits one gap to the inline-start of the native close button, matching that
- * button's box so the two glyphs share a row — and, hovering, paint two separate
- * squares rather than one merged block.
+ * One appearance, one slot each, exactly like the lightbox. The toggle is our own
+ * element; the `×` is Obsidian's, restyled here only inside `.mtk-modal-shell`
+ * — the chart / diagram editor dialog — so the change stays local and never
+ * touches the rest of Obsidian's modals.
  *
- * The values here are the *fallback*: `attachFullscreenToggle` measures the live
- * close button at open time and copies its geometry inline, which is what covers
- * themed and touch layouts. These reproduce the desktop default, derived from the
- * three rules that size the `×` — `.modal-close-button` (`inset-inline-end:
- * var(--size-2-3)` with `padding: var(--size-2-2)`) and `svg.svg-icon`
- * (`height/width: var(--icon-size)`, which on desktop resolves to `--icon-m`,
- * *not* `--icon-xs`). So: its inset, plus its `--icon-m` glyph, plus a
- * `--size-2-2` of padding on each side, plus one gap.
- *
- * `body.styled-scrollbars` pushes that same close button out to 12 px, so the
- * fallback has to follow it there: leaving it at `--size-2-3` puts the two boxes
- * 6 px into each other, which is what makes their hover backgrounds overlap.
- *
- * No taller box anywhere on purpose: the hover background *is* the box, so a
- * stretched one paints a tall stripe next to the `×`'s square. The explicit
- * height below is the close button's own — without it the bare `button` rule in
- * `app.css` would hand this element `var(--input-height)` and do the stretching
- * for us whenever the measured copy is skipped. The shell overrides no `top` —
- * see "dialog title row".
+ * Position. Inside the shell the two sit on a fixed line (`top: 14px`; `×` at
+ * `inset-inline-end: 14px`, toggle one slot further in at `54px` = 32 + 8 + 14) —
+ * the same fixed slots the lightbox uses, so the two dialogs read identically.
+ * Outside the shell (the editor's smaller sub-dialogs) the toggle has no lightbox
+ * beside it, so it keeps the old behaviour: measured against the native `×` at
+ * open time and parked one gap to its inline-start.
  */
-.mtk-modal-fullscreen-btn {
-  --mtk-close-box: calc(var(--icon-m) + var(--size-2-2) * 2);
-  --mtk-close-inset: var(--size-2-3);
+/*
+ * Dialog corner buttons — the fullscreen toggle (`.mtk-modal-fullscreen-btn`)
+ * and the native close `×` (tagged `.mtk-modal-close-btn` by the toggle) — share
+ * the round, bordered, shadowed look of the preview lightbox's corner buttons
+ * (`.mtk-lightbox-action`).
+ *
+ * One appearance everywhere the toggle is attached, exactly like the lightbox.
+ * The `×` is tagged by the toggle (not gated on `.mtk-modal-shell`) so the rule
+ * wins on specificity over both Obsidian's `.clickable-icon` and
+ * `body.styled-scrollbars .modal-close-button`, and does not depend on the
+ * dialog carrying that class.
+ *
+ * Position. Inside the shell the two sit on a fixed line (`top: 14px`; `×` at
+ * `inset-inline-end: 14px`, toggle one slot further in at `54px` = 32 + 8 + 14)
+ * — the same fixed slots the lightbox uses. Outside the shell (the editor's
+ * sub-dialogs) the toggle keeps the old behaviour (measured against the native
+ * `×`), and the `×` stays on Obsidian's own slot.
+ */
+.modal .mtk-modal-fullscreen-btn,
+.modal .modal-close-button.mtk-modal-close-btn {
   position: absolute;
-  top: var(--size-2-3);
-  inset-inline-end: calc(var(--mtk-close-inset) + var(--mtk-close-box) + var(--size-4-2));
-  /* Both dimensions are pinned, not just the height. The `×` is a `<div>` and
-     this is a `<button>`; `app.css` zeroes the button border, so the two measure
-     the same — but if a theme restores one, only this box grows, and 4 px is
-     enough to close the gap. `border: 0` states what the box below assumes. */
-  width: var(--mtk-close-box);
-  height: var(--mtk-close-box);
-  border: 0;
-  display: flex;
+  /* Round, bordered, shadowed — the lightbox `.mtk-lightbox-action` look. */
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--size-2-2);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  color: var(--text-normal);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+  opacity: 0.92;
 }
 
-/* Mirrors `body.styled-scrollbars .modal-close-button` in `app.css`. */
-body.styled-scrollbars .mtk-modal-fullscreen-btn {
-  --mtk-close-inset: 12px;
+.modal .mtk-modal-fullscreen-btn:hover,
+.modal .modal-close-button.mtk-modal-close-btn:hover {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+.modal .mtk-modal-fullscreen-btn .svg-icon,
+.modal .modal-close-button.mtk-modal-close-btn .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Fallback slot for the toggle when it is measured against the native `×`
+   (sub-dialogs, no shell): one gap to the inline-start of the `×`. The shell
+   overrides these with fixed lightbox slots further down. Reproduces the desktop
+   default, derived from the three rules that size the `×`. */
+.mtk-modal-fullscreen-btn {
+  top: var(--size-2-3);
+  inset-inline-end: calc(var(--size-2-3) + var(--icon-m) + var(--size-2-2) * 2 + var(--size-4-2));
+}
+
+/* Fixed, lightbox-matching slot inside the editor dialog for the close button.
+   The selector includes `.modal-close-button.mtk-modal-close-btn` so it
+   outranks `body.styled-scrollbars .modal-close-button`. The fullscreen toggle
+   used to share this row as a corner button; it now lives in the toolbar, so
+   only the close button is parked here. */
+.mtk-modal-shell .modal-close-button.mtk-modal-close-btn {
+  top: 14px;
+  inset-inline-end: 14px;
+  z-index: 5;
 }
 
 /*
@@ -274,6 +312,15 @@ body.styled-scrollbars .mtk-modal-fullscreen-btn {
   color: var(--text-on-accent);
   background-color: var(--interactive-accent);
   border-color: var(--interactive-accent);
+}
+
+/*
+ * The fullscreen toggle is a window action and only makes sense inside a
+ * dialog. When the panel is hosted in a tab there is no `.modal` to maximize,
+ * so the toolbar button is hidden rather than shown disabled.
+ */
+.mtk-in-tab .mtk-fullscreen {
+  display: none;
 }
 
 .mtk-editor .mtk-tb.mtk-save:hover {

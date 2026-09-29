@@ -1,4 +1,4 @@
-import { Menu, Modal, Notice, Platform, setIcon, type App } from "obsidian";
+import { Menu, Modal, Notice, setIcon, type App } from "obsidian";
 import { t } from "../i18n";
 import { kindById } from "../core/kinds";
 import type { ChartCanvasId, Point } from "../core/model";
@@ -14,7 +14,7 @@ import { paintChart } from "../charts/paint";
 import { createSurface, readPalette, type DiagramSurface } from "../render/svg";
 import { fitBounds } from "../render/fit";
 import { h } from "../utils/dom";
-import { attachFullscreenToggle } from "../utils/modal-fullscreen";
+import { attachFullscreenToggle, buildFullscreenToolbarButton } from "../utils/modal-fullscreen";
 import { applyTooltip } from "../utils/tooltip";
 import { TextToolModal } from "../ui/text-tool-modal";
 import type { EditorPanelHost } from "./editor-panel";
@@ -329,8 +329,6 @@ export class ChartPanel {
     host.appendChild(this.root);
     this.repaint();
     this.renderProps();
-
-    if (Platform.isMobile) new Notice(t("notice.mobileTip"));
   }
 
   /* ------------------------------------------------------------- lifecycle */
@@ -412,15 +410,8 @@ export class ChartPanel {
     toolbar.append(undo, redo);
     toolbar.appendChild(h("div", { cls: "mtk-divider" }));
 
-    // Same button as the mind-map panel's. It shares that panel's `mtk-tidy`
-    // class on purpose — no rule keys off it, and the two buttons are meant to
-    // read as the same control in two windows. It leads the viewport group,
-    // sitting right before zoom-out.
-    const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
-    tidy.addEventListener("click", () => this.tidy());
-
     // No add/delete buttons here: every chart kind adds and removes items from
-    // its right-click menu, so the toolbar skips straight to the zoom group.
+    // its right-click menu, so the toolbar skips straight to the viewport group.
     const zoomOut = this.buildButton("mtk-chart-zoom-out", t("editor.toolbar.zoomOut"), "zoom-out");
     zoomOut.addEventListener("click", () => this.zoomBy(1 / 1.15));
     this.zoomLabel = h("span", { cls: "mtk-zoom-value", text: "100%" });
@@ -428,9 +419,17 @@ export class ChartPanel {
     zoomIn.addEventListener("click", () => this.zoomBy(1.15));
     // No fit button either: the panel re-fits on attach, on tidy and after
     // container resizes, so there is nothing left for a manual fit to do.
-    toolbar.append(tidy);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
     toolbar.append(zoomOut, this.zoomLabel, zoomIn);
+
+    // Same button as the mind-map panel's. It shares that panel's `mtk-tidy`
+    // class on purpose — no rule keys off it, and the two buttons are meant to
+    // read as the same control in two windows. It closes the toolbar, sitting
+    // immediately before the fullscreen toggle.
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
+    const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
+    tidy.addEventListener("click", () => this.tidy());
+    toolbar.appendChild(tidy);
+    toolbar.appendChild(buildFullscreenToolbarButton());
     return toolbar;
   }
 
@@ -685,11 +684,11 @@ export class ChartPanel {
       return;
     }
     this.view = fitBounds(bounds, width, height, {
-      padding: Platform.isMobile ? 22 : 34,
+      padding: 34,
       // A spec may ask to fill more of the canvas than the generic cap allows
       // (the gantt does — an empty margin either side reads as a broken axis).
-      maxScale: this.spec.fit?.maxScale ?? (Platform.isMobile ? 1 : 1.15),
-      anchorLeft: Platform.isMobile,
+      maxScale: this.spec.fit?.maxScale ?? 1.15,
+      anchorLeft: false,
     });
     this.applyViewTransform();
   }

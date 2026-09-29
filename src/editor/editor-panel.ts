@@ -1,4 +1,4 @@
-import { Menu, Notice, Platform, setIcon } from "obsidian";
+import { Menu, Notice, setIcon } from "obsidian";
 import { t } from "../i18n";
 import { measureLines, measureNode, modelBounds } from "../core/measure";
 import { layoutFlow } from "../core/layout-flow";
@@ -28,6 +28,7 @@ import { computeFit } from "../render/fit";
 import { setCssVars } from "../utils/css-vars";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
+import { buildFullscreenToolbarButton } from "../utils/modal-fullscreen";
 
 export interface EditorPanelHost {
   /** Writes `source` back into the note. */
@@ -124,8 +125,6 @@ export class EditorPanel {
     // something else happens to repaint.
     host.appendChild(this.root);
     this.render();
-
-    if (Platform.isMobile) new Notice(t("notice.mobileTip"));
   }
 
   /* ------------------------------------------------------------- lifecycle */
@@ -216,9 +215,20 @@ export class EditorPanel {
 
     // Adding a node, deleting it and picking its shape all live in the
     // right-click menu (see openContextMenu), so the toolbar only carries the
-    // whole-canvas actions: layout, history and viewport. The tidy button leads
-    // the viewport group, sitting right before zoom-out, mirroring the chart
-    // panel's toolbar order.
+    // whole-canvas actions: viewport and layout. The viewport group leads; tidy
+    // then closes the toolbar, sitting immediately before the fullscreen toggle.
+    const zoomOut = this.buildButton("mtk-zoom-out", t("editor.toolbar.zoomOut"), "zoom-out");
+    zoomOut.addEventListener("click", () => this.zoomBy(1 / 1.15));
+    this.zoomLabel = h("span", { cls: "mtk-zoom-value", text: "100%" });
+    const zoomIn = this.buildButton("mtk-zoom-in", t("editor.toolbar.zoomIn"), "zoom-in");
+    zoomIn.addEventListener("click", () => this.zoomBy(1.15));
+    toolbar.append(zoomOut, this.zoomLabel, zoomIn);
+
+    // Tidy and fullscreen close the toolbar together: tidy re-lays out the whole
+    // canvas, fullscreen maximizes the dialog. The panel hides the latter in a
+    // tab (`.mtk-in-tab .mtk-fullscreen`, styles.css) — there is no dialog to
+    // maximize there.
+    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
     const tidy = this.buildButton("mtk-tidy", t("editor.toolbar.layout"), "network");
     tidy.addEventListener("click", () => {
       this.pushUndo();
@@ -232,13 +242,7 @@ export class EditorPanel {
       new Notice(t("notice.layoutDone"));
     });
     toolbar.appendChild(tidy);
-    toolbar.appendChild(h("div", { cls: "mtk-divider" }));
-    const zoomOut = this.buildButton("mtk-zoom-out", t("editor.toolbar.zoomOut"), "zoom-out");
-    zoomOut.addEventListener("click", () => this.zoomBy(1 / 1.15));
-    this.zoomLabel = h("span", { cls: "mtk-zoom-value", text: "100%" });
-    const zoomIn = this.buildButton("mtk-zoom-in", t("editor.toolbar.zoomIn"), "zoom-in");
-    zoomIn.addEventListener("click", () => this.zoomBy(1.15));
-    toolbar.append(zoomOut, this.zoomLabel, zoomIn);
+    toolbar.appendChild(buildFullscreenToolbarButton());
     return toolbar;
   }
 
@@ -366,14 +370,6 @@ export class EditorPanel {
     const midX = (bounds.x1 + bounds.x2) / 2;
     const midY = (bounds.y1 + bounds.y2) / 2;
 
-    if (Platform.isMobile) {
-      // On a phone the useful axis is height: fit it, anchor to the left, and
-      // let the user pan sideways — the way native mind map apps behave.
-      const k = Math.min((height - 44) / spanY, 1);
-      this.view = { k, tx: 22 - bounds.x1 * k, ty: height / 2 - midY * k };
-      this.applyViewTransform();
-      return;
-    }
     const k = Math.min((width - 96) / spanX, (height - 96) / spanY, 1.15);
     this.view = { k, tx: width / 2 - midX * k, ty: height / 2 - midY * k };
     this.applyViewTransform();

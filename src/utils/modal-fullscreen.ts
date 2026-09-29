@@ -23,7 +23,8 @@ const FULLSCREEN_CLASS = "mtk-modal-fullscreen";
 
 /** Obsidian's `maximize` — the glyph the workspace focus mode already uses. */
 const ICON_ENTER = "maximize";
-const ICON_EXIT = "minimize-2";
+/** Matches the preview lightbox, which toggles `maximize` / `minimize`. */
+const ICON_EXIT = "minimize";
 
 /**
  * Obsidian's own class for the `×`; we copy its box and its place.
@@ -47,7 +48,7 @@ const GAP = 8;
 export function attachFullscreenToggle(modal: Modal): void {
   const { modalEl } = modal;
   const button = h("button", {
-    cls: "mtk-modal-fullscreen-btn clickable-icon",
+    cls: "mtk-modal-fullscreen-btn",
     attr: { type: "button" },
   });
   setIcon(button, ICON_ENTER);
@@ -62,14 +63,27 @@ export function attachFullscreenToggle(modal: Modal): void {
   // A direct child of the modal shell, like the close button it sits beside —
   // so it survives the panel redrawing everything inside `contentEl`.
   modalEl.appendChild(button);
-  mirrorCloseButton(modalEl, button);
-  // The first read can land before the dialog has its final layout, and an
-  // inline box outranks the stylesheet — so read again on the next frame, when
-  // the `×` is certainly laid out. The button is gone if the dialog closed in
-  // between, which is why the check leads.
-  window.requestAnimationFrame(() => {
-    if (button.isConnected) mirrorCloseButton(modalEl, button);
-  });
+
+  // Tag the native close button so it shares the round, lightbox look. Done
+  // here — not gated on `.mtk-modal-shell` — so every editor dialog gets it,
+  // and the styling wins on specificity without depending on that class.
+  tagModalCloseButton(modalEl);
+
+  // The chart / diagram editor dialog (`.mtk-modal-shell`) parks both corner
+  // buttons on fixed lightbox slots via CSS, so no measuring is needed there.
+  // Everywhere else the toggle has no lightbox beside it and keeps the old
+  // behaviour: it is measured against the native `×` and parked one gap to its
+  // inline-start.
+  if (!modalEl.classList.contains("mtk-modal-shell")) {
+    mirrorCloseButton(modalEl, button);
+    // The first read can land before the dialog has its final layout, and an
+    // inline box outranks the stylesheet — so read again on the next frame, when
+    // the `×` is certainly laid out. The button is gone if the dialog closed in
+    // between, which is why the check leads.
+    window.requestAnimationFrame(() => {
+      if (button.isConnected) mirrorCloseButton(modalEl, button);
+    });
+  }
 }
 
 /**
@@ -136,4 +150,46 @@ function mirrorCloseButton(modalEl: HTMLElement, button: HTMLElement): void {
     button.style.insetInlineStart = "auto";
     button.style.insetInlineEnd = `${paddingBoxEnd - closeRect.left + GAP}px`;
   }
+}
+
+/**
+ * Gives the native `×` the round, lightbox styling the editor dialogs use.
+ *
+ * Extracted from `attachFullscreenToggle` because the main editor dialog no
+ * longer parks a fullscreen button in the corner — its toggle lives in the
+ * toolbar now — but it still wants the close button to match the shell look.
+ */
+export function tagModalCloseButton(modalEl: HTMLElement): void {
+  const closeButton = modalEl.querySelector<HTMLElement>(CLOSE_SELECTOR);
+  if (closeButton) closeButton.classList.add("mtk-modal-close-btn");
+}
+
+/**
+ * Builds the fullscreen toggle for the editor panels' toolbar.
+ *
+ * Unlike `attachFullscreenToggle`, this is a normal toolbar button, not a
+ * corner button. It finds the dialog it lives in at click time — the panel is
+ * the same DOM whether it is shown in a dialog or a tab, so the button just
+ * walks up to the nearest `.modal` and toggles `.mtk-modal-fullscreen` there.
+ * In a tab there is no `.modal` ancestor and the click is a no-op; the panel
+ * hides the button in that case via `.mtk-in-tab .mtk-fullscreen` in CSS.
+ */
+export function buildFullscreenToolbarButton(): HTMLButtonElement {
+  const button = h("button", {
+    cls: "mtk-tb mtk-tb-icon-btn mtk-fullscreen",
+    attr: { type: "button", "aria-label": t("modal.fullscreen") },
+  });
+  const icon = h("span", { cls: "mtk-tb-icon" });
+  setIcon(icon, ICON_ENTER);
+  button.appendChild(icon);
+  applyTooltip(button, t("modal.fullscreen"));
+
+  button.addEventListener("click", () => {
+    const modalEl = button.closest<HTMLElement>(".modal");
+    if (!modalEl) return;
+    const expanded = modalEl.classList.toggle(FULLSCREEN_CLASS);
+    setIcon(icon, expanded ? ICON_EXIT : ICON_ENTER);
+    applyTooltip(button, expanded ? t("modal.fullscreenExit") : t("modal.fullscreen"));
+  });
+  return button;
 }
