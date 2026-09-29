@@ -420,7 +420,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
 
   private buildReference(): HTMLElement {
     const wrap = h("div", { cls: "mtk-kinds" });
-    wrap.appendChild(h("h3", { cls: "mtk-kinds-title", text: t("settings.kinds.title") }));
 
     const thead = h("thead");
     const headRow = h("tr");
@@ -1412,9 +1411,11 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         });
       });
 
-    host.appendChild(
-      h("p", { cls: "mtk-settings-note", text: t("settings.attachment.tokens") })
-    );
+    // The token help is a text-only option: the variable list lives in its
+    // description, with no control. It documents both templates above.
+    new Setting(host)
+      .setName(t("settings.attachment.variables.name"))
+      .setDesc(t("settings.attachment.tokens"));
 
     // Render order is the on-screen order: basic → modification → deletion →
     // special chars. Special characters sits last because it is the most rarely

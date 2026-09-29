@@ -188,7 +188,6 @@ const en: Dict = {
   "backgroundColor.colors.translucent": "Translucent Colors",
   "backgroundColor.colors.highlighter": "Highlighter Colors",
 
-  "settings.kinds.title": "Diagram types",
   "settings.kinds.col.diagram": "Diagram",
   "settings.kinds.col.keyword": "Keyword",
   "settings.kinds.col.scene": "Use it for",
@@ -306,6 +305,7 @@ const en: Dict = {
     "Template for the saved file name. Supports ${originalFileName} for the dropped file's own name.",
   "settings.attachment.tokens":
     "Variables: ${noteFileName} · ${folderPath} · ${originalFileName} · ${date:YYYYMMDDHHmmss}. To write a literal ${ } use \\${ }.",
+  "settings.attachment.variables.name": "Template variables",
   "settings.attachment.specialChars.heading": "Special characters",
   "settings.attachment.specialChars.name": "Special characters",
   "settings.attachment.specialChars.desc1":
@@ -775,7 +775,6 @@ const zhCn: Dict = {
   "backgroundColor.colors.translucent": "半透明颜色",
   "backgroundColor.colors.highlighter": "荧光笔颜色",
 
-  "settings.kinds.title": "图表类型",
   "settings.kinds.col.diagram": "图表",
   "settings.kinds.col.keyword": "关键字",
   "settings.kinds.col.scene": "适用场景",
@@ -885,6 +884,7 @@ const zhCn: Dict = {
   "settings.attachment.template.name": "附件文件名",
   "settings.attachment.template.desc": "保存文件时使用的命名模板。支持 ${originalFileName} 表示拖入文件原本的名字。",
   "settings.attachment.tokens": "可用变量：${noteFileName} · ${folderPath} · ${originalFileName} · ${date:YYYYMMDDHHmmss}。要输出字面的 ${ } 写成 \\${ }。",
+  "settings.attachment.variables.name": "可用变量",
   "settings.attachment.specialChars.heading": "特殊字符",
   "settings.attachment.specialChars.name": "特殊字符",
   "settings.attachment.specialChars.desc1": "要替换或删除的附件文件夹和文件名中的特殊字符。",

@@ -1026,12 +1026,6 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   margin: 0 0 26px;
 }
 
-.mtk-kinds .mtk-kinds-title {
-  margin: 0 0 6px;
-  font-size: var(--font-ui-medium);
-  font-weight: 600;
-}
-
 .mtk-kinds .mtk-kinds-table {
   width: 100%;
   border-collapse: collapse;
