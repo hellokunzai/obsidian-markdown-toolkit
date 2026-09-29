@@ -21,9 +21,17 @@ import {
   isSubmenu,
   type ToolbarCommand,
 } from "./core/toolbar-commands";
+import {
+  applyToolbarBackground,
+  normalizeToolbarBackground,
+  TOOLBAR_BACKGROUND_DEFAULT,
+  TOOLBAR_BACKGROUND_PRESETS,
+  TOOLBAR_BACKGROUND_TRANSPARENT,
+} from "./core/toolbar-background";
 import type { EmptyFolderHandling } from "./features/attachment-paths";
 import { resolveDuplicateSeparator, stripExtension } from "./features/attachment-paths";
 import type { Orders } from "./features/order-store";
+import { closeColorPicker, ColorPickerPanel, type ColorCell } from "./ui/color-picker";
 import type MarkdownEditorPlusPlugin from "./main";
 
 /**
@@ -76,6 +84,14 @@ export interface MarkdownEditorPlusSettings {
   // ---- New editor-explorer features (0.4.0) ----
   /** Commands shown in the editor toolbar, in display order. */
   toolbarCommands: ToolbarCommand[];
+  /**
+   * The colour the editor toolbar paints behind those commands.
+   *
+   * A validated CSS colour (`#rgb[g]/rgb()/hsl()/var(--…)`/`transparent`) or
+   * `""`, which is the default and means "leave it to the theme". See
+   * `core/toolbar-background.ts` for why this is a string and not a colour.
+   */
+  editorToolbarBackground: string;
   /**
    * Entry names to hide in the file explorer, one per line: an exact name, a
    * `startsWith::PREFIX`, or an `endsWith::SUFFIX`.
@@ -152,6 +168,9 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   // Ported from the reference plugin's own default list; see
   // `core/toolbar-commands.ts` for what carried over and what did not.
   toolbarCommands: defaultToolbarCommands(),
+  // The theme's own colour, said as "no override": the bar keeps the
+  // `--background-secondary` it has always been painted with.
+  editorToolbarBackground: TOOLBAR_BACKGROUND_DEFAULT,
   // The dotfiles rule the regular-expression version shipped as its default,
   // said again in the syntax that replaced it.
   hiddenRules: "startsWith::.",
@@ -271,6 +290,13 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
+    /* A colour panel is parented to the body, so it is not something
+       `empty()` can take down with everything else. Escape and a press
+       elsewhere both close it, which covers every way the settings pane is
+       normally left — this is for the one that skips both, and its cost is a
+       line where its absence would be a panel floating over the app with a
+       button that no longer exists behind it. */
+    closeColorPicker();
     containerEl.empty();
 
     const tabBar = h("div", { cls: "mtk-tabs" });
@@ -503,8 +529,13 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   /* -------------------------------------------------------------- toolbar */
 
   /*
-   * The tab is two things: one card that both explains and performs "add", and
-   * the list itself.
+   * The tab is three things: one card that sets what the bar is painted on, one
+   * that both explains and performs "add", and the list itself.
+   *
+   * The background card comes first because it answers a question about the bar
+   * rather than about the rows — everything under it is "which commands are
+   * there", and a reader who meets the list first has to be told the bar has a
+   * colour at all before they can care which it is.
    *
    * The "clear all" block that used to sit above the card is gone as well. It
    * was the only caller of the confirmation modal, and the list it emptied is
@@ -547,6 +578,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       attr: { hidden: "hidden" },
     });
 
+    host.appendChild(this.buildToolbarBackground());
     host.appendChild(this.buildAddCard(host));
     // Nothing to search before the first command is added.
     if (commands.length > 0) host.appendChild(this.buildToolbarSearch(list, noMatch));
@@ -554,6 +586,134 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     host.appendChild(noMatch);
 
     this.applyToolbarFilter(list, noMatch);
+  }
+
+  /**
+   * The card that sets the colour behind the bar.
+   *
+   * Not a `Setting` row: what is being picked is a colour, and a colour wants
+   * to be seen rather than named — so the control is the preview. The button
+   * carries the very custom property the bar carries, which is what makes it
+   * the setting rather than a second rendering of it that could drift.
+   *
+   * The palette itself is the plugin's colour panel, hung under that button:
+   * ten cells are a lot to keep on a settings card for a choice most people
+   * make once, and the panel already knows how to place itself, take Escape,
+   * and hand back a code typed into its field. Three ways in, for three
+   * different users: pick a preset, name a theme variable, or pick "follow the
+   * theme" and stop thinking about it. All three end in the one custom
+   * property, so a fourth would add a cell and change nothing else.
+   */
+  private buildToolbarBackground(): HTMLElement {
+    /* Read defensively, like the bar itself: a `data.json` written before this
+       field existed has no value to hand back. A function rather than a local,
+       because the panel is opened later than the card is built and has to be
+       told what is true then — picking a colour does not re-render the card, so
+       a captured value would go stale the first time one was chosen. */
+    const stored = (): string => {
+      const value = this.plugin.settings.editorToolbarBackground;
+      return typeof value === "string" ? value : TOOLBAR_BACKGROUND_DEFAULT;
+    };
+
+    const card = h("div", { cls: "mtk-toolbar-bg" });
+
+    const copy = h("div", { cls: "mtk-toolbar-bg-copy" });
+    copy.appendChild(
+      h("div", { cls: "mtk-toolbar-bg-title", text: t("settings.toolbar.bg.title") })
+    );
+    copy.appendChild(h("p", { cls: "mtk-toolbar-bg-desc", text: t("settings.toolbar.bg.desc") }));
+    card.appendChild(copy);
+
+    const actions = h("div", { cls: "mtk-toolbar-bg-actions" });
+
+    /* The trigger is the preview. It is painted from the same declaration the
+       bar is — `var(--mtk-editor-toolbar-bg, var(--background-secondary))` — so
+       the common case needs nothing written here at all: setting the property
+       *is* showing the choice. What the two values that are not colours get
+       instead is a class, because a button painted with nothing is
+       indistinguishable from one whose colour failed to load. */
+    const trigger = h("button", {
+      cls: "mtk-toolbar-bg-open",
+      attr: { type: "button", "aria-haspopup": "dialog" },
+    });
+    applyTooltip(trigger, t("settings.toolbar.bg.pick"));
+    const glyph = h("span", { cls: "mtk-toolbar-bg-open-glyph" });
+    setIcon(glyph, "sun-moon");
+    trigger.appendChild(glyph);
+
+    const paint = (value: string): void => {
+      applyToolbarBackground(trigger, value);
+      trigger.classList.toggle("is-theme", value === TOOLBAR_BACKGROUND_DEFAULT);
+      trigger.classList.toggle("is-none", value === TOOLBAR_BACKGROUND_TRANSPARENT);
+    };
+
+    /** Writes the choice down, shows it, then repaints the bar in the editor. */
+    const write = (value: string): void => {
+      this.plugin.settings.editorToolbarBackground = value;
+      paint(value);
+      /* Repainted here rather than on the next visit to this tab: the editor is
+         usually open behind the settings dialog, and a colour that only showed
+         up after a reload would read as one that had not been saved. */
+      this.plugin.refreshToolbar();
+      void this.plugin.saveSettings();
+    };
+
+    /* One cell per value, in the order the panel draws them. Which values there
+       are is the domain module's business; only the two labels are this
+       layer's, which is why the two that are not colour codes are described
+       here — the panel cannot know what to call them. */
+    const cells: ColorCell[] = [
+      {
+        value: TOOLBAR_BACKGROUND_DEFAULT,
+        label: t("settings.toolbar.bg.followTheme"),
+        mark: "theme",
+      },
+      {
+        value: TOOLBAR_BACKGROUND_TRANSPARENT,
+        label: t("settings.toolbar.bg.transparent"),
+        mark: "none",
+      },
+      ...TOOLBAR_BACKGROUND_PRESETS,
+    ];
+
+    trigger.addEventListener("click", () => {
+      const before = stored();
+      new ColorPickerPanel({
+        title: t("settings.toolbar.bg.title"),
+        bands: [{ caption: t("settings.toolbar.bg.presets"), colors: cells }],
+        // Squares, ten to a row: this is a palette of surfaces rather than a
+        // set of pen caps, and ten is exactly one row of the panel's grid.
+        round: false,
+        anchor: trigger,
+        // The door the stored value comes back through, and now the one the
+        // panel knocks on as well — see `loadSettings` for the other half.
+        accepts: normalizeToolbarBackground,
+        // Marked, so the panel says which one is in use rather than leaving the
+        // user to compare a colour they can see with ten they can see.
+        current: before,
+        hexPlaceholder: t("settings.toolbar.bg.placeholder"),
+        invalidHint: t("settings.toolbar.bg.invalid"),
+        // A code the user already has in mind is the point of the field. When
+        // the bar is following the theme there is no code to offer, and an
+        // empty box under a placeholder says that better than a guess would.
+        seed: before,
+        onPick: write,
+      }).open();
+    });
+
+    actions.appendChild(trigger);
+    actions.appendChild(
+      this.buildIconAction(
+        "rotate-ccw",
+        t("settings.toolbar.bg.reset"),
+        "mtk-toolbar-bg-reset",
+        () => write(TOOLBAR_BACKGROUND_DEFAULT)
+      )
+    );
+    card.appendChild(actions);
+
+    paint(stored());
+    return card;
   }
 
   /**

@@ -44,6 +44,7 @@ A customizable formatting toolbar (40+ buttons by default, drag-to-reorder subme
 - **Alignment**: left / center / right / justify (via inline styles in the block, still plain-text friendly).
 - **Dual colour panels**: font colour and background colour each get their own picker.
 - **Fullscreen focus mode**: expand the editor to fill the screen, hiding sidebars and the status bar.
+- **Toolbar background**: the bar's own colour — follow the theme, go transparent, or pick one of eight presets; you can also type `#rrggbb`, `rgb()`/`hsl()` or `var(--theme-variable)`.
 
 Commands: `Toggle format brush` · `Underline` · `Font colour` · `Background colour` · `Fullscreen focus mode`.
 
@@ -91,7 +92,7 @@ The settings are split into five tabs:
 | Tab | Contents |
 |---|---|
 | **Diagram settings** | Auto-save and its interval, diagram kinds |
-| **Toolbar** | Add/remove buttons, drag to reorder submenus and sequence |
+| **Toolbar** | Toolbar background colour, add/remove buttons, drag to reorder submenus and sequence |
 | **File settings** | File hiding (entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator) and file order (show the reorder button, reset all custom order) |
 | **Attachment settings** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |
 

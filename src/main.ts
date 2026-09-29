@@ -29,6 +29,10 @@ import { outlineToMindmapBody } from "./core/outline";
 import { detectMode } from "./core/parse";
 import { MERMAID_LANG } from "./core/model";
 import { migrateToolbarCommandIds, sanitizeToolbarCommands } from "./core/toolbar-commands";
+import {
+  normalizeToolbarBackground,
+  TOOLBAR_BACKGROUND_DEFAULT,
+} from "./core/toolbar-background";
 import { kindById, type DiagramKind } from "./core/kinds";
 import { DiagramKindPicker } from "./ui/kind-picker";
 import { EditorToolbar } from "./features/editor-toolbar";
@@ -371,6 +375,14 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         ),
         `${this.manifest.id}:`
       ),
+      /* Validated on the way in, not merely filtered: this string is written
+         into a `style` property on the bar, and a `data.json` is text a user
+         can edit. Anything the field itself would refuse falls back to the
+         default here rather than reaching the DOM. */
+      editorToolbarBackground:
+        typeof saved?.editorToolbarBackground === "string"
+          ? normalizeToolbarBackground(saved.editorToolbarBackground) ?? TOOLBAR_BACKGROUND_DEFAULT
+          : DEFAULT_SETTINGS.editorToolbarBackground,
       hiddenRules:
         typeof saved?.hiddenRules === "string"
           ? migrateHiddenRules(saved!.hiddenRules)

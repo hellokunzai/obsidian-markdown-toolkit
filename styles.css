@@ -1242,6 +1242,143 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 /*
+ * ---- the bar's own colour (toolbar tab) ----
+ *
+ * The one card on this tab that is not about which rows the bar holds, so it
+ * sits above the "add" block: it answers what the rows are drawn *on*.
+ *
+ * The button is the reason this is not a `Setting` row. What is being picked is
+ * a colour, and a colour wants to be seen rather than named — so the control is
+ * the preview, and there is no second rendering of the choice that could drift
+ * away from the real one. The palette it opens is the plugin's colour panel,
+ * which brings its own placement, its own Escape key and its own field.
+ */
+.mtk-toolbar-bg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.mtk-toolbar-bg-copy {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.mtk-toolbar-bg-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+.mtk-toolbar-bg-desc {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.55;
+}
+/*
+ * Same shape as the two cards below it, and this time the controls need nothing
+ * special: the whole control is a pair of squares, so it keeps its own width
+ * and takes the right-hand end of the line, exactly like the "add" card next
+ * door. The wide, wrapping row that used to live here — ten swatches and a box
+ * — is inside the colour panel now, and the panel decides how it wraps.
+ */
+.mtk-toolbar-bg-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/*
+ * The trigger is the preview: it is painted from the very declaration the bar
+ * is painted from, so a colour or a theme variable needs no rule of its own —
+ * writing the property *is* showing the choice, and clearing it falls back to
+ * the theme's surface without anything here having to know what that is.
+ *
+ * Scoped under the actions row on purpose. Obsidian's
+ * `button:not(.clickable-icon)` rule is (0,1,1) and would take the background,
+ * the border and the radius back off a button written as a single class — the
+ * same takeover that turns a self-drawn swatch into a grey block. One more
+ * class in the selector beats it outright, with no `!important` and no
+ * dependence on load order.
+ */
+.mtk-toolbar-bg-actions .mtk-toolbar-bg-open {
+  width: 44px;
+  height: 44px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--mtk-editor-toolbar-bg, var(--background-secondary));
+  cursor: pointer;
+  /* Feedback is carried by the border and the shadow, and by nothing else. The
+     background *is* the chosen colour, so dimming it on hover would misreport
+     the setting; and a scaling button would be measured mid-press, because the
+     panel reads this very element's rect when it works out where to sit. */
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.mtk-toolbar-bg-actions .mtk-toolbar-bg-open:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: var(--shadow-s);
+}
+.mtk-toolbar-bg-actions .mtk-toolbar-bg-open:active {
+  border-color: var(--interactive-accent);
+  box-shadow: inset 0 0 0 1px var(--interactive-accent);
+}
+/* It is a real button, so the keyboard reaches it — and a ring is the one
+   affordance that stays visible whatever colour the button happens to show. */
+.mtk-toolbar-bg-actions .mtk-toolbar-bg-open:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+/*
+ * The glyph belongs to "follow the theme" alone — the colour is deliberately
+ * not the point of that choice — so it is hidden by default and revealed by a
+ * class, rather than added and taken back out of the button on every pick.
+ */
+.mtk-toolbar-bg-open-glyph {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.mtk-toolbar-bg-actions .mtk-toolbar-bg-open.is-theme .mtk-toolbar-bg-open-glyph {
+  display: inline-flex;
+}
+.mtk-toolbar-bg-actions .mtk-toolbar-bg-open.is-theme svg.svg-icon {
+  width: 20px;
+  height: 20px;
+}
+/*
+ * "Transparent": a checkerboard. Without it the button would fall back to the
+ * theme's surface and read as "follow the theme" — the two choices would look
+ * identical while meaning opposite things.
+ */
+.mtk-toolbar-bg-actions .mtk-toolbar-bg-open.is-none {
+  background-color: var(--background-primary);
+  background-image: conic-gradient(
+    var(--background-modifier-border) 25%,
+    transparent 0 50%,
+    var(--background-modifier-border) 0 75%,
+    transparent 0
+  );
+  background-size: 8px 8px;
+}
+.clickable-icon.mtk-toolbar-bg-reset {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+/*
  * ---- the filter row (toolbar tab, diagram-settings tab) ----
  *
  * Deliberately the same card as the "add" block above it on the toolbar tab.
@@ -1757,12 +1894,18 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 /* ---- editor toolbar (pinned above the active Markdown editor) ---- */
+/*
+ * The background is a custom property with the theme's colour as its fallback,
+ * so "no colour chosen" and "the colour the user chose" are one line apart —
+ * clearing the setting removes the property (see `core/toolbar-background.ts`)
+ * and the bar goes back to exactly what it was before the setting existed.
+ */
 .mtk-editor-toolbar {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 6px 10px;
-  background: var(--background-secondary);
+  background: var(--mtk-editor-toolbar-bg, var(--background-secondary));
   border-bottom: 1px solid var(--background-modifier-border);
   overflow-x: auto;
 }
@@ -1897,10 +2040,33 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 /* ---- font colour (字体颜色色板) ---- */
 /* Fixed rather than absolute: the panel is parented to the body so the
    toolbar's `overflow-x: auto` cannot clip it, and fixed positioning is what
-   makes the coordinates the placement code computes mean viewport pixels. */
+   makes the coordinates the placement code computes mean viewport pixels.
+
+   Parenting to the body is also why the layer has to be chosen here rather
+   than inherited from the caller: the panel ends up a *sibling* of whatever
+   opened it, so the only thing that decides who is on top is the two numbers.
+   `--layer-popover` (30) is where a popover belongs, and it is too low for one
+   of the callers — the settings card that picks the toolbar's own colour lives
+   inside a modal (`.modal-container` is `--layer-modal`, 50), so a panel at 30
+   is built, placed correctly, and painted behind the settings dialog. Nothing
+   reports an error; it just reads as a button that does nothing.
+
+   Five above the modal clears it, and stays under notices (60), menus (65) and
+   tooltips (70) — which is what keeps the panel's own tooltips and any notice
+   on top of it. Today that works out to 55, the same number `.mtk-lightbox`
+   arrived at from the other direction; derived rather than typed so a change
+   to Obsidian's ladder carries over.
+
+   This declaration is the first frame's number, not the last word. `open()`
+   measures the container the panel was opened from — a theme is free to move
+   the dialog, and a vault's copy of *this file* can be older than the code —
+   and writes the result inline, which is what actually decides the layer. What
+   is left here is what stops the first painted frame landing at `auto`, since
+   a stylesheet is not the place to keep a number the code has to get right.
+   See `panelLayer` in `ui/color-picker.ts`. */
 .mtk-color-panel {
   position: fixed;
-  z-index: var(--layer-popover);
+  z-index: calc(var(--layer-modal, 50) + 5);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1950,6 +2116,47 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-color-swatch:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 1px;
+}
+/*
+ * The two cells whose value is not a colour code.
+ *
+ * `is-theme` takes the surface "let the theme decide" resolves to, and puts the
+ * glyph on it: the surface is the answer and the glyph is what says so.
+ * `is-none` is the checkerboard — the only way "no colour at all" can be told
+ * apart from a cell that simply failed to paint.
+ *
+ * Prefixing the grid is not decoration: a bare `.mtk-color-swatch` is (0,1,0)
+ * and loses to Obsidian's `button:not(.clickable-icon)` at (0,1,1), which is
+ * why these two would otherwise be painted as ordinary grey buttons.
+ */
+.mtk-color-grid .mtk-color-swatch.is-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background-secondary);
+  color: var(--text-muted);
+}
+.mtk-color-grid .mtk-color-swatch.is-theme svg.svg-icon {
+  width: 11px;
+  height: 11px;
+}
+.mtk-color-grid .mtk-color-swatch.is-none {
+  background-color: var(--background-primary);
+  background-image: conic-gradient(
+    var(--background-modifier-border) 25%,
+    transparent 0 50%,
+    var(--background-modifier-border) 0 75%,
+    transparent 0
+  );
+  background-size: 8px 8px;
+}
+/*
+ * The one already in use, so the panel answers "what is it now" and not only
+ * "what could it be". Ringed rather than ticked: a tick would sit on top of the
+ * very colour it is describing.
+ */
+.mtk-color-grid .mtk-color-swatch.is-active {
+  box-shadow: 0 0 0 2px var(--interactive-accent);
 }
 /* The background palette instead: the reference plugin draws its highlighters
    as pen caps, so five circles to a row, twice the size of a theme swatch, and
@@ -2005,8 +2212,18 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   font-size: var(--font-ui-smaller);
   padding: 2px 8px;
 }
+/*
+ * The refusal is the only sentence in the panel, and the panel is sized to
+ * `max-content` — so without this the message is what decides how wide it is,
+ * not the swatches: measured at 314px for a 200px popover, which drags the
+ * palette off the button it was hung under. Capped at the grid's own width (ten
+ * 16px swatches, nine 2px gaps) so it wraps inside the block of colours rather
+ * than beside it. The round palette is narrower still, so neither grid is
+ * widened by a message appearing.
+ */
 .mtk-color-hint {
   margin: 0;
+  max-width: 178px;
   font-size: var(--font-ui-smaller);
   color: var(--text-error);
 }

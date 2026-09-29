@@ -1,6 +1,7 @@
 import { MarkdownView, Menu, Notice, setIcon, type App } from "obsidian";
 import type MarkdownEditorPlusPlugin from "../main";
 import { isGroupLabel, isSubmenu, colorPanelFor, type ColorPanel, type ToolbarCommand } from "../core/toolbar-commands";
+import { applyToolbarBackground, TOOLBAR_BACKGROUND_DEFAULT } from "../core/toolbar-background";
 import { t } from "../i18n";
 import { runCommand, toolbarLabel } from "../utils/commands";
 import { closeColorPicker } from "../ui/color-picker";
@@ -82,6 +83,15 @@ export class EditorToolbar {
   private renderBar(bar: HTMLElement): void {
     // Avoid Obsidian's prototype extension for portability.
     bar.replaceChildren();
+    /* Painted before the empty check below, so a bar that is hidden right now
+       still carries the colour the moment a command is added to it. Read
+       defensively: `data.json` may predate the field, and the value would then
+       be `undefined` — which would be written into the property verbatim. */
+    const background = this.plugin.settings.editorToolbarBackground;
+    applyToolbarBackground(
+      bar,
+      typeof background === "string" ? background : TOOLBAR_BACKGROUND_DEFAULT
+    );
     const commands = this.plugin.settings.toolbarCommands;
     if (commands.length === 0) {
       bar.classList.add("is-empty");
