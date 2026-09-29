@@ -1083,6 +1083,39 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   white-space: nowrap;
 }
 
+/*
+ * ---- diagram-settings tab: what the filter row needs on its own ----
+ *
+ * The card itself is shared with the toolbar's filter row. What differs is
+ * what sits under it: the toolbar's list brings its own top margin, while the
+ * table does not, so the card keeps a beat of space after it on this page.
+ */
+.mtk-kinds .mtk-kinds-search {
+  margin-bottom: 12px;
+}
+
+/*
+ * The table keeps its header while the search runs, so "nothing matched" is a
+ * note under the table rather than a box standing in for it.
+ */
+.mtk-kinds-search-empty {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.mtk-kinds-search-empty[hidden] {
+  display: none;
+}
+
+/*
+ * Rows the search has taken out. Hidden by `display`, not by removing them:
+ * the row keeps its place in the table and every cell keeps its column width,
+ * so nothing reflows as the query is narrowed.
+ */
+.mtk-kinds-table .mtk-kind-filtered {
+  display: none;
+}
+
 /* ==========================================================================
    0.4.0 — editor-explorer features (toolbar, hidden rules, manual order,
    attachment settings). Conventions: custom buttons carry a doubled class or
@@ -1209,18 +1242,24 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 /*
- * ---- toolbar tab: the filter row ----
+ * ---- the filter row (toolbar tab, diagram-settings tab) ----
  *
- * Deliberately the same card as the "add" block above it. The two are the two
- * halves of one job — one offers rows, the other finds the ones already there
- * — and the list below reads as the answer to both.
+ * Deliberately the same card as the "add" block above it on the toolbar tab.
+ * The two are the two halves of one job — one offers rows, the other finds the
+ * ones already there — and the list below reads as the answer to both.
+ *
+ * The two tabs draw it from one set of declarations: it answers the same
+ * question about two different lists, so it is written once rather than
+ * copied. The class names stay per-tab because the markup either side of the
+ * card differs — one wraps a list, the other a table.
  *
  * The copy takes the leftover width and the input keeps a width of its own,
  * so the pair wraps under each other in a narrow pane instead of squeezing
  * the sentence into a column of single words (the same lesson as the "add"
  * card's buttons).
  */
-.mtk-toolbar-search {
+.mtk-toolbar-search,
+.mtk-kinds-search {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1231,22 +1270,26 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   border-radius: var(--radius-m);
   background: var(--background-secondary);
 }
-.mtk-toolbar-search-copy {
+.mtk-toolbar-search-copy,
+.mtk-kinds-search-copy {
   flex: 1 1 200px;
   min-width: 0;
 }
-.mtk-toolbar-search-title {
+.mtk-toolbar-search-title,
+.mtk-kinds-search-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-normal);
 }
-.mtk-toolbar-search-desc {
+.mtk-toolbar-search-desc,
+.mtk-kinds-search-desc {
   margin: 5px 0 0;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   line-height: 1.55;
 }
-.mtk-toolbar-search-input {
+.mtk-toolbar-search-input,
+.mtk-kinds-search-input {
   flex: 0 0 auto;
   width: 220px;
 }

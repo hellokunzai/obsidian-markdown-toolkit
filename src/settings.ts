@@ -203,6 +203,36 @@ function searchText(row: HTMLElement): string {
   return `${name} ${id}`;
 }
 
+/**
+ * Marks a diagram-type row that the search box has taken out.
+ *
+ * A second constant rather than a shared one with `FILTERED_ROW`: each hiding
+ * rule is scoped to its own list, and the toolbar's needs `.mtk-toolbar-cmd-list`
+ * in front of it to beat a row's `display: grid`. A table row has no such
+ * ancestor to borrow, so it carries a rule of its own.
+ */
+const FILTERED_KIND_ROW = "mtk-kind-filtered";
+
+/**
+ * The cells a diagram-type row is searched by: the name it is drawn with, the
+ * keyword someone types into a fence, and the sentence saying when to reach
+ * for it.
+ *
+ * The "visual editor" column is left out on purpose. It holds one of two
+ * words, so including it would answer half the table for a query like "yes" —
+ * the same reason the toolbar searches a section heading by its name alone.
+ */
+const KIND_SEARCH_CELLS = [".mtk-kind-name", ".mtk-kind-keyword", ".mtk-kind-scene"];
+
+function kindSearchText(row: HTMLElement): string {
+  const parts: string[] = [];
+  for (const selector of KIND_SEARCH_CELLS) {
+    const text = row.querySelector(selector)?.textContent;
+    if (text) parts.push(text);
+  }
+  return parts.join(" ");
+}
+
 export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private readonly plugin: MarkdownEditorPlusPlugin;
   /**
@@ -224,6 +254,15 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * through the search they were using to find the row.
    */
   private toolbarQuery = "";
+
+  /**
+   * What is typed in the diagram-type search box.
+   *
+   * A field of its own rather than a shared one with the toolbar's box: the two
+   * filter different lists on different tabs, and one query would mean clearing
+   * a search for "gantt" here quietly narrowed the toolbar list too.
+   */
+  private kindQuery = "";
 
   constructor(app: App, plugin: MarkdownEditorPlusPlugin) {
     super(app, plugin);
@@ -383,8 +422,82 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     const table = h("table", { cls: "mtk-kinds-table" });
     table.appendChild(thead);
     table.appendChild(tbody);
+
+    // Unlike the toolbar's box, this one never hides the list it filters: the
+    // header is the only thing on screen saying what the columns mean, so it
+    // stays put and the sentence about an empty result lands underneath.
+    const noMatch = h("p", {
+      cls: "mtk-kinds-search-empty",
+      text: t("settings.kinds.searchEmpty"),
+      attr: { hidden: "hidden" },
+    });
+
+    wrap.appendChild(this.buildKindSearch(tbody, noMatch));
     wrap.appendChild(table);
+    wrap.appendChild(noMatch);
+
+    this.applyKindFilter(tbody, noMatch);
     return wrap;
+  }
+
+  /**
+   * The search box that sits between the table's title and the table itself.
+   *
+   * The reference is a fixed list, so the everyday job is finding one row in
+   * it, and picking through four columns for "gantt" is work the box can do.
+   *
+   * It filters in place rather than rebuilding the table: rows are never added
+   * or removed, only marked, so the caret stays in the box across a keystroke.
+   * The box is refilled from `kindQuery`, so leaving the tab and coming back
+   * hands the user the same view they left instead of the full table.
+   */
+  private buildKindSearch(tbody: HTMLElement, noMatch: HTMLElement): HTMLElement {
+    const row = h("div", { cls: "mtk-kinds-search" });
+
+    const copy = h("div", { cls: "mtk-kinds-search-copy" });
+    copy.appendChild(
+      h("div", { cls: "mtk-kinds-search-title", text: t("settings.kinds.searchTitle") })
+    );
+    copy.appendChild(
+      h("p", { cls: "mtk-kinds-search-desc", text: t("settings.kinds.searchDesc") })
+    );
+    row.appendChild(copy);
+
+    const input = h("input", {
+      cls: "mtk-kinds-search-input",
+      attr: {
+        type: "search",
+        spellcheck: "false",
+        placeholder: t("settings.kinds.searchPlaceholder"),
+        "aria-label": t("settings.kinds.searchTitle"),
+      },
+    });
+    input.value = this.kindQuery;
+    input.addEventListener("input", () => {
+      this.kindQuery = input.value;
+      this.applyKindFilter(tbody, noMatch);
+    });
+    row.appendChild(input);
+    return row;
+  }
+
+  /**
+   * Shows only the rows whose name, keyword or scene contains the query.
+   *
+   * Every pass starts from scratch — the query and the row's own text, nothing
+   * carried over — so clearing the box restores the full table rather than
+   * whatever the last search happened to leave behind.
+   */
+  private applyKindFilter(tbody: HTMLElement, noMatch: HTMLElement): void {
+    const needle = this.kindQuery.trim().toLowerCase();
+    let visible = 0;
+    for (const row of Array.from(tbody.children)) {
+      if (!(row instanceof HTMLElement)) continue;
+      const shown = needle.length === 0 || kindSearchText(row).toLowerCase().includes(needle);
+      row.classList.toggle(FILTERED_KIND_ROW, !shown);
+      if (shown) visible += 1;
+    }
+    noMatch.toggleAttribute("hidden", !(needle.length > 0 && visible === 0));
   }
 
   /* -------------------------------------------------------------- toolbar */
