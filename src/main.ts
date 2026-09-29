@@ -335,7 +335,9 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     const legacyOrderEnabled =
       (saved as { orderEnabled?: unknown } | null)?.orderEnabled === true;
     const orderButton =
-      typeof saved?.orderButton === "boolean" ? saved.orderButton : legacyOrderEnabled;
+      typeof saved?.orderButton === "boolean"
+        ? saved.orderButton
+        : legacyOrderEnabled || DEFAULT_SETTINGS.orderButton;
     const orderMode =
       typeof saved?.orderMode === "boolean" ? saved.orderMode : legacyOrderEnabled;
     // Copied field by field rather than merged: a `data.json` written by an

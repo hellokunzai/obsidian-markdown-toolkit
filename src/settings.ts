@@ -158,11 +158,11 @@ export interface MarkdownEditorPlusSettings {
 }
 
 export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
-  // Off by default. The plugin's contract has been that nothing reaches the
-  // note until it is asked for, and turning that into an unconditional write
-  // would change what this plugin does to somebody's files rather than how it
-  // is configured. The switch is one click away for anyone who wants it.
-  autoSave: false,
+  // On by default: autosave only ever writes back what the user typed into
+  // the diagram editor itself — it does not invent content, and the manual
+  // save button stays available. One click turns it off for anyone who
+  // prefers explicit saves.
+  autoSave: true,
   autoSaveInterval: 30,
 
   // Ported from the reference plugin's own default list; see
@@ -176,10 +176,10 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   hiddenRules: "startsWith::.",
   hiddenEnabled: true,
   hiddenIgnoreCase: true,
-  hiddenExcludeList: false,
-  hiddenStatusBar: false,
+  hiddenExcludeList: true,
+  hiddenStatusBar: true,
   hiddenExcludeEntries: [],
-  orderButton: false,
+  orderButton: true,
   orderMode: false,
   orderMap: {},
   attachmentTemplate: 'file-${date:YYYYMMDDHHmmssSSS}',
@@ -190,7 +190,7 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   syncAttachmentsOnMove: true,
   attachmentDuplicateSeparator: "-",
   emptyFolderHandling: "delete-and-parents",
-  deleteOrphanedOnNoteDelete: false,
+  deleteOrphanedOnNoteDelete: true,
 };
 
 /**
