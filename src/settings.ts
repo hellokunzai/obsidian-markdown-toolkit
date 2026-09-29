@@ -343,8 +343,8 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
 
     /* The interval row is built off-document first, then moved into place below
        the switch. The switch owns the only reference to it — turning auto-save
-       off has to dim the row in the same breath — and it can only hold one for
-       something that already exists. */
+       off has to disable the slider in the same breath — and it can only hold
+       one for something that already exists. */
     const intervalRow = this.buildAutoSaveInterval();
 
     new Setting(host)
@@ -353,7 +353,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.autoSave).onChange(async (value) => {
           this.plugin.settings.autoSave = value;
-          intervalRow.setDisabled(!value);
+          intervalRow.setEnabled(value);
           // Pushed into editors that are already open, not just the next one:
           // the settings tab can be visited without closing the diagram, and a
           // switch that only took effect later would look broken.
@@ -362,7 +362,8 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         })
       );
 
-    host.appendChild(intervalRow.setDisabled(!this.plugin.settings.autoSave).settingEl);
+    intervalRow.setEnabled(this.plugin.settings.autoSave);
+    host.appendChild(intervalRow.row.settingEl);
 
     host.appendChild(this.buildReference());
   }
@@ -377,7 +378,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * days, and a second copy beside the track would read as two different
    * settings.
    */
-  private buildAutoSaveInterval(): Setting {
+  private buildAutoSaveInterval(): { row: Setting; setEnabled: (on: boolean) => void } {
     const fallback = DEFAULT_SETTINGS.autoSaveInterval;
     const setting = new Setting(document.createElement("div"))
       .setName(t("settings.autoSaveInterval.name"))
@@ -415,7 +416,15 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         })
     );
 
-    return setting;
+    // Gating is slider-only, on purpose: `Setting.setDisabled` would mark the
+    // whole row `is-disabled` and dim the name and description along with the
+    // control, making the option itself look switched off. The reset button
+    // stays live as well — resetting a dormant value is harmless.
+    const setEnabled = (on: boolean): void => {
+      slider?.setDisabled(!on);
+    };
+
+    return { row: setting, setEnabled };
   }
 
   private buildReference(): HTMLElement {
