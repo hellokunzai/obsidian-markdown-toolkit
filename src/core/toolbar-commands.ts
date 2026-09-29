@@ -146,6 +146,33 @@ export function textAlignSubmenu(): ToolbarCommand {
   };
 }
 
+/** Id of the bundled 图表 submenu, so the settings page can detect it. */
+export const DIAGRAM_MENU_ID = "menu-diagram";
+
+/**
+ * The bundled 图表 submenu.
+ *
+ * Unlike the five submenus ported from the reference plugin, this one has no
+ * original to copy: `obsidian-editing-toolbar` ships no diagram entries, so all
+ * three items point at commands this plugin registers itself — and therefore
+ * carry the plugin's command-id prefix.
+ *
+ * Three entries and no headings. The flow and mind-map inserts are the two
+ * kinds a writer reaches for by name, and the picker behind the third covers
+ * every other kind, so a heading would only add a line to a menu this short.
+ *
+ * The button is drawn with `bar-chart-2` rather than one of the items' own
+ * glyphs: it is what reads as "chart" on its own, and it keeps the three items
+ * (branch, network, pie) individually legible.
+ */
+export function diagramSubmenu(): ToolbarCommand {
+  return submenu(DIAGRAM_MENU_ID, "bar-chart-2", "settings.toolbar.group.diagram", [
+    command("diagram-flow", "markdown-toolkit:insert-flow", "git-branch"),
+    command("diagram-mindmap", "markdown-toolkit:insert-mindmap", "network"),
+    command("diagram-any", "markdown-toolkit:insert-any", "pie-chart"),
+  ]);
+}
+
 /**
  * The bundled 字体颜色 entry.
  *
@@ -273,6 +300,11 @@ export function defaultToolbarCommands(): ToolbarCommand[] {
       command("menu-insert-mathblock", "editor:insert-mathblock", "sigma"),
       command("menu-insert-inline-math", "editor:toggle-inline-math", "function-square"),
     ]),
+
+    // This plugin's own diagram submenu, placed beside Insert so the two
+    // "insert" families sit together. The reference has no diagram entries, so
+    // unlike the menus above there is nothing to port.
+    diagramSubmenu(),
 
     submenu("menu-list", "list", "settings.toolbar.group.list", [
       command("menu-list-checklist", "editor:toggle-checklist-status", "square-check"),
