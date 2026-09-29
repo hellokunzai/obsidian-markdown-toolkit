@@ -466,7 +466,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       attr: { hidden: "hidden" },
     });
 
-    wrap.appendChild(this.buildKindSearch(tbody, noMatch));
+    wrap.appendChild(this.buildKindSearch(tbody, noMatch).settingEl);
     wrap.appendChild(table);
     wrap.appendChild(noMatch);
 
@@ -475,7 +475,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   }
 
   /**
-   * The search box that sits between the table's title and the table itself.
+   * The search row that sits between the table's title and the table itself.
    *
    * The reference is a fixed list, so the everyday job is finding one row in
    * it, and picking through four columns for "gantt" is work the box can do.
@@ -484,35 +484,29 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * or removed, only marked, so the caret stays in the box across a keystroke.
    * The box is refilled from `kindQuery`, so leaving the tab and coming back
    * hands the user the same view they left instead of the full table.
+   *
+   * It is a `Setting` row, not a hand-drawn card, so it inherits whatever the
+   * theme paints the other rows of this tab with — the previous custom card
+   * drew its own border and background and read as a stranger next to them.
+   * Built off-document and moved into place by the caller, like the interval
+   * row above.
    */
-  private buildKindSearch(tbody: HTMLElement, noMatch: HTMLElement): HTMLElement {
-    const row = h("div", { cls: "mtk-kinds-search" });
+  private buildKindSearch(tbody: HTMLElement, noMatch: HTMLElement): Setting {
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.kinds.searchTitle"))
+      .setDesc(t("settings.kinds.searchDesc"));
 
-    const copy = h("div", { cls: "mtk-kinds-search-copy" });
-    copy.appendChild(
-      h("div", { cls: "mtk-kinds-search-title", text: t("settings.kinds.searchTitle") })
+    setting.addText((text) =>
+      text
+        .setPlaceholder(t("settings.kinds.searchPlaceholder"))
+        .setValue(this.kindQuery)
+        .onChange((value) => {
+          this.kindQuery = value;
+          this.applyKindFilter(tbody, noMatch);
+        })
     );
-    copy.appendChild(
-      h("p", { cls: "mtk-kinds-search-desc", text: t("settings.kinds.searchDesc") })
-    );
-    row.appendChild(copy);
 
-    const input = h("input", {
-      cls: "mtk-kinds-search-input",
-      attr: {
-        type: "search",
-        spellcheck: "false",
-        placeholder: t("settings.kinds.searchPlaceholder"),
-        "aria-label": t("settings.kinds.searchTitle"),
-      },
-    });
-    input.value = this.kindQuery;
-    input.addEventListener("input", () => {
-      this.kindQuery = input.value;
-      this.applyKindFilter(tbody, noMatch);
-    });
-    row.appendChild(input);
-    return row;
+    return setting;
   }
 
   /**

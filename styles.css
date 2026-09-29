@@ -1080,11 +1080,11 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 /*
  * ---- diagram-settings tab: what the filter row needs on its own ----
  *
- * The card itself is shared with the toolbar's filter row. What differs is
- * what sits under it: the toolbar's list brings its own top margin, while the
- * table does not, so the card keeps a beat of space after it on this page.
+ * The filter row is a `Setting` row, so the theme paints it like every other
+ * row on the tab. What differs is what sits under it: the table has no top
+ * margin of its own, so the row keeps a beat of space after it on this page.
  */
-.mtk-kinds .mtk-kinds-search {
+.mtk-kinds > .setting-item {
   margin-bottom: 12px;
 }
 
@@ -1363,24 +1363,24 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 /*
- * ---- the filter row (toolbar tab, diagram-settings tab) ----
+ * ---- the filter row (toolbar tab) ----
  *
- * Deliberately the same card as the "add" block above it on the toolbar tab.
- * The two are the two halves of one job — one offers rows, the other finds the
- * ones already there — and the list below reads as the answer to both.
+ * Deliberately the same card as the "add" block above it. The two are the two
+ * halves of one job — one offers rows, the other finds the ones already
+ * there — and the list below reads as the answer to both.
  *
- * The two tabs draw it from one set of declarations: it answers the same
- * question about two different lists, so it is written once rather than
- * copied. The class names stay per-tab because the markup either side of the
- * card differs — one wraps a list, the other a table.
+ * The diagram-settings tab used to share these declarations, but its filter
+ * row is an ordinary `Setting` row now: the card's own border and background
+ * read as a stranger next to the rows the theme paints around it, and a
+ * `Setting` inherits that look for free. The class names here stay per-tab
+ * rather than shared so the toolbar's card is untouched by that change.
  *
  * The copy takes the leftover width and the input keeps a width of its own,
  * so the pair wraps under each other in a narrow pane instead of squeezing
  * the sentence into a column of single words (the same lesson as the "add"
  * card's buttons).
  */
-.mtk-toolbar-search,
-.mtk-kinds-search {
+.mtk-toolbar-search {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1391,26 +1391,22 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   border-radius: var(--radius-m);
   background: var(--background-secondary);
 }
-.mtk-toolbar-search-copy,
-.mtk-kinds-search-copy {
+.mtk-toolbar-search-copy {
   flex: 1 1 200px;
   min-width: 0;
 }
-.mtk-toolbar-search-title,
-.mtk-kinds-search-title {
+.mtk-toolbar-search-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-normal);
 }
-.mtk-toolbar-search-desc,
-.mtk-kinds-search-desc {
+.mtk-toolbar-search-desc {
   margin: 5px 0 0;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   line-height: 1.55;
 }
-.mtk-toolbar-search-input,
-.mtk-kinds-search-input {
+.mtk-toolbar-search-input {
   flex: 0 0 auto;
   width: 220px;
 }
