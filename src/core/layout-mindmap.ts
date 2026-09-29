@@ -1,4 +1,11 @@
-import { childrenOf, rootNodes, type DiagramModel, type DiagramNode, type MindmapLayout } from "./model";
+import {
+  childrenOf,
+  DEFAULT_MINDMAP_LAYOUT,
+  rootNodes,
+  type DiagramModel,
+  type DiagramNode,
+  type MindmapLayout,
+} from "./model";
 import { measureNode } from "./measure";
 
 /**
@@ -132,7 +139,10 @@ function centreVertically(model: DiagramModel): void {
   for (const node of model.nodes) node.y -= mid;
 }
 
-export function layoutMindmap(model: DiagramModel, layout: MindmapLayout = "right"): void {
+export function layoutMindmap(
+  model: DiagramModel,
+  layout: MindmapLayout = DEFAULT_MINDMAP_LAYOUT
+): void {
   if (!model.nodes.length) return;
 
   const levels = assignLevels(model);

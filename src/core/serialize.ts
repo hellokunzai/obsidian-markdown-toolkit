@@ -1,14 +1,10 @@
-import { LAYOUT_ANNOTATION, type DiagramModel, type DiagramNode } from "./model";
+import {
+  DEFAULT_FLOW_DIRECTION,
+  LAYOUT_ANNOTATION,
+  type DiagramModel,
+  type DiagramNode,
+} from "./model";
 import { pinnedPositions } from "./parse";
-
-export interface SerializeOptions {
-  /**
-   * Write the coordinate annotation for pinned nodes. Turning this off means
-   * dragged positions are not persisted, which is the documented fallback for
-   * renderers that choke on the comment line.
-   */
-  persistPositions?: boolean;
-}
 
 const SHAPE_OPENERS: Record<string, [string, string]> = {
   rect: ["[", "]"],
@@ -63,7 +59,7 @@ function childrenMap(model: DiagramModel): Map<string, DiagramNode[]> {
  * `classDef` / `class` / `style` to follow the graph, so echoing them last keeps
  * a file that mermaid can still render on its own.
  */
-export function serializeDiagram(model: DiagramModel, options: SerializeOptions = {}): string {
+export function serializeDiagram(model: DiagramModel): string {
   const out: string[] = [];
   const kids = childrenMap(model);
 
@@ -77,7 +73,7 @@ export function serializeDiagram(model: DiagramModel, options: SerializeOptions 
     };
     for (const root of roots.length ? roots : model.nodes.slice(0, 1)) walk(root, 0);
   } else {
-    out.push(`flowchart ${model.direction || "TD"}`);
+    out.push(`flowchart ${model.direction || DEFAULT_FLOW_DIRECTION}`);
     for (const node of model.nodes) out.push(`  ${node.id}${shapeBody(model, node)}`);
     for (const edge of model.edges) {
       const label = edge.label ? `|${escapeBody(edge.label)}|` : "";
@@ -85,16 +81,18 @@ export function serializeDiagram(model: DiagramModel, options: SerializeOptions 
     }
   }
 
-  if (options.persistPositions !== false) {
-    const pinned = pinnedPositions(model);
-    const keys = Object.keys(pinned);
-    if (keys.length) {
-      out.push(
-        `%% ${LAYOUT_ANNOTATION} ${keys
-          .map((key) => `${key}=${pinned[key].x},${pinned[key].y}`)
-          .join(" ")}`
-      );
-    }
+  /* Written unconditionally. Positions were once optional, and this annotation
+     is the only thing that keeps a hand-arranged diagram from silently
+     snapping back to the automatic layout on the next open — with nothing in
+     the file to explain why. */
+  const pinned = pinnedPositions(model);
+  const keys = Object.keys(pinned);
+  if (keys.length) {
+    out.push(
+      `%% ${LAYOUT_ANNOTATION} ${keys
+        .map((key) => `${key}=${pinned[key].x},${pinned[key].y}`)
+        .join(" ")}`
+    );
   }
 
   for (const line of model.passthrough) out.push(line);

@@ -10,7 +10,6 @@ import { buildSvgDocument } from "../render/export";
 import { writeDrawingFile, type DrawingFile, type ExportKind } from "../utils/export-file";
 import { readPalette } from "../render/svg";
 import type { DiagramMode } from "../core/model";
-import type { MarkdownEditorPlusSettings } from "../settings";
 
 /**
  * Getting a drawing out of the note and onto the disk.
@@ -85,12 +84,8 @@ export function openExportMenu(anchor: HTMLElement, onPick: (kind: ExportKind) =
  * lands and telling the user is `writeDrawingFile`'s job, shared with the
  * editor's own export — this function only turns source text into that document.
  */
-export async function exportBlockDiagram(
-  app: App,
-  settings: MarkdownEditorPlusSettings,
-  request: BlockExportRequest
-): Promise<void> {
-  const drawing = buildDocument(settings, request);
+export async function exportBlockDiagram(app: App, request: BlockExportRequest): Promise<void> {
+  const drawing = buildDocument(request);
   if (!drawing) {
     new Notice(t("notice.emptyDiagram"));
     return;
@@ -99,10 +94,7 @@ export async function exportBlockDiagram(
 }
 
 /** `null` when there is nothing to draw — an empty or unreadable body. */
-function buildDocument(
-  settings: MarkdownEditorPlusSettings,
-  request: BlockExportRequest
-): DrawingFile | null {
+function buildDocument(request: BlockExportRequest): DrawingFile | null {
   const palette = readPalette(request.paletteFrom);
   const background = request.kind === "png";
 
@@ -123,7 +115,7 @@ function buildDocument(
   if (!parsed.ok) return null;
 
   const model = parsed.model;
-  if (model.mode === "mindmap") layoutMindmap(model, settings.mindmapLayout);
+  if (model.mode === "mindmap") layoutMindmap(model);
   else layoutFlow(model);
   applyPinnedPositions(model);
   if (!model.nodes.length) return null;

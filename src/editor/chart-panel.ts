@@ -357,6 +357,15 @@ export class ChartPanel {
     return this.dirty;
   }
 
+  /**
+   * Marks the state as written. Called by the session after a successful save:
+   * the write goes through `EditorPanelHost`, so whether it landed is not
+   * something this panel can see for itself.
+   */
+  markSaved(): void {
+    this.dirty = false;
+  }
+
   /** SVG paints are baked-in attributes, so a theme change needs a re-render. */
   repaintForTheme(): void {
     this.repaint();
@@ -2493,9 +2502,10 @@ export class ChartPanel {
   /* --------------------------------------------------------------- output */
 
   private async save(): Promise<void> {
-    const source = this.getSource();
-    this.dirty = false;
-    await this.options.host.save(source);
+    // The dirty flag is *not* cleared here. It is cleared by `markSaved`, once
+    // the write has actually landed — so a block that has gone missing leaves
+    // the changes marked as unsaved instead of quietly forgetting about them.
+    await this.options.host.save(this.getSource());
   }
 
 }

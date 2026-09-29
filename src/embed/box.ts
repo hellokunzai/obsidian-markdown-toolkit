@@ -177,7 +177,7 @@ export function buildDiagramBox(
           canvas.appendChild(sourceDetails(source));
         } else {
           const model = parsed.model;
-          if (model.mode === "mindmap") layoutMindmap(model, host.settings.mindmapLayout);
+          if (model.mode === "mindmap") layoutMindmap(model);
           else layoutFlow(model);
           applyPinnedPositions(model);
           text = t("embed.summary", { nodes: model.nodes.length, edges: model.edges.length });
@@ -450,7 +450,7 @@ export function openLightbox(
       canvas.appendChild(h("div", { cls: "mtk-embed-message", text: t("embed.parseFailed") }));
     } else {
       const model = parsed.model;
-      if (model.mode === "mindmap") layoutMindmap(model, host.settings.mindmapLayout);
+      if (model.mode === "mindmap") layoutMindmap(model);
       else layoutFlow(model);
       applyPinnedPositions(model);
       renderDiagram(surface, model, { interactive: false, selectedId: null });

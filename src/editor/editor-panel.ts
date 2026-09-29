@@ -6,14 +6,13 @@ import { layoutMindmap, COLUMN_GAP, ROW_GAP } from "../core/layout-mindmap";
 import {
   childrenOf,
   createModel,
+  DEFAULT_FLOW_DIRECTION,
   isRoot,
   nextNodeId,
   nodeById,
   rootNodes,
   type DiagramModel,
   type DiagramNode,
-  type FlowDirection,
-  type MindmapLayout,
   type NodeShape,
   type Point,
 } from "../core/model";
@@ -45,9 +44,6 @@ export interface EditorPanelOptions {
   source: string;
   mode: "mindmap" | "flow";
   modeLabel: string;
-  persistPositions: boolean;
-  mindmapLayout: MindmapLayout;
-  flowDirection: FlowDirection;
   host: EditorPanelHost;
 }
 
@@ -67,9 +63,10 @@ type DragState =
  * than growing a second implementation of it. All state — model, viewport,
  * selection, undo stack — lives here and survives the move.
  *
- * Everything the user changes is applied to the model immediately, but the note
- * is only written on **save** or on **close after a change**, so an accidental
- * experiment never reaches the file.
+ * Everything the user changes is applied to the model immediately, and the note
+ * is written only when something asks for it: the save button, Ctrl+S, or the
+ * auto-save switch in the settings. An accidental experiment therefore stays in
+ * the model — and out of the file — until one of those says otherwise.
  */
 export class EditorPanel {
   readonly root: HTMLElement;
@@ -142,11 +139,20 @@ export class EditorPanel {
   }
 
   getSource(): string {
-    return serializeDiagram(this.model, { persistPositions: this.options.persistPositions });
+    return serializeDiagram(this.model);
   }
 
   get hasChanges(): boolean {
     return this.dirty;
+  }
+
+  /**
+   * Marks the model as written. Called by the session after a successful save,
+   * because the write itself goes through `EditorPanelHost` and this panel
+   * cannot see whether it landed.
+   */
+  markSaved(): void {
+    this.dirty = false;
   }
 
   /** SVG paints are baked-in attributes, so a theme change needs a re-render. */
@@ -272,7 +278,7 @@ export class EditorPanel {
   private loadFromSource(source: string): void {
     const parsed = parseDiagram(source, this.options.mode);
     this.model = parsed.ok ? parsed.model : createModel(this.options.mode);
-    if (!this.model.direction) this.model.direction = this.options.flowDirection;
+    if (!this.model.direction) this.model.direction = DEFAULT_FLOW_DIRECTION;
     this.relayout();
     applyPinnedPositions(this.model);
   }
@@ -304,7 +310,7 @@ export class EditorPanel {
    */
   private relayout(): void {
     if (this.model.mode === "mindmap") {
-      layoutMindmap(this.model, this.options.mindmapLayout);
+      layoutMindmap(this.model);
     } else {
       layoutFlow(this.model);
     }
@@ -386,7 +392,7 @@ export class EditorPanel {
   /* ------------------------------------------------------------ mutations */
 
   private snapshot(): string {
-    return serializeDiagram(this.model, { persistPositions: this.options.persistPositions });
+    return serializeDiagram(this.model);
   }
 
   private pushUndo(): void {
@@ -891,10 +897,7 @@ export class EditorPanel {
       if (!drag) return;
 
       if (drag.kind === "node") {
-        if (drag.moved) {
-          if (!this.options.persistPositions) new Notice(t("notice.positionsOff"));
-          this.render();
-        }
+        if (drag.moved) this.render();
         return;
       }
     };
@@ -972,9 +975,10 @@ export class EditorPanel {
   /* --------------------------------------------------------------- output */
 
   private async save(): Promise<void> {
-    const source = this.getSource();
-    this.dirty = false;
-    await this.options.host.save(source);
+    // The dirty flag is *not* cleared here. It is cleared by `markSaved`, once
+    // the write has actually landed — so a block that has gone missing leaves
+    // the changes marked as unsaved instead of quietly forgetting about them.
+    await this.options.host.save(this.getSource());
   }
 
   /** Number of lines in the widest label, exposed for the status tooltip. */

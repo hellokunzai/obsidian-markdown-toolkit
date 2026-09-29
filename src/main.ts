@@ -7,7 +7,13 @@ import {
   type MarkdownView,
 } from "obsidian";
 import { t } from "./i18n";
-import { DEFAULT_SETTINGS, MarkdownEditorPlusSettingTab, type MarkdownEditorPlusSettings } from "./settings";
+import {
+  DEFAULT_SETTINGS,
+  MarkdownEditorPlusSettingTab,
+  MAX_AUTO_SAVE_SECONDS,
+  MIN_AUTO_SAVE_SECONDS,
+  type MarkdownEditorPlusSettings,
+} from "./settings";
 import {
   registerDiagramBlocks,
   type DiagramBlockHost,
@@ -21,7 +27,7 @@ import { VIEW_TYPE_DIAGRAM } from "./editor/view-type";
 import { listFences, siblingFences, type BlockTarget } from "./block/block-target";
 import { outlineToMindmapBody } from "./core/outline";
 import { detectMode } from "./core/parse";
-import { MERMAID_LANG, type FlowDirection, type MindmapLayout } from "./core/model";
+import { MERMAID_LANG } from "./core/model";
 import { migrateToolbarCommandIds, sanitizeToolbarCommands } from "./core/toolbar-commands";
 import { kindById, type DiagramKind } from "./core/kinds";
 import { DiagramKindPicker } from "./ui/kind-picker";
@@ -53,9 +59,6 @@ import { AttachmentRenameSync } from "./features/attachment-rename";
  * does not actually guarantee.
  */
 type EditorContext = MarkdownView | MarkdownFileInfo;
-
-const DIRECTIONS: FlowDirection[] = ["TD", "BT", "LR", "RL"];
-const LAYOUTS: MindmapLayout[] = ["right", "left", "both"];
 
 /**
  * The regular-expression default of 0.5.x, translated once.
@@ -294,6 +297,20 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     this.editorToolbar?.sync();
   }
 
+  /**
+   * Hands the auto-save settings to every editor that is currently open.
+   *
+   * The settings tab calls this on each change, for the same reason the toolbar
+   * one exists: the panel can be opened while a diagram is on screen, and a
+   * switch whose effect only arrives with the next editor is indistinguishable
+   * from a switch that does nothing.
+   */
+  syncAutoSave(): void {
+    for (const session of this.sessions.values()) {
+      session.setAutoSave(this.settings.autoSave, this.settings.autoSaveInterval);
+    }
+  }
+
   /* ------------------------------------------------------------- settings */
 
   async loadSettings(): Promise<void> {
@@ -323,14 +340,17 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     // against its allowed set, because a hand-edited `data.json` must never be
     // able to put the UI into a state its own dropdowns cannot express.
     this.settings = {
-      flowDirection: DIRECTIONS.includes(saved?.flowDirection as FlowDirection)
-        ? (saved?.flowDirection as FlowDirection)
-        : DEFAULT_SETTINGS.flowDirection,
-      mindmapLayout: LAYOUTS.includes(saved?.mindmapLayout as MindmapLayout)
-        ? (saved?.mindmapLayout as MindmapLayout)
-        : DEFAULT_SETTINGS.mindmapLayout,
-      persistPositions: saved?.persistPositions ?? DEFAULT_SETTINGS.persistPositions,
-      openIn: saved?.openIn === "tab" ? "tab" : DEFAULT_SETTINGS.openIn,
+      autoSave: typeof saved?.autoSave === "boolean" ? saved.autoSave : DEFAULT_SETTINGS.autoSave,
+      // Clamped rather than merely type-checked: this number becomes a timer at
+      // the other end, and a hand-edited `data.json` will not be stopped by the
+      // slider's own bounds.
+      autoSaveInterval:
+        typeof saved?.autoSaveInterval === "number" && Number.isFinite(saved.autoSaveInterval)
+          ? Math.min(
+              MAX_AUTO_SAVE_SECONDS,
+              Math.max(MIN_AUTO_SAVE_SECONDS, Math.round(saved.autoSaveInterval))
+            )
+          : DEFAULT_SETTINGS.autoSaveInterval,
 
       // 0.4.0 editor-explorer features. Field-by-field so a data.json written
       // by an earlier release (which still carries the retired block-language
@@ -483,10 +503,8 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
       target: request.target,
       source: request.source,
       mode: request.mode,
-      persistPositions: this.settings.persistPositions,
-      mindmapLayout: this.settings.mindmapLayout,
-      flowDirection: this.settings.flowDirection,
-      openIn: this.settings.openIn,
+      autoSave: this.settings.autoSave,
+      autoSaveInterval: this.settings.autoSaveInterval,
     });
     this.sessions.set(key, session);
     session.start();

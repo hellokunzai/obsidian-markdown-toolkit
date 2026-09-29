@@ -1123,6 +1123,17 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   border-bottom-color: var(--interactive-accent);
 }
 
+/* A row whose switch is off. `Setting.setDisabled` does mark the row, and it
+   does disable the controls inside it, but Obsidian's own stylesheet has no rule
+   for that class — writing this one is left to the plugin, and without it the
+   interval row goes on looking like a setting that still applies. Scoped to this
+   plugin's own panel: `.setting-item` is app-wide, and dimming somebody else's
+   settings because of a class we happened to match is not ours to do. */
+.mtk-tab-panels .setting-item.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 /* ---- generic buttons (panels + modal) ---- */
 .modal .mtk-btn,
 .mtk-tab-panels .mtk-btn {

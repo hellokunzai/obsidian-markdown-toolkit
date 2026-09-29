@@ -56,8 +56,28 @@ export type NodeShape = "rect" | "stadium" | "circle" | "diamond" | "hexagon";
 /** Layout direction of a flowchart, mirroring `flowchart TD` syntax. */
 export type FlowDirection = "TD" | "BT" | "LR" | "RL";
 
+/**
+ * The direction a flowchart is drawn in when its own block does not name one.
+ *
+ * A constant rather than a setting. The block's first line already says
+ * `flowchart TD`, so a vault-wide default only ever decided what a *new* block
+ * looked like before it was saved — a dropdown and a settings row spent on
+ * answering a question the file answers itself as soon as it is written.
+ */
+export const DEFAULT_FLOW_DIRECTION: FlowDirection = "TD";
+
 /** Growth direction of a mind map. */
 export type MindmapLayout = "right" | "left" | "both";
+
+/**
+ * The way a mind map's branches grow from its centre.
+ *
+ * Fixed for the same reason, more so: mermaid's mind map syntax has nowhere to
+ * record a direction, so this choice left no trace in the note at all. The
+ * layout engine still understands all three — a *writer* is what the plugin
+ * stopped needing.
+ */
+export const DEFAULT_MINDMAP_LAYOUT: MindmapLayout = "right";
 
 export interface Point {
   x: number;

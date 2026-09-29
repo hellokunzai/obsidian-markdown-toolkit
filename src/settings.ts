@@ -8,6 +8,7 @@ import {
   getIconIds,
   setIcon,
   type Command,
+  type SliderComponent,
 } from "obsidian";
 import { t } from "./i18n";
 import { h } from "./utils/dom";
@@ -22,7 +23,6 @@ import {
 } from "./core/toolbar-commands";
 import type { EmptyFolderHandling } from "./features/attachment-paths";
 import { resolveDuplicateSeparator, stripExtension } from "./features/attachment-paths";
-import type { FlowDirection, MindmapLayout } from "./core/model";
 import type { Orders } from "./features/order-store";
 import type MarkdownEditorPlusPlugin from "./main";
 
@@ -38,11 +38,40 @@ import type MarkdownEditorPlusPlugin from "./main";
  */
 export type { ToolbarCommand };
 
+/**
+ * Bounds on the auto-save interval, in seconds.
+ *
+ * A floor rather than a free number: below a few seconds most edits would be
+ * written mid-gesture, turning every drag into a burst of file writes for no
+ * gain over doing nothing at all.
+ */
+export const MIN_AUTO_SAVE_SECONDS = 5;
+export const MAX_AUTO_SAVE_SECONDS = 300;
+const AUTO_SAVE_STEP = 5;
+
 export interface MarkdownEditorPlusSettings {
-  flowDirection: FlowDirection;
-  mindmapLayout: MindmapLayout;
-  persistPositions: boolean;
-  openIn: "modal" | "tab";
+  /* Four rows left this tab, along with the options behind them: the flowchart's
+     default direction, a mind map's growth direction, whether dragged positions
+     are remembered, and where the editor opens. Each has one answer now, held
+     by the code that uses it — `DEFAULT_FLOW_DIRECTION`, `layoutMindmap`,
+     `serializeDiagram`, the dialog — rather than by a preference. A `data.json`
+     still carrying the old keys drops them on the next save. */
+  /**
+   * Whether an open editor writes its own changes back as it goes.
+   *
+   * A save button answers "did I remember to press it"; this answers it before
+   * the question comes up. Only a real change triggers a write — opening a
+   * diagram and looking at it never touches the file.
+   */
+  autoSave: boolean;
+  /**
+   * Seconds between those writes, counted from the moment the block went dirty.
+   *
+   * This is the *ceiling* on what a crash can cost, which is why it is a number
+   * the user picks rather than a constant: a throwaway sketch and a diagram
+   * that took an hour to lay out deserve different answers.
+   */
+  autoSaveInterval: number;
 
   // ---- New editor-explorer features (0.4.0) ----
   /** Commands shown in the editor toolbar, in display order. */
@@ -113,10 +142,12 @@ export interface MarkdownEditorPlusSettings {
 }
 
 export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
-  flowDirection: "TD",
-  mindmapLayout: "right",
-  persistPositions: true,
-  openIn: "modal",
+  // Off by default. The plugin's contract has been that nothing reaches the
+  // note until it is asked for, and turning that into an unconditional write
+  // would change what this plugin does to somebody's files rather than how it
+  // is configured. The switch is one click away for anyone who wants it.
+  autoSave: false,
+  autoSaveInterval: 30,
 
   // Ported from the reference plugin's own default list; see
   // `core/toolbar-commands.ts` for what carried over and what did not.
@@ -205,62 +236,82 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   /* -------------------------------------------------------------- general */
 
   private renderGeneral(host: HTMLElement): void {
-    new Setting(host)
-      .setName(t("settings.flowDirection.name"))
-      .setDesc(t("settings.flowDirection.desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("TD", t("settings.direction.td"))
-          .addOption("LR", t("settings.direction.lr"))
-          .addOption("BT", t("settings.direction.bt"))
-          .addOption("RL", t("settings.direction.rl"))
-          .setValue(this.plugin.settings.flowDirection)
-          .onChange(async (value) => {
-            this.plugin.settings.flowDirection = value as FlowDirection;
-            await this.plugin.saveSettings();
-          })
-      );
+
+    /* The interval row is built off-document first, then moved into place below
+       the switch. The switch owns the only reference to it — turning auto-save
+       off has to dim the row in the same breath — and it can only hold one for
+       something that already exists. */
+    const intervalRow = this.buildAutoSaveInterval();
 
     new Setting(host)
-      .setName(t("settings.mindmapLayout.name"))
-      .setDesc(t("settings.mindmapLayout.desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("right", t("settings.layout.right"))
-          .addOption("left", t("settings.layout.left"))
-          .addOption("both", t("settings.layout.both"))
-          .setValue(this.plugin.settings.mindmapLayout)
-          .onChange(async (value) => {
-            this.plugin.settings.mindmapLayout = value as MindmapLayout;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(host)
-      .setName(t("settings.persistPositions.name"))
-      .setDesc(t("settings.persistPositions.desc"))
+      .setName(t("settings.autoSave.name"))
+      .setDesc(t("settings.autoSave.desc"))
       .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.persistPositions).onChange(async (value) => {
-          this.plugin.settings.persistPositions = value;
+        toggle.setValue(this.plugin.settings.autoSave).onChange(async (value) => {
+          this.plugin.settings.autoSave = value;
+          intervalRow.setDisabled(!value);
+          // Pushed into editors that are already open, not just the next one:
+          // the settings tab can be visited without closing the diagram, and a
+          // switch that only took effect later would look broken.
+          this.plugin.syncAutoSave();
           await this.plugin.saveSettings();
         })
       );
 
-    new Setting(host)
-      .setName(t("settings.openIn.name"))
-      .setDesc(t("settings.openIn.desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("modal", t("settings.openIn.modal"))
-          .addOption("tab", t("settings.openIn.tab"))
-          .setValue(this.plugin.settings.openIn)
-          .onChange(async (value) => {
-            this.plugin.settings.openIn = value === "tab" ? "tab" : "modal";
-            await this.plugin.saveSettings();
-          })
-      );
+    host.appendChild(intervalRow.setDisabled(!this.plugin.settings.autoSave).settingEl);
 
     host.appendChild(this.buildReference());
+  }
+
+  /**
+   * The interval row: a slider and a button that puts it back to the default.
+   *
+   * Built detached and returned rather than appending itself — see the comment
+   * at its call site for why the order cannot be written top to bottom here.
+   *
+   * The number itself is Obsidian's own: a slider shows its value inline these
+   * days, and a second copy beside the track would read as two different
+   * settings.
+   */
+  private buildAutoSaveInterval(): Setting {
+    const fallback = DEFAULT_SETTINGS.autoSaveInterval;
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.autoSaveInterval.name"))
+      .setDesc(t("settings.autoSaveInterval.desc"));
+
+    let slider: SliderComponent | null = null;
+
+    const apply = async (value: number): Promise<void> => {
+      this.plugin.settings.autoSaveInterval = value;
+      this.plugin.syncAutoSave();
+      await this.plugin.saveSettings();
+    };
+
+    setting.addSlider((component) => {
+      slider = component;
+      component
+        .setLimits(MIN_AUTO_SAVE_SECONDS, MAX_AUTO_SAVE_SECONDS, AUTO_SAVE_STEP)
+        .setValue(this.plugin.settings.autoSaveInterval)
+        // Still worth asking for: this is what shows the number while the handle
+        // is being dragged, on the app versions that predate the inline readout.
+        .setDynamicTooltip()
+        .onChange((value) => void apply(value));
+    });
+
+    setting.addExtraButton((button) =>
+      button
+        .setIcon("rotate-ccw")
+        .setTooltip(t("settings.autoSaveInterval.reset", { value: String(fallback) }))
+        .onClick(() => {
+          // The handle is moved as well as the setting: `SliderComponent` keeps
+          // its own copy of the value, and a reset that left the handle where it
+          // was would read as a button that did nothing.
+          slider?.setValue(fallback);
+          void apply(fallback);
+        })
+    );
+
+    return setting;
   }
 
   private buildReference(): HTMLElement {

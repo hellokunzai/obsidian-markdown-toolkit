@@ -196,7 +196,7 @@ export class DiagramBlock extends MarkdownRenderChild {
   private async exportDiagram(kind: ExportKind): Promise<void> {
     const box = this.box;
     if (!box) return;
-    await exportBlockDiagram(this.ownerApp, this.host.settings, {
+    await exportBlockDiagram(this.ownerApp, {
       file: await this.resolveFile(),
       source: this.source,
       mode: this.mode,
