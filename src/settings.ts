@@ -604,10 +604,10 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   /* -------------------------------------------------------------- toolbar */
 
   /*
-   * The tab is three things: one card that sets what the bar is painted on, one
+   * The tab is three things: one row that sets what the bar is painted on, one
    * that both explains and performs "add", and the list itself.
    *
-   * The background card comes first because it answers a question about the bar
+   * The background row comes first because it answers a question about the bar
    * rather than about the rows — everything under it is "which commands are
    * there", and a reader who meets the list first has to be told the bar has a
    * colour at all before they can care which it is.
@@ -685,12 +685,13 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   }
 
   /**
-   * The card that sets the colour behind the bar.
+   * The row that sets the colour behind the bar.
    *
-   * Not a `Setting` row: what is being picked is a colour, and a colour wants
-   * to be seen rather than named — so the control is the preview. The button
-   * carries the very custom property the bar carries, which is what makes it
-   * the setting rather than a second rendering of it that could drift.
+   * A `Setting` row now, like the rest of this tab, so it inherits the theme's
+   * row chrome instead of painting its own card. What is being picked is still
+   * a colour, so it is shown rather than named: the control is a preview button
+   * painted from the very custom property the bar carries, which makes it the
+   * setting rather than a second rendering of it that could drift.
    *
    * The palette itself is the plugin's colour panel, hung under that button:
    * ten cells are a lot to keep on a settings card for a choice most people
@@ -703,24 +704,17 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private buildToolbarBackground(): HTMLElement {
     /* Read defensively, like the bar itself: a `data.json` written before this
        field existed has no value to hand back. A function rather than a local,
-       because the panel is opened later than the card is built and has to be
-       told what is true then — picking a colour does not re-render the card, so
+       because the panel is opened later than the row is built and has to be
+       told what is true then — picking a colour does not re-render the row, so
        a captured value would go stale the first time one was chosen. */
     const stored = (): string => {
       const value = this.plugin.settings.editorToolbarBackground;
       return typeof value === "string" ? value : TOOLBAR_BACKGROUND_DEFAULT;
     };
 
-    const card = h("div", { cls: "mtk-toolbar-bg" });
-
-    const copy = h("div", { cls: "mtk-toolbar-bg-copy" });
-    copy.appendChild(
-      h("div", { cls: "mtk-toolbar-bg-title", text: t("settings.toolbar.bg.title") })
-    );
-    copy.appendChild(h("p", { cls: "mtk-toolbar-bg-desc", text: t("settings.toolbar.bg.desc") }));
-    card.appendChild(copy);
-
-    const actions = h("div", { cls: "mtk-toolbar-bg-actions" });
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.toolbar.bg.title"))
+      .setDesc(t("settings.toolbar.bg.desc"));
 
     /* The trigger is the preview. It is painted from the same declaration the
        bar is — `var(--mtk-editor-toolbar-bg, var(--background-secondary))` — so
@@ -797,8 +791,8 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       }).open();
     });
 
-    actions.appendChild(trigger);
-    actions.appendChild(
+    setting.controlEl.appendChild(trigger);
+    setting.controlEl.appendChild(
       this.buildIconAction(
         "rotate-ccw",
         t("settings.toolbar.bg.reset"),
@@ -806,14 +800,13 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         () => write(TOOLBAR_BACKGROUND_DEFAULT)
       )
     );
-    card.appendChild(actions);
 
     paint(stored());
-    return card;
+    return setting.settingEl;
   }
 
   /**
-   * The card that carries both the instructions and the two "add" buttons.
+   * The row that carries both the instructions and the two "add" buttons.
    *
    * The third button — "add a section heading" — is gone. A heading is still a
    * row type the bundled submenus emit (the text tools group their entries
@@ -828,16 +821,9 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * quieter one, so their wording is also their accessible name.
    */
   private buildAddCard(host: HTMLElement): HTMLElement {
-    const card = h("div", { cls: "mtk-toolbar-add" });
-
-    const copy = h("div", { cls: "mtk-toolbar-add-copy" });
-    copy.appendChild(
-      h("div", { cls: "mtk-toolbar-add-title", text: t("settings.toolbar.addTitle") })
-    );
-    copy.appendChild(h("p", { cls: "mtk-toolbar-add-desc", text: t("settings.toolbar.addDesc") }));
-    card.appendChild(copy);
-
-    const actions = h("div", { cls: "mtk-toolbar-add-actions" });
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.toolbar.addTitle"))
+      .setDesc(t("settings.toolbar.addDesc"));
 
     const addBtn = h("button", {
       cls: "mtk-btn mtk-btn-primary",
@@ -845,7 +831,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       attr: { type: "button" },
     });
     addBtn.addEventListener("click", () => this.openCommandModal(host, this.plugin.settings.toolbarCommands, null));
-    actions.appendChild(addBtn);
+    setting.controlEl.appendChild(addBtn);
 
     const submenuBtn = h("button", {
       cls: "mtk-btn",
@@ -855,14 +841,13 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     submenuBtn.addEventListener("click", () => {
       this.openSubmenuModal(host, this.plugin.settings.toolbarCommands, null);
     });
-    actions.appendChild(submenuBtn);
+    setting.controlEl.appendChild(submenuBtn);
 
-    card.appendChild(actions);
-    return card;
+    return setting.settingEl;
   }
 
   /**
-   * The search box that sits between the "add" card and the list.
+   * The search row that sits between the "add" row and the list.
    *
    * A box rather than a second picker: with a toolbar the user has settled
    * on, the everyday job is finding a row that is already there, and on this
@@ -874,16 +859,9 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * command, deleting a row) hands back the same filtered view.
    */
   private buildToolbarSearch(list: HTMLElement, noMatch: HTMLElement): HTMLElement {
-    const row = h("div", { cls: "mtk-toolbar-search" });
-
-    const copy = h("div", { cls: "mtk-toolbar-search-copy" });
-    copy.appendChild(
-      h("div", { cls: "mtk-toolbar-search-title", text: t("settings.toolbar.searchTitle") })
-    );
-    copy.appendChild(
-      h("p", { cls: "mtk-toolbar-search-desc", text: t("settings.toolbar.searchDesc") })
-    );
-    row.appendChild(copy);
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.toolbar.searchTitle"))
+      .setDesc(t("settings.toolbar.searchDesc"));
 
     const input = h("input", {
       cls: "mtk-toolbar-search-input",
@@ -899,8 +877,8 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       this.toolbarQuery = input.value;
       this.applyToolbarFilter(list, noMatch);
     });
-    row.appendChild(input);
-    return row;
+    setting.controlEl.appendChild(input);
+    return setting.settingEl;
   }
 
   /**

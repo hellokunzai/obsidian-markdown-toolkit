@@ -798,7 +798,7 @@ const zhCn: Dict = {
   "settings.autoSaveInterval.desc": "自动保存的时间间隔（秒）。",
   "settings.autoSaveInterval.reset": "恢复默认值（{{value}} 秒）",
 
-  "settings.selectionToolbar.enabled.name": "选中文字时显示浮动工具栏",
+  "settings.selectionToolbar.enabled.name": "跟随工具栏",
   "settings.selectionToolbar.enabled.desc":
     "选中文字时，会在选区上方浮出一条工具栏，按钮与上方固定栏完全一致，而不只是停在编辑器顶部。选区取消即自动隐藏。",
   "settings.selectionToolbar.debounce.name": "浮动工具栏延迟",
