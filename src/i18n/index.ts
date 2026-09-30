@@ -206,6 +206,14 @@ const en: Dict = {
     "How many seconds between automatic saves. This is the most work a crash can cost.",
   "settings.autoSaveInterval.reset": "Back to the default ({{value}} seconds)",
 
+  "settings.selectionToolbar.enabled.name": "Selection toolbar",
+  "settings.selectionToolbar.enabled.desc":
+    "Shows a floating toolbar of these same commands right above the text you select, instead of only at the top of the editor. It disappears when the selection clears.",
+  "settings.selectionToolbar.debounce.name": "Selection toolbar delay",
+  "settings.selectionToolbar.debounce.desc":
+    "How long the toolbar waits after you stop selecting before it appears. 0 shows it at once; a small delay stops it flickering while you drag a selection.",
+  "settings.selectionToolbar.debounce.reset": "Back to the default ({{value}} ms)",
+
   "settings.tab.general": "Diagram settings",
   "settings.tab.toolbar": "Toolbar",
   "settings.tab.files": "File settings",
@@ -789,6 +797,14 @@ const zhCn: Dict = {
   "settings.autoSaveInterval.name": "自动保存间隔",
   "settings.autoSaveInterval.desc": "自动保存的时间间隔（秒）。",
   "settings.autoSaveInterval.reset": "恢复默认值（{{value}} 秒）",
+
+  "settings.selectionToolbar.enabled.name": "选中文字时显示浮动工具栏",
+  "settings.selectionToolbar.enabled.desc":
+    "选中文字时，会在选区上方浮出一条工具栏，按钮与上方固定栏完全一致，而不只是停在编辑器顶部。选区取消即自动隐藏。",
+  "settings.selectionToolbar.debounce.name": "浮动工具栏延迟",
+  "settings.selectionToolbar.debounce.desc":
+    "停止选择后，等多久才浮出工具栏。0 表示立即出现；设一个小延迟可避免拖选过程中工具栏闪烁。",
+  "settings.selectionToolbar.debounce.reset": "恢复默认值（{{value}} 毫秒）",
 
   "settings.tab.general": "图表设置",
   "settings.tab.toolbar": "工具栏",

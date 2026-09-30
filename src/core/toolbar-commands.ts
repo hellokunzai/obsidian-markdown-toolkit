@@ -168,9 +168,9 @@ export const DIAGRAM_MENU_ID = "menu-diagram";
  */
 export function diagramSubmenu(): ToolbarCommand {
   return submenu(DIAGRAM_MENU_ID, "bar-chart-2", "settings.toolbar.group.diagram", [
-    command("diagram-flow", "markdown-toolkit:insert-flow", "git-branch"),
-    command("diagram-mindmap", "markdown-toolkit:insert-mindmap", "network"),
-    command("diagram-any", "markdown-toolkit:insert-any", "pie-chart"),
+    command("diagram-flow", "markdown-toolkit:insert-flow", "git-branch", "插入流程图代码块"),
+    command("diagram-mindmap", "markdown-toolkit:insert-mindmap", "network", "插入思维导图代码块"),
+    command("diagram-any", "markdown-toolkit:insert-any", "pie-chart", "插入图表..."),
   ]);
 }
 

@@ -1937,6 +1937,32 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   opacity: 0.75;
 }
 
+/* ---- selection toolbar: the floating copy that follows the text selection ----
+ * Shared with the pinned bar: same buttons, same colours, same submenu caret.
+ * What differs is the chrome — a floating card instead of a pinned strip — and
+ * the fact that it lives on the body, positioned in the viewport. */
+.mtk-selection-toolbar {
+  position: fixed;
+  z-index: var(--layer-menu, 30);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--mtk-editor-toolbar-bg, var(--background-secondary));
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  /* The bar is a control, not text: stop the OS callout and keep taps from
+     selecting its own labels on touch devices. */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.mtk-selection-toolbar .mtk-toolbar-btn {
+  width: 28px;
+  height: 28px;
+}
+
 /* ---- file explorer: hide & order ---- */
 .mtk-explorer-hidden {
   display: none !important;
