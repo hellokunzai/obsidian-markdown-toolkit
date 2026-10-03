@@ -235,6 +235,22 @@ function cleanSegments(path: string, rules: SpecialCharRules): string {
 export type EmptyFolderHandling = "keep" | "delete" | "delete-and-parents";
 
 /**
+ * The folder at `path`, or null if nothing (or a file) lives there.
+ *
+ * `getAbstractFileByPath` rather than `getFolderByPath`: the latter only
+ * arrived in Obsidian 1.5.7 and `manifest.minAppVersion` is 1.4.16, so on the
+ * versions this plugin claims to support the shorter call is simply not
+ * there. The `instanceof` it folds into its own name is wanted here anyway —
+ * this is the one place that has to tell a folder from a file.
+ * Shared with the rename sync so the two attachment features resolve folders
+ * through exactly one implementation.
+ */
+export function folderAt(vault: Vault, path: string): TFolder | null {
+  const file = vault.getAbstractFileByPath(path);
+  return file instanceof TFolder ? file : null;
+}
+
+/**
  * Applies the "empty attachment folder handling" preference to `rootPath`.
  *
  * Empty subfolders inside the root are swept first (deepest first), so a folder
@@ -248,7 +264,7 @@ export async function handleEmptyFolder(
 ): Promise<void> {
   if (mode === "keep") return;
 
-  const root = app.vault.getFolderByPath(rootPath);
+  const root = folderAt(app.vault, rootPath);
   if (!root) return;
 
   const folders: TFolder[] = [];
@@ -265,7 +281,7 @@ export async function handleEmptyFolder(
   }
 
   if (mode !== "delete-and-parents") return;
-  if (app.vault.getFolderByPath(rootPath)) return; // root still has content
+  if (folderAt(app.vault, rootPath)) return; // root still has content
 
   // Walk up and clear out parents this removal left behind. A parent with a
   // slash-less path is the vault root itself and is never deleted.
@@ -274,7 +290,7 @@ export async function handleEmptyFolder(
     const slash = path.lastIndexOf("/");
     if (slash <= 0) break;
     path = path.slice(0, slash);
-    const parent = app.vault.getFolderByPath(path);
+    const parent = folderAt(app.vault, path);
     if (!parent || parent.children.length > 0) break;
     await trashQuietly(app, parent);
   }

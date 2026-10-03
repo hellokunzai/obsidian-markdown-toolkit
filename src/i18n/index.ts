@@ -42,7 +42,6 @@ const en: Dict = {
   "embed.parseFailed": "This block could not be read as a diagram.",
   "embed.renderFailed": "This {{kind}} could not be drawn, so its source is shown below.",
   "embed.unknownKind": "diagram",
-  "embed.unparsedLines": "{{count}} line(s) kept as-is",
   "embed.viewSource": "Show the source",
   "embed.summary": "{{nodes}} nodes · {{edges}} connections",
 
@@ -70,22 +69,16 @@ const en: Dict = {
   "editor.emptyNode": "Untitled",
   "editor.empty": "This diagram is empty. Right-click the canvas for a new node, or double-click it.",
 
-  // The editor panel no longer renders a hint strip, so the gesture strings it
-  // used went with it. These two were already unused before that (they were
-  // dropped from the strip earlier) and are reported by `i18n-check` as
-  // pre-existing dead keys rather than swept up in this change.
-  "editor.hint.dragNode": "Drag a node to move it",
-  "editor.hint.dblclick": "Double-click to rename",
-
+  // `editor.hint.*` went with the hint strip the editor panel no longer renders;
+  // `editor.menu.shape` was superseded by the dynamic `editor.shape.*` titles.
+  // All three were dead before the pass that removed them — none of them had a
+  // call site, statically or built at runtime.
   "editor.menu.rename": "Rename",
   "editor.menu.addChild": "Add child node",
   "editor.menu.addSibling": "Add sibling node",
-  "editor.menu.shape": "Change shape",
   "editor.menu.delete": "Delete node",
 
   "notice.saved": "Diagram written back to the block.",
-  "notice.inserted": "Inserted a {{kind}} block. Fill in the body and it will draw.",
-  "notice.parseFailed": "Nothing to draw: this text is outside the supported syntax.",
   "notice.blockMissing": "Could not find that block any more. Nothing was changed.",
   "notice.noActiveFile": "Open a note first.",
   "notice.noBlockAtCursor": "Put the cursor inside a mind map or flowchart block first.",
@@ -641,7 +634,6 @@ const zhCn: Dict = {
   "embed.parseFailed": "这个代码块无法被识别为图形。",
   "embed.renderFailed": "这个{{kind}}无法绘制，下面显示的是它的源码。",
   "embed.unknownKind": "图表",
-  "embed.unparsedLines": "{{count}} 行原样保留",
   "embed.viewSource": "查看原文",
   "embed.summary": "{{nodes}} 个节点 · {{edges}} 条连线",
 
@@ -668,21 +660,15 @@ const zhCn: Dict = {
   "editor.emptyNode": "空节点",
   "editor.empty": "这张图还是空的。右键空白处即可新建节点，双击空白处也可以。",
 
-  // 编辑器面板不再渲染提示行，它用到的那些手势文案随之删除。下面这两条在
-  // 此之前就已无人引用（更早的一次调整把它们从提示行里去掉了），属存量死键，
-  // 由 `i18n-check` 报告，不并入本次改动一起清掉。
-  "editor.hint.dragNode": "拖节点移动位置",
-  "editor.hint.dblclick": "双击改文字",
-
+  // `editor.hint.*` 随编辑器面板不再渲染的提示行一并删除；`editor.menu.shape`
+  // 已被动态键 `editor.shape.*` 取代。三条在本轮清理之前就已无人引用 ——
+  // 既没有静态调用点，也没有运行时拼出来的键名。
   "editor.menu.rename": "重命名",
   "editor.menu.addChild": "添加子节点",
   "editor.menu.addSibling": "添加同级节点",
-  "editor.menu.shape": "改形状",
   "editor.menu.delete": "删除节点",
 
   "notice.saved": "已写回代码块。",
-  "notice.inserted": "已插入{{kind}}代码块，填好内容就会出图。",
-  "notice.parseFailed": "没有可绘制的内容：这段文本不在支持的语法范围内。",
   "notice.blockMissing": "已经找不到那个代码块了，未做任何修改。",
   "notice.noActiveFile": "请先打开一篇笔记。",
   "notice.noBlockAtCursor": "请先把光标放进思维导图或流程图的代码块里。",

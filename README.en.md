@@ -2,7 +2,7 @@
 
 # Markdown Toolkit
 
-> Visually edit diagrams, mind maps and flowcharts inside Obsidian, then write the result back as plain text — plus a formatting toolbar, file-explorer enhancements and attachment management.
+> Visually edit diagrams, mind maps and flowcharts — and 12 kinds in total — inside Obsidian, then write the result back as plain text — plus a formatting toolbar, file-explorer enhancements and attachment management.
 
 - Current version: 0.18.0
 - Minimum Obsidian: 1.4.16
@@ -16,13 +16,14 @@ The plugin is built around one idea: **Markdown is the data**. Every diagram liv
 
 ### 1. Visual diagram editor (core)
 
-Write a diagram as a code block, click it to open a **canvas editor**, drag things around, and the result is written straight back into the code block. **11** diagram kinds are built in:
+Write a diagram as a code block, click it to open a **canvas editor**, drag things around, and the result is written straight back into the code block. **12** diagram kinds are built in:
 
-`mindmap` · `flowchart` · `sequence` · `class` · `state` · `er` · `gantt` · `pie` · `gitGraph` · `timeline` · `ishikawa`
+`mindmap` · `flowchart` · `sequence` · `class` · `state` · `er` · `gantt` · `pie` · `gitGraph` · `timeline` · `ishikawa` · `bar`
 
 - Self-rendered SVG with [dagre](https://github.com/dagrejs/dagre) auto-layout — **no** external CDN or network.
 - Drag nodes on the canvas; their positions are stored in a comment line inside the block, so they survive the next open, and other renderers ignore that line.
 - The code block *is* the data: what you see is editable, and what you edit is plain text — never locked in.
+- The **diagram-kind table** in the settings filters as you type, so all 12 are one step away, each with its keyword and whether it has a visual editor.
 
 Commands:
 
@@ -30,7 +31,7 @@ Commands:
 |---|---|
 | Insert a mind map block | Insert an empty `mindmap` block |
 | Insert a flowchart block | Insert an empty `flowchart` block |
-| Insert a diagram… | Pick one of the 11 kinds to insert |
+| Insert a diagram… | Pick one of the 12 kinds to insert |
 | Turn the selected outline into a mind map | Select a multi-level list, get a mind map |
 | Edit the diagram at the cursor | Open the visual editor when the cursor is in a block |
 
@@ -44,6 +45,9 @@ A customizable formatting toolbar (40+ buttons by default, drag-to-reorder subme
 - **Alignment**: left / center / right / justify (via inline styles in the block, still plain-text friendly).
 - **Dual colour panels**: font colour and background colour each get their own picker.
 - **Fullscreen focus mode**: expand the editor to fill the screen, hiding sidebars and the status bar.
+- **Diagram submenu**: the bar carries a "Diagrams" entry that inserts a flowchart or mind-map block outright, or opens the picker for any kind.
+- **Section headings**: drop your own labelled dividers into the bar and edit or delete their text, so the buttons end up grouped the way you think.
+- **Mobile toolbar**: on a phone, hide Obsidian's own toolbar above the keyboard and keep this plugin's bar as the only one (the switch lives under *Diagram settings*).
 - **Toolbar background**: the bar's own colour — follow the theme, go transparent, or pick one of eight presets; you can also type `#rrggbb`, `rgb()`/`hsl()` or `var(--theme-variable)`.
 
 Commands: `Toggle format brush` · `Underline` · `Font colour` · `Background colour` · `Fullscreen focus mode`.
@@ -87,12 +91,12 @@ This plugin is **not yet on the Obsidian community store**, so install it with o
 
 ## Settings
 
-The settings are split into five tabs:
+The settings are split into four tabs:
 
 | Tab | Contents |
 |---|---|
-| **Diagram settings** | Auto-save and its interval, diagram kinds |
-| **Toolbar** | Toolbar background colour, add/remove buttons, drag to reorder submenus and sequence |
+| **Diagram settings** | Auto-save and its interval, the diagram-kind table (searchable, with keyword and visual-editor columns), hide Obsidian's mobile toolbar |
+| **Toolbar** | Toolbar background colour (follow theme / transparent / eight presets / a typed colour), command search, add or remove commands and submenus, section headings, drag to reorder |
 | **File settings** | File hiding (entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator) and file order (show the reorder button, reset all custom order) |
 | **Attachment settings** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |
 

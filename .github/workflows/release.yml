@@ -1,0 +1,94 @@
+# Builds the plugin from nothing and attaches the four files Obsidian reads off
+# a release page. The tag is the trigger and the source of truth for the version:
+# `manifest.json` and `versions.json` are left to be bumped by hand in the commit
+# that tags, and this job only has to prove that the tree they describe builds.
+#
+# Why the checkout is shallow: the tag is already on the branch, so history adds
+# minutes of download without changing what gets built.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the tagged tree
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `tsc -noEmit` first, then the bundle: a type error must fail the release
+      # rather than ship a `main.js` that only misbehaves at runtime.
+      - name: Type check and build
+        run: npm run build
+
+      # The bundle is git-ignored, so a release that skipped this step would
+      # attach a stale `main.js` from someone's working copy. Fail loudly here
+      # instead of passing a half-baked set of attachments to the release.
+      - name: Verify the artefacts the release must attach
+        run: |
+          set -euf -o pipefail
+          missing=0
+          for file in main.js manifest.json styles.css README.md LICENSE; do
+            if [ ! -f "$file" ]; then
+              echo "::error file=$file::expected artefact is missing after build"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+
+          # The tag drives the release, so it has to agree with the manifest —
+          # otherwise the release page advertises a version the plugin does not
+          # claim to be, or the one `versions.json` tells Obsidian to install.
+          tag="${GITHUB_REF_NAME#v}"
+          manifest="$(node -p "require('./manifest.json').version")"
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::tag is v$tag but manifest.json is $manifest"
+            exit 1
+          fi
+
+          if ! node -e "
+            const v = require('./versions.json');
+            if (v[process.argv[1]] !== undefined) { process.exit(0); }
+            console.error('::error::versions.json has no entry for ' + process.argv[1]);
+            process.exit(1);
+          " "$tag"; then
+            exit 1
+          fi
+
+          echo "tag v$tag agrees with manifest.json and versions.json"
+
+      # `softprops/action-gh-release` puts every file at the root of the release
+      # body's attachments, which is exactly where Obsidian's installer looks:
+      # it reads `<plugin-id>/main.js`, so the file has to land un-namespaced.
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            main.js
+            manifest.json
+            styles.css
+            README.md
+            README.en.md
+            LICENSE
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

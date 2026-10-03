@@ -258,26 +258,26 @@ export class HideRules {
   }
 
   /**
-   * Applies or clears both halves of the hiding.
+   * Applies or clears the hiding, in both directions.
    *
-   * `setCssProps` is the app's own inline-style helper, and an empty value is
-   * how a property is removed again — so both directions go through one call
-   * rather than through `style.setProperty`.
+   * One class does all of the work — `.mtk-explorer-hidden` carries
+   * `display: none !important`, which is stronger than an inline style and
+   * wins over anything the app sets itself (a folder row being dragged, say).
+   * That rules out writing an inline `display` here: `Item.setCssProps` only
+   * exists from Obsidian 1.13 while `manifest.minAppVersion` is 1.4.16, and
+   * the class already covers the case with no version floor at all.
    *
-   * Clearing is deliberately conditional: a row is only restored if this feature
-   * is what hid it, so an inline `display` set by Obsidian itself — on a folder
-   * being dragged, say — is never clobbered by a pass that had nothing to say
-   * about that row.
+   * Clearing is deliberately conditional: a row is only restored if this
+   * feature is what hid it, so a row this pass had nothing to say about is
+   * never touched.
    */
   private setHidden(item: HTMLElement, hidden: boolean): void {
     if (hidden) {
       item.classList.add(HIDDEN_CLASS);
-      item.setCssProps({ display: "none" });
       return;
     }
     if (!item.classList.contains(HIDDEN_CLASS)) return;
     item.classList.remove(HIDDEN_CLASS);
-    item.setCssProps({ display: "" });
   }
 
   /* ----------------------------------------------------------- status bar */

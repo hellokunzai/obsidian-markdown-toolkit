@@ -359,12 +359,15 @@ export class ColorPickerPanel {
     home.doc.body.appendChild(panel);
     this.el = panel;
     this.home = home;
-    /* Both inline, and before the first paint. The layer is measured here (see
-       `panelLayer`); `position` is repeated from the stylesheet so that a vault
-       carrying an older `styles.css` still gets a panel in the viewport's
-       coordinate space rather than one laid out in the flow at the end of the
-       body, under the last thing on the page and out of sight. */
-    panel.style.position = "fixed";
+    /* Class, not an inline `position`, and before the first paint. The layer is
+       measured here (see `panelLayer`). `position` is repeated from the
+       stylesheet via `.mtk-color-panel.is-fixed` so that a vault carrying an
+       older `styles.css` still gets a panel in the viewport's coordinate space
+       rather than one laid out in the flow at the end of the body, under the
+       last thing on the page and out of sight. The z-index has to stay inline:
+       it is computed from the anchor at open time, so no stylesheet value can
+       stand in for it. */
+    panel.classList.add("is-fixed");
     panel.style.zIndex = String(panelLayer(anchor, home));
     this.place(home);
     panel.classList.remove("is-measuring");

@@ -8,6 +8,7 @@ import {
 import type MarkdownEditorPlusPlugin from "../main";
 import { t } from "../i18n";
 import {
+  folderAt,
   handleEmptyFolder,
   noteContext,
   resolveDuplicateSeparator,
@@ -85,7 +86,9 @@ export class AttachmentRenameSync {
     const newFolder = resolveFolderTemplate(template, after, rules);
     if (!oldFolder || !newFolder || oldFolder === newFolder) return;
 
-    const oldFolderObj = this.app.vault.getFolderByPath(oldFolder);
+    // `folderAt` instead of `getFolderByPath`: the latter needs Obsidian 1.5.7
+    // while `manifest.minAppVersion` is 1.4.16. See attachment-paths.ts.
+    const oldFolderObj = folderAt(this.app.vault, oldFolder);
     if (!oldFolderObj) return;
 
     const files = this.app.vault

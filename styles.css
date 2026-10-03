@@ -2072,6 +2072,13 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-color-panel.is-measuring {
   visibility: hidden;
 }
+/* The fallback a vault with an older copy of this file still gets. `open()`
+   adds this before the first paint so the panel is in the viewport's coordinate
+   space even when the stylesheet above is read by nothing else; the code writes
+   the real layer inline straight after. */
+.mtk-color-panel.is-fixed {
+  position: fixed;
+}
 .mtk-color-band {
   display: flex;
   flex-direction: column;
