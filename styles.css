@@ -481,6 +481,18 @@ body.is-mobile .mod-root .workspace-leaf-content[data-type="markdown"] .view-con
   -webkit-mask-image: none;
   mask-image: none;
 }
+/*
+ * "Hide Obsidian's mobile toolbar" setting. Pure CSS off a body class on
+ * purpose: Obsidian tears its mobile chrome down and rebuilds it as the
+ * keyboard opens and closes, and a stylesheet rule does not care how many
+ * times the element is re-created — a JS-side removal would have to chase
+ * every one of those rebuilds. Scoped to `.is-mobile` so a synced vault can
+ * never hide anything on the desktop, where the element does not exist but
+ * the class might linger.
+ */
+body.is-mobile.mtk-hide-mobile-toolbar .mobile-toolbar {
+  display: none;
+}
 /* Fingertips need the odd pixel more than the mouse does. */
 body.is-mobile .mtk-editor-toolbar .mtk-toolbar-btn {
   width: 32px;

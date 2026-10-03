@@ -69,6 +69,15 @@ import { AttachmentRenameSync } from "./features/attachment-rename";
 type EditorContext = MarkdownView | MarkdownFileInfo;
 
 /**
+ * Body class that hides Obsidian's own mobile toolbar while present.
+ *
+ * Kept as a named constant because three places must agree on the exact
+ * string — load, unload and the settings toggle — and the stylesheet is a
+ * fourth that cannot import it.
+ */
+const HIDE_MOBILE_TOOLBAR_CLASS = "mtk-hide-mobile-toolbar";
+
+/**
  * The regular-expression default of 0.5.x, translated once.
  *
  * `^\.` is not a name, so under the name-based rules it would match nothing and
@@ -139,6 +148,10 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     // 选区浮动工具栏：选中文本时跟随出现，复用同一份 toolbarCommands。
     this.selectionToolbar = new SelectionToolbar(this);
     this.selectionToolbar.enable();
+
+    // Pure body-class application; the CSS rule does the actual hiding, so
+    // this works however often Obsidian re-creates its mobile toolbar.
+    this.refreshMobileToolbarVisibility();
 
     // 0.9.0 format painter, enabled before the toolbar so the first click on
     // a toolbar button can already be recorded.
@@ -279,6 +292,9 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     this.formatBrush = null;
     this.hideRules?.unload();
     this.hideRules = null;
+    // Hand Obsidian's mobile toolbar back: the class is the whole of the
+    // hiding, and a disabled plugin must not leave it behind.
+    document.body.classList.remove(HIDE_MOBILE_TOOLBAR_CLASS);
     // Takes the sorting patch off the explorer's prototype with it. Left in
     // place, the closure would go on sorting a tree whose plugin is gone.
     this.fileOrder?.unload();
@@ -315,6 +331,16 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
   /** Re-reads the selection toolbar's enable switch (called from settings). */
   refreshSelectionToolbar(): void {
     this.selectionToolbar?.refresh();
+  }
+
+  /**
+   * Re-reads the mobile-toolbar hiding switch (called from settings and on
+   * load). The class is the whole mechanism: the stylesheet hides the bar
+   * while it is present, so the bar stays hidden even as Obsidian tears its
+   * mobile chrome down and rebuilds it around the keyboard.
+   */
+  refreshMobileToolbarVisibility(): void {
+    document.body.classList.toggle(HIDE_MOBILE_TOOLBAR_CLASS, this.settings.hideMobileToolbar);
   }
 
   /**
@@ -418,6 +444,11 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.editorToolbarBackground === "string"
           ? normalizeToolbarBackground(saved.editorToolbarBackground) ?? TOOLBAR_BACKGROUND_DEFAULT
           : DEFAULT_SETTINGS.editorToolbarBackground,
+      // Same plain on/off treatment as `selectionToolbarEnabled` above.
+      hideMobileToolbar:
+        typeof saved?.hideMobileToolbar === "boolean"
+          ? saved!.hideMobileToolbar
+          : DEFAULT_SETTINGS.hideMobileToolbar,
       hiddenRules:
         typeof saved?.hiddenRules === "string"
           ? migrateHiddenRules(saved!.hiddenRules)

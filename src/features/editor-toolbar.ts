@@ -113,14 +113,17 @@ export class EditorToolbar {
     const leafContent = contentEl.closest(".workspace-leaf-content");
     const header = document.querySelector(".view-header");
     const sourceView = contentEl.querySelector(".markdown-source-view");
+    const mobileToolbar = document.querySelector(".mobile-toolbar");
     const rootStyle = getComputedStyle(document.body);
     const POS = ["position", "top", "left", "right", "bottom", "z-index", "transform", "margin-top", "order"];
     const BOX = ["display", "flex-direction", "padding-top", "overflow", "height"];
     const lines: string[] = [
-      "MARKER: mtk-dom-debug v6 (safe-area+header-offset build, 2026-10-03)",
+      "MARKER: mtk-dom-debug v7 (mobile-toolbar-hider build, 2026-10-03)",
       "time: " + new Date().toISOString(),
       "is-mobile: " + document.body.classList.contains("is-mobile"),
       "is-hidden-nav: " + document.body.classList.contains("is-hidden-nav"),
+      "hideMobileToolbar setting: " + this.plugin.settings.hideMobileToolbar,
+      "mtk-hide-mobile-toolbar on body: " + document.body.classList.contains("mtk-hide-mobile-toolbar"),
       "body classes: " + document.body.className,
       "--safe-area-inset-top: " + rootStyle.getPropertyValue("--safe-area-inset-top"),
       "--view-header-height: " + rootStyle.getPropertyValue("--view-header-height"),
@@ -162,6 +165,16 @@ export class EditorToolbar {
       "",
       "== body 直接子元素（找浮动在最顶部的元素） ==",
       ...[...document.body.children].slice(0, 12).map((c) => "  - " + describe(c)),
+      "",
+      "== 默认工具栏探测（屏蔽开关的目标元素） ==",
+      ".mobile-toolbar: " + describe(mobileToolbar),
+      "  rect: " + rect(mobileToolbar),
+      "  computed display: " + (mobileToolbar ? getComputedStyle(mobileToolbar).display : "(element not found)"),
+      "all toolbar-classed elements outside this plugin:",
+      ...[...document.querySelectorAll("[class*=toolbar]")]
+        .filter((el) => !(el.getAttribute("class") ?? "").includes("mtk"))
+        .slice(0, 10)
+        .map((el) => "  - " + describe(el)),
     ];
     this.app.vault.adapter
       .write("mtk-dom-debug.txt", lines.join("\n"))

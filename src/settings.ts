@@ -116,6 +116,17 @@ export interface MarkdownEditorPlusSettings {
    */
   editorToolbarBackground: string;
   /**
+   * Whether Obsidian's own mobile toolbar (the bar above the keyboard) is
+   * hidden.
+   *
+   * Phone only — the desktop app has no such bar, so the flag does nothing
+   * there. The hiding itself is pure CSS off a `body` class, so Obsidian can
+   * re-create the element as the keyboard comes and goes without the plugin
+   * having to chase it. Off by default: removing the app's own UI is not
+   * something to do unasked.
+   */
+  hideMobileToolbar: boolean;
+  /**
    * Entry names to hide in the file explorer, one per line: an exact name, a
    * `startsWith::PREFIX`, or an `endsWith::SUFFIX`.
    */
@@ -199,6 +210,9 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   // The theme's own colour, said as "no override": the bar keeps the
   // `--background-secondary` it has always been painted with.
   editorToolbarBackground: TOOLBAR_BACKGROUND_DEFAULT,
+  // Off by default: the mobile toolbar is Obsidian's own UI, and hiding it
+  // is the user's call to make, not the plugin's.
+  hideMobileToolbar: false,
   // The dotfiles rule the regular-expression version shipped as its default,
   // said again in the syntax that replaced it.
   hiddenRules: "startsWith::.",
@@ -653,6 +667,20 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
 
     debounceRow.setEnabled(this.plugin.settings.selectionToolbarEnabled);
     host.appendChild(debounceRow.row.settingEl);
+
+    // Hiding Obsidian's own mobile toolbar lives here rather than in some
+    // "mobile" section: the only reason to hide it is that this plugin's own
+    // bar took its job, so the switch sits next to that bar's settings.
+    new Setting(host)
+      .setName(t("settings.mobileToolbar.hide.name"))
+      .setDesc(t("settings.mobileToolbar.hide.desc"))
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.hideMobileToolbar).onChange(async (value) => {
+          this.plugin.settings.hideMobileToolbar = value;
+          this.plugin.refreshMobileToolbarVisibility();
+          await this.plugin.saveSettings();
+        })
+      );
 
     const commands = this.plugin.settings.toolbarCommands;
 

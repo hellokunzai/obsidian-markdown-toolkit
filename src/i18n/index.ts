@@ -213,6 +213,9 @@ const en: Dict = {
   "settings.selectionToolbar.debounce.desc":
     "How long the toolbar waits after you stop selecting before it appears. 0 shows it at once; a small delay stops it flickering while you drag a selection.",
   "settings.selectionToolbar.debounce.reset": "Back to the default ({{value}} ms)",
+  "settings.mobileToolbar.hide.name": "Hide Obsidian's mobile toolbar",
+  "settings.mobileToolbar.hide.desc":
+    "Phones only. Hides Obsidian's own toolbar above the keyboard, leaving this plugin's pinned bar as the single toolbar. Turn the switch off to bring Obsidian's bar back.",
 
   "settings.tab.general": "Diagram settings",
   "settings.tab.toolbar": "Toolbar",
@@ -805,6 +808,9 @@ const zhCn: Dict = {
   "settings.selectionToolbar.debounce.desc":
     "停止选择后，等多久才浮出工具栏。0 表示立即出现；设一个小延迟可避免拖选过程中工具栏闪烁。",
   "settings.selectionToolbar.debounce.reset": "恢复默认值（{{value}} 毫秒）",
+  "settings.mobileToolbar.hide.name": "屏蔽 Obsidian 默认工具栏",
+  "settings.mobileToolbar.hide.desc":
+    "仅手机端生效。隐藏键盘上方 Obsidian 自带的工具栏，只保留本插件的固定命令栏。关闭此开关即可恢复显示。",
 
   "settings.tab.general": "图表设置",
   "settings.tab.toolbar": "工具栏",
