@@ -56,9 +56,6 @@ const en: Dict = {
   "editor.toolbar.layout": "Tidy layout",
   "editor.toolbar.undo": "Undo",
   "editor.toolbar.redo": "Redo",
-  // The two arrows that page the command strip on phones.
-  "editor.toolbar.navPrev": "Scroll toolbar left",
-  "editor.toolbar.navNext": "Scroll toolbar right",
   "editor.toolbar.addNode": "Add node",
   "editor.toolbar.zoomIn": "Zoom in",
   "editor.toolbar.zoomOut": "Zoom out",
@@ -661,9 +658,6 @@ const zhCn: Dict = {
   "editor.toolbar.layout": "整理布局",
   "editor.toolbar.undo": "撤销",
   "editor.toolbar.redo": "重做",
-  // 手机上翻动命令条的两枚箭头
-  "editor.toolbar.navPrev": "向左滚动工具栏",
-  "editor.toolbar.navNext": "向右滚动工具栏",
   "editor.toolbar.addNode": "新增节点",
   "editor.toolbar.zoomIn": "放大",
   "editor.toolbar.zoomOut": "缩小",

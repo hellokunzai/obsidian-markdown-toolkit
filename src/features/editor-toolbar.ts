@@ -1,8 +1,7 @@
-import { MarkdownView, setIcon, type App } from "obsidian";
+import { MarkdownView, type App } from "obsidian";
 import type MarkdownEditorPlusPlugin from "../main";
 import { applyToolbarBackground, TOOLBAR_BACKGROUND_DEFAULT } from "../core/toolbar-background";
 import { appendToolbarButtons, closeToolbarColorPicker } from "./toolbar-buttons";
-import { t } from "../i18n";
 
 /** TEMPORARY: one DOM dump per plugin load, for the mobile placement bug. */
 let dumpedForSession = false;
@@ -232,53 +231,65 @@ export class EditorToolbar {
     strip.id = "mtk-editor-toolbar-strip";
     appendToolbarButtons(strip, this.plugin);
     bar.appendChild(strip);
-
-    if (document.body.classList.contains("is-mobile")) {
-      this.addPagingArrows(bar, strip);
-    }
+    this.enableDragScroll(strip);
   }
 
   /**
-   * Puts a paging arrow at each end of the command strip.
+   * Turns the strip into a press-and-drag scroller.
    *
-   * A phone cannot fit every command on one line, and wrapping them would pile
-   * a screenful of the plugin's own buttons on top of the line being edited.
-   * So the strip keeps one line and scrolls; these two arrows are the only
-   * affordance telling there is more of it either side.
-   *
-   * They exist only while scrolling is actually possible — a short command list
-   * gets none, so the bar never shows an arrow that does nothing — and the one
-   * pointing the way you already are gets disabled at each end.
+   * A phone cannot fit every command on one line. Paging arrows at each end
+   * were tried and dropped — two buttons spent on chrome, on the narrowest
+   * screen there is — in favour of the gesture everyone reaches for first:
+   * hold and drag. A press only becomes a drag after a few pixels of travel,
+   * so tapping a button still works, and the click that trails a real drag is
+   * swallowed before it can fire the command the fingertip happened to stop
+   * on.
    */
-  private addPagingArrows(bar: HTMLElement, strip: HTMLElement): void {
-    const prev = document.createElement("button");
-    const next = document.createElement("button");
-    const arrows: readonly [HTMLButtonElement, string, string][] = [
-      [prev, "chevron-left", "editor.toolbar.navPrev"],
-      [next, "chevron-right", "editor.toolbar.navNext"],
-    ];
-    for (const [btn, icon, key] of arrows) {
-      btn.type = "button";
-      btn.className = "mtk-toolbar-btn mtk-nav";
-      btn.setAttribute("aria-label", t(key));
-      // Same role the bar's own buttons have, so the two read the same to a
-      // screen reader rather than as a second kind of control.
-      btn.setAttribute("aria-controls", strip.id);
-      setIcon(btn, icon);
-    }
-    bar.insertBefore(prev, strip);
-    bar.appendChild(next);
-
-    const sync = (): void => {
-      const max = strip.scrollWidth - strip.clientWidth;
-      bar.classList.toggle("is-scrollable", max > 1);
-      prev.disabled = strip.scrollLeft <= 1;
-      next.disabled = strip.scrollLeft >= max - 1;
+  private enableDragScroll(strip: HTMLElement): void {
+    let startX = 0;
+    let startScroll = 0;
+    let pressed = false;
+    let dragged = false;
+    strip.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      startX = event.clientX;
+      startScroll = strip.scrollLeft;
+      pressed = true;
+      dragged = false;
+    });
+    strip.addEventListener("pointermove", (event) => {
+      if (!pressed) return;
+      const delta = event.clientX - startX;
+      if (!dragged && Math.abs(delta) > 6) {
+        dragged = true;
+        // Keep the events coming even if the pointer wanders off the strip.
+        try {
+          strip.setPointerCapture(event.pointerId);
+        } catch {
+          /* synthetic or already-released pointer — the drag still works */
+        }
+      }
+      if (dragged) {
+        strip.scrollLeft = startScroll - delta;
+      }
+    });
+    const release = (): void => {
+      pressed = false;
     };
-    prev.addEventListener("click", () => strip.scrollBy({ left: -strip.clientWidth, behavior: "smooth" }));
-    next.addEventListener("click", () => strip.scrollBy({ left: strip.clientWidth, behavior: "smooth" }));
-    strip.addEventListener("scroll", sync, { passive: true });
-    sync();
+    strip.addEventListener("pointerup", release);
+    strip.addEventListener("pointercancel", release);
+    // The click a drag ends with is not a tap on whatever button the finger
+    // happened to stop on. Capture phase, so the button never hears it.
+    strip.addEventListener(
+      "click",
+      (event) => {
+        if (!dragged) return;
+        dragged = false;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+      true
+    );
   }
 
   private remove(): void {

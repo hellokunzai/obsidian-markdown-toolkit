@@ -442,10 +442,11 @@ body.is-mobile .mtk-editor .mtk-mode {
 
 /*
  * Phones get their own layout for the pinned bar, and it is deliberately not
- * the desktop one: the commands stay on a single line and the strip between the
- * two arrows scrolls sideways, with an arrow paging a screenful at a time.
- * Wrapping was tried first and abandoned — a phone has no room to spare, and a
- * bar that wraps covers the very line it is acting on.
+ * the desktop one: the commands stay on a single line and the strip scrolls
+ * sideways — press and drag to move it. Paging arrows at each end were tried
+ * and dropped (two buttons spent on chrome, on the narrowest screen there
+ * is); wrapping was tried first and abandoned too, because a bar that wraps
+ * covers the very line it is acting on.
  */
 body.is-mobile .mtk-editor-toolbar {
   gap: 0;
@@ -480,44 +481,32 @@ body.is-mobile .mod-root .workspace-leaf-content[data-type="markdown"] .view-con
   -webkit-mask-image: none;
   mask-image: none;
 }
-body.is-mobile .mtk-editor-toolbar.is-scrollable .mtk-nav {
-  display: inline-flex;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  border-radius: 8px;
-  color: var(--icon-color);
-  cursor: pointer;
-}
-/* Nothing to page towards at either end, so the arrow steps out of the way
-   instead of offering a press that cannot do anything. */
-body.is-mobile .mtk-editor-toolbar.is-scrollable .mtk-nav:disabled {
-  opacity: 0.28;
-  cursor: default;
-}
 /* Fingertips need the odd pixel more than the mouse does. */
-body.is-mobile .mtk-editor-toolbar.is-scrollable .mtk-toolbar-btn {
+body.is-mobile .mtk-editor-toolbar .mtk-toolbar-btn {
   width: 32px;
   height: 32px;
 }
-body.is-mobile .mtk-editor-toolbar.is-scrollable .mtk-toolbar-btn svg {
+body.is-mobile .mtk-editor-toolbar .mtk-toolbar-btn svg {
   width: 18px;
   height: 18px;
 }
 body.is-mobile .mtk-editor-toolbar-scroll {
   flex: 1 1 auto;
   min-width: 0;
-  /* Packed left on purpose: the arrows are the hint that a swipe reveals
-     more, and evenly spread buttons would hide that there is any more. */
+  /* Packed left on purpose: buttons bunched at one end read as "there is
+     more beyond the edge", which evenly spread buttons would hide. */
   justify-content: flex-start;
   gap: 4px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
+  /* Horizontal dragging is handled by the plugin (press-and-drag), so the
+     browser must not claim the pan for its own scroller — vertical pans
+     still fall through to the note beneath. */
+  touch-action: pan-y;
   padding: 0 2px;
-  /* Touch screens paint the scrollbar over the content and mobile Obsidian
-     never blocks the bar with space for it; the arrows are the affordance that
-     there is more, so a bar of its own would only be a taller bar. */
+  /* Touch screens paint the scrollbar over the content, and the strip's own
+     drag is the affordance that there is more — a bar of its own would only
+     be a taller bar. */
   scrollbar-width: none;
 }
 body.is-mobile .mtk-editor-toolbar-scroll::-webkit-scrollbar {
@@ -1909,10 +1898,6 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   flex: 1 1 auto;
   min-width: 0;
   justify-content: space-between;
-}
-/* The arrows are a phone thing; nowhere else does the bar need them. */
-.mtk-editor-toolbar .mtk-nav {
-  display: none;
 }
 .mtk-toolbar-btn {
   position: relative;
