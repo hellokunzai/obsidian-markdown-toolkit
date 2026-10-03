@@ -18,13 +18,12 @@ import { BRUSH_COMMAND_ID } from "./format-brush";
  * Builds the command buttons for a toolbar.
  *
  * This is the single source of truth for what a toolbar button looks like and
- * how it behaves — the pinned editor toolbar and the floating selection toolbar
- * both call it, so the two can never drift apart: a command added in settings
- * shows up in both, and a submenu or colour button behaves identically in each.
+ * how it behaves — the pinned editor toolbar is its only caller, so one build
+ * path is the whole of the contract: a command added in settings shows up
+ * immediately, and a submenu or colour button behaves the way it does here.
  *
  * The three kinds of press (run, open submenu, open colour panel) are the same
- * three the pinned bar already has; they are kept here rather than duplicated
- * across the two callers.
+ * three the pinned bar has.
  */
 export function appendToolbarButtons(container: HTMLElement, plugin: MarkdownEditorPlusPlugin): void {
   const commands = plugin.settings.toolbarCommands;

@@ -12,9 +12,6 @@ import {
   MarkdownEditorPlusSettingTab,
   MAX_AUTO_SAVE_SECONDS,
   MIN_AUTO_SAVE_SECONDS,
-  MIN_SELECTION_DEBOUNCE,
-  MAX_SELECTION_DEBOUNCE,
-  DEFAULT_SELECTION_DEBOUNCE,
   type MarkdownEditorPlusSettings,
 } from "./settings";
 import {
@@ -39,7 +36,6 @@ import {
 import { kindById, type DiagramKind } from "./core/kinds";
 import { DiagramKindPicker } from "./ui/kind-picker";
 import { EditorToolbar } from "./features/editor-toolbar";
-import { SelectionToolbar } from "./features/selection-toolbar";
 import { FormatBrush } from "./features/format-brush";
 import { toggleUnderline } from "./features/underline";
 import { runTextTool, TEXT_TOOL_COMMAND_PREFIX } from "./features/text-tools";
@@ -97,7 +93,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
   private readonly blocks = new Set<Repaintable>();
   private hideRules: HideRules | null = null;
   private editorToolbar: EditorToolbar | null = null;
-  private selectionToolbar: SelectionToolbar | null = null;
 
   /**
    * Manual ordering in the file explorer.
@@ -144,10 +139,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     // as soon as a command is added, renamed, reordered or removed.
     this.editorToolbar = new EditorToolbar(this);
     this.editorToolbar.enable();
-
-    // 选区浮动工具栏：选中文本时跟随出现，复用同一份 toolbarCommands。
-    this.selectionToolbar = new SelectionToolbar(this);
-    this.selectionToolbar.enable();
 
     // Pure body-class application; the CSS rule does the actual hiding, so
     // this works however often Obsidian re-creates its mobile toolbar.
@@ -285,8 +276,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     this.focusMode = null;
     this.editorToolbar?.unload();
     this.editorToolbar = null;
-    this.selectionToolbar?.unload();
-    this.selectionToolbar = null;
     // Takes the body class and the sticky notice down with the plugin.
     this.formatBrush?.disarm();
     this.formatBrush = null;
@@ -326,11 +315,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
    */
   refreshToolbar(): void {
     this.editorToolbar?.sync();
-  }
-
-  /** Re-reads the selection toolbar's enable switch (called from settings). */
-  refreshSelectionToolbar(): void {
-    this.selectionToolbar?.refresh();
   }
 
   /**
@@ -419,23 +403,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         ),
         `${this.manifest.id}:`
       ),
-      /* A plain on/off, so a type check is the whole of the validation: a
-         `data.json` that hands back anything but a boolean falls back to the
-         default rather than leaving the feature stuck half-on. */
-      selectionToolbarEnabled:
-        typeof saved?.selectionToolbarEnabled === "boolean"
-          ? saved!.selectionToolbarEnabled
-          : DEFAULT_SETTINGS.selectionToolbarEnabled,
-      /* Clamped like the auto-save interval: this becomes a timer at the other
-         end, and a hand-edited `data.json` is not stopped by the slider's own
-         bounds, so the number has to be safe before it reaches `setTimeout`. */
-      selectionToolbarDebounce:
-        typeof saved?.selectionToolbarDebounce === "number" && Number.isFinite(saved!.selectionToolbarDebounce)
-          ? Math.min(
-              MAX_SELECTION_DEBOUNCE,
-              Math.max(MIN_SELECTION_DEBOUNCE, Math.round(saved!.selectionToolbarDebounce))
-            )
-          : DEFAULT_SETTINGS.selectionToolbarDebounce,
       /* Validated on the way in, not merely filtered: this string is written
          into a `style` property on the bar, and a `data.json` is text a user
          can edit. Anything the field itself would refuse falls back to the
@@ -444,7 +411,7 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.editorToolbarBackground === "string"
           ? normalizeToolbarBackground(saved.editorToolbarBackground) ?? TOOLBAR_BACKGROUND_DEFAULT
           : DEFAULT_SETTINGS.editorToolbarBackground,
-      // Same plain on/off treatment as `selectionToolbarEnabled` above.
+      // Same plain on/off treatment as the flag above.
       hideMobileToolbar:
         typeof saved?.hideMobileToolbar === "boolean"
           ? saved!.hideMobileToolbar

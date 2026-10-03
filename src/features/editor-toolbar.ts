@@ -236,9 +236,9 @@ export class EditorToolbar {
     }
     bar.classList.remove("is-empty");
 
-    // The buttons are built by the shared helper the selection toolbar also
-    // uses, so the pinned bar and the floating bar can never disagree about
-    // what a command looks like or how its press behaves.
+    // The buttons come from the shared helper, so the pinned bar and the
+    // command list in settings can never disagree about what a command looks
+    // like or how its press behaves.
     const strip = document.createElement("div");
     strip.className = "mtk-editor-toolbar-scroll";
     strip.id = "mtk-editor-toolbar-strip";

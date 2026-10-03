@@ -525,17 +525,6 @@ body.is-mobile .mtk-editor-toolbar-scroll::-webkit-scrollbar {
   display: none;
 }
 
-/*
- * The floating bar is a different animal: it hovers over the text it is acting
- * on, so wrapping its 25 commands into two or three rows would bury the line
- * being edited under its own menu. One row, capped to the screen and swiped —
- * which is what the bar did before it was ever the pinned one.
- */
-body.is-mobile .mtk-selection-toolbar {
-  max-width: calc(100vw - 16px);
-  overflow-x: auto;
-}
-
 /* ------------------------------------------------------- the chart canvases */
 
 /*
@@ -1950,32 +1939,6 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   border-left: 3px solid transparent;
   border-bottom: 3px solid currentColor;
   opacity: 0.75;
-}
-
-/* ---- selection toolbar: the floating copy that follows the text selection ----
- * Shared with the pinned bar: same buttons, same colours, same submenu caret.
- * What differs is the chrome — a floating card instead of a pinned strip — and
- * the fact that it lives on the body, positioned in the viewport. */
-.mtk-selection-toolbar {
-  position: fixed;
-  z-index: var(--layer-menu, 30);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 6px;
-  background: var(--mtk-editor-toolbar-bg, var(--background-secondary));
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-  /* The bar is a control, not text: stop the OS callout and keep taps from
-     selecting its own labels on touch devices. */
-  -webkit-user-select: none;
-  user-select: none;
-  touch-action: manipulation;
-}
-.mtk-selection-toolbar .mtk-toolbar-btn {
-  width: 28px;
-  height: 28px;
 }
 
 /* ---- file explorer: hide & order ---- */

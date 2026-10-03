@@ -57,18 +57,6 @@ export const MIN_AUTO_SAVE_SECONDS = 5;
 export const MAX_AUTO_SAVE_SECONDS = 300;
 const AUTO_SAVE_STEP = 5;
 
-/**
- * Bounds and default for the selection toolbar's debounce.
- *
- * A non-zero delay keeps the floating bar from flickering while the user is
- * still dragging a selection: it only appears once the selection has paused.
- * Zero means "show immediately" — handy on desktop where dragging is precise.
- */
-export const MIN_SELECTION_DEBOUNCE = 0;
-export const MAX_SELECTION_DEBOUNCE = 1000;
-const SELECTION_DEBOUNCE_STEP = 50;
-export const DEFAULT_SELECTION_DEBOUNCE = 250;
-
 export interface MarkdownEditorPlusSettings {
   /* Four rows left this tab, along with the options behind them: the flowchart's
      default direction, a mind map's growth direction, whether dragged positions
@@ -96,17 +84,6 @@ export interface MarkdownEditorPlusSettings {
   // ---- New editor-explorer features (0.4.0) ----
   /** Commands shown in the editor toolbar, in display order. */
   toolbarCommands: ToolbarCommand[];
-  /**
-   * Whether the floating selection toolbar is on: a copy of these same
-   * commands that follows the text selection instead of sitting at the top.
-   */
-  selectionToolbarEnabled: boolean;
-  /**
-   * Milliseconds to wait after the selection settles before showing the
-   * floating bar. Zero shows it immediately; anything above smooths out the
-   * flicker of dragging a selection.
-   */
-  selectionToolbarDebounce: number;
   /**
    * The colour the editor toolbar paints behind those commands.
    *
@@ -202,11 +179,6 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   // Ported from the reference plugin's own default list; see
   // `core/toolbar-commands.ts` for what carried over and what did not.
   toolbarCommands: defaultToolbarCommands(),
-  // On by default: the floating bar only appears while there is a selection,
-  // so it adds nothing to the editor until the user selects text.
-  selectionToolbarEnabled: true,
-  // A quarter-second pause keeps it from blinking as the selection is dragged.
-  selectionToolbarDebounce: DEFAULT_SELECTION_DEBOUNCE,
   // The theme's own colour, said as "no override": the bar keeps the
   // `--background-secondary` it has always been painted with.
   editorToolbarBackground: TOOLBAR_BACKGROUND_DEFAULT,
@@ -469,51 +441,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     return { row: setting, setEnabled };
   }
 
-  /**
-   * The selection toolbar's debounce row: a slider and a reset button, mirroring
-   * the auto-save interval. Built detached and returned so the enable switch can
-   * hold the only reference to it and disable it when the feature is off.
-   */
-  private buildSelectionDebounce(): { row: Setting; setEnabled: (on: boolean) => void } {
-    const fallback = DEFAULT_SELECTION_DEBOUNCE;
-    const setting = new Setting(document.createElement("div"))
-      .setName(t("settings.selectionToolbar.debounce.name"))
-      .setDesc(t("settings.selectionToolbar.debounce.desc"));
-
-    let slider: SliderComponent | null = null;
-
-    const apply = async (value: number): Promise<void> => {
-      this.plugin.settings.selectionToolbarDebounce = value;
-      await this.plugin.saveSettings();
-    };
-
-    setting.addSlider((component) => {
-      slider = component;
-      component
-        .setLimits(MIN_SELECTION_DEBOUNCE, MAX_SELECTION_DEBOUNCE, SELECTION_DEBOUNCE_STEP)
-        .setValue(this.plugin.settings.selectionToolbarDebounce)
-        .setDynamicTooltip()
-        .onChange((value) => void apply(value));
-    });
-
-    setting.addExtraButton((button) =>
-      button
-        .setIcon("rotate-ccw")
-        .setTooltip(t("settings.selectionToolbar.debounce.reset", { value: String(fallback) }))
-        .onClick(() => {
-          slider?.setValue(fallback);
-          void apply(fallback);
-        })
-    );
-
-    const setEnabled = (on: boolean): void => {
-      setting.setDisabled(!on);
-      slider?.setDisabled(!on);
-    };
-
-    return { row: setting, setEnabled };
-  }
-
   private buildReference(): HTMLElement {
     const wrap = h("div", { cls: "mtk-kinds" });
 
@@ -647,26 +574,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    */
   private renderToolbar(host: HTMLElement): void {
     host.replaceChildren();
-
-    // Floating selection toolbar: a copy of the command list that follows the
-    // text selection. The debounce slider is built detached, like the auto-save
-    // interval, so the switch can disable it in the same breath.
-    const debounceRow = this.buildSelectionDebounce();
-
-    new Setting(host)
-      .setName(t("settings.selectionToolbar.enabled.name"))
-      .setDesc(t("settings.selectionToolbar.enabled.desc"))
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.selectionToolbarEnabled).onChange(async (value) => {
-          this.plugin.settings.selectionToolbarEnabled = value;
-          debounceRow.setEnabled(value);
-          this.plugin.refreshSelectionToolbar();
-          await this.plugin.saveSettings();
-        })
-      );
-
-    debounceRow.setEnabled(this.plugin.settings.selectionToolbarEnabled);
-    host.appendChild(debounceRow.row.settingEl);
 
     // Hiding Obsidian's own mobile toolbar lives here rather than in some
     // "mobile" section: the only reason to hide it is that this plugin's own
