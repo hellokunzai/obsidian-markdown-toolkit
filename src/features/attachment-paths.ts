@@ -66,7 +66,12 @@ export function stripExtension(name: string): string {
 }
 
 export function applyTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\$\{([^}]+)\}/g, (_match, raw: string) => {
+  // A single pass handles both the tokens and the documented escape: a leading
+  // `\$` keeps the token literal (`\${date}` → `${date}`), matching what the
+  // settings description promises. Without the escape branch the backslash used
+  // to survive into the name together with a *replaced* value.
+  return template.replace(/\\?\$\{([^}]+)\}/g, (match, raw: string) => {
+    if (match.charCodeAt(0) === 0x5c) return match.slice(1);
     const key = raw.trim();
     if (key.startsWith("date:")) {
       const format = key.slice("date:".length).trim();
