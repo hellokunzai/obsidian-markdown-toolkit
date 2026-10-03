@@ -1,7 +1,7 @@
 {
   "id": "markdown-toolkit",
   "name": "Markdown Toolkit",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "minAppVersion": "1.4.16",
   "description": "Edit diagrams, mind maps and flowcharts visually inside fenced code blocks, with a formatting toolbar plus file and attachment tools, and every change written back as plain text.",
   "author": "hellokunzai",

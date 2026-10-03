@@ -4,7 +4,7 @@
 
 > Visually edit diagrams, mind maps and flowcharts — and 12 kinds in total — inside Obsidian, then write the result back as plain text — plus a formatting toolbar, file-explorer enhancements and attachment management.
 
-- Current version: 0.18.0
+- Current version: 0.18.1
 - Minimum Obsidian: 1.4.16
 - Works on desktop and mobile (no network, no account, no paid features)
 

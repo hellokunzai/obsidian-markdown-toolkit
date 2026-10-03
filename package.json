@@ -1,6 +1,6 @@
 {
   "name": "markdown-toolkit",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Edit diagrams, mind maps and flowcharts visually inside fenced code blocks, written back as plain text.",
   "main": "main.js",
   "scripts": {

@@ -76,12 +76,17 @@ jobs:
 
           echo "tag v$tag agrees with manifest.json and versions.json"
 
+      # The notes are ours to write — see `.github/RELEASE_NOTES.md` — so the
+      # generated ones are off. `body_path` reads from the workspace, which is
+      # guaranteed to be the tagged tree by the checkout step above.
+      #
       # `softprops/action-gh-release` puts every file at the root of the release
       # body's attachments, which is exactly where Obsidian's installer looks:
       # it reads `<plugin-id>/main.js`, so the file has to land un-namespaced.
       - name: Attach to the release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: .github/RELEASE_NOTES.md
           files: |
             main.js
             manifest.json
@@ -89,6 +94,6 @@ jobs:
             README.md
             README.en.md
             LICENSE
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
