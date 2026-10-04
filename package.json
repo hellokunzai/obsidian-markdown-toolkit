@@ -1,7 +1,7 @@
 {
   "name": "markdown-toolkit",
   "version": "0.19.0",
-  "description": "Edit diagrams, mind maps and flowcharts visually inside fenced code blocks, written back as plain text.",
+  "description": "Edit diagrams, mind maps and flowcharts visually inside fenced code blocks, with a formatting toolbar plus file and attachment tools, and every change written back as plain text.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

@@ -4,7 +4,7 @@
 
 > Visually edit diagrams, mind maps and flowcharts — and 12 kinds in total — inside Obsidian, then write the result back as plain text — plus a formatting toolbar, file-explorer enhancements and attachment management.
 
-- Current version: 0.18.2
+- Current version: 0.19.0
 - Minimum Obsidian: 1.4.16
 - Works on desktop and mobile (no network, no account, no paid features)
 
@@ -71,11 +71,11 @@ Commands: `Toggle format brush` · `Underline` · `Font colour` · `Background c
 
 ## Installation
 
-This plugin is **not yet on the Obsidian community store**, so install it with one of the following:
+This plugin is **now on the Obsidian community store** — install it from Settings → Community plugins, or use one of the following methods:
 
 ### Option 1: Manual
 
-1. Download the three files from [Releases](https://github.com/hellokunzai/obsidian-mindforge/releases): `main.js`, `manifest.json`, `styles.css`.
+1. Download the three files from [Releases](https://github.com/hellokunzai/obsidian-markdown-toolkit/releases): `main.js`, `manifest.json`, `styles.css`.
 2. In your vault, create `<your-vault>/.obsidian/plugins/markdown-toolkit/` (**the folder name must match the plugin id `markdown-toolkit` exactly**).
 3. Drop the three files in, restart Obsidian, and enable **Markdown Toolkit** under Settings → Community plugins.
 
@@ -84,7 +84,7 @@ This plugin is **not yet on the Obsidian community store**, so install it with o
 ### Option 2: BRAT (Beta)
 
 1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) first.
-2. In BRAT, "Add a beta plugin" and enter the repository: `hellokunzai/obsidian-mindforge`.
+2. In BRAT, "Add a beta plugin" and enter the repository: `hellokunzai/obsidian-markdown-toolkit`.
 3. Enable it in the community-plugins list; BRAT handles updates too.
 
 ---

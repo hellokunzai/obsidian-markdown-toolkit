@@ -4,7 +4,7 @@
 
 > 在 Obsidian 里把图表、思维导图、流程图等 12 种图形**可视化编辑**，再一键写回纯文本；附带一套编辑器工具栏、文件浏览器增强和附件管理工具。
 
-- 当前版本：0.18.2
+- 当前版本：0.19.0
 - 最低支持 Obsidian：1.4.16
 - 桌面端与移动端均可使用（无需联网、无需账号、无内购）
 
@@ -71,11 +71,11 @@
 
 ## 安装
 
-本插件**尚未上架 Obsidian 社区插件市场**，暂时用以下方式安装：
+本插件**已上架 Obsidian 社区插件市场**，可在 Obsidian「设置 → 第三方插件」中搜索安装；也支持以下方式：
 
 ### 方式一：手动安装
 
-1. 到 [Releases](https://github.com/hellokunzai/obsidian-mindforge/releases) 下载最新版的三个文件：`main.js`、`manifest.json`、`styles.css`。
+1. 到 [Releases](https://github.com/hellokunzai/obsidian-markdown-toolkit/releases) 下载最新版的三个文件：`main.js`、`manifest.json`、`styles.css`。
 2. 在 vault 里新建文件夹 `<你的仓库>/.obsidian/plugins/markdown-toolkit/`（**文件夹名必须与插件 id `markdown-toolkit` 完全一致**）。
 3. 把三个文件放进去，重启 Obsidian，到「设置 → 第三方插件」里启用 **Markdown Toolkit**。
 
@@ -84,7 +84,7 @@
 ### 方式二：通过 BRAT 安装（Beta）
 
 1. 先安装 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 插件。
-2. BRAT 里「Add a beta plugin」，填入仓库地址：`hellokunzai/obsidian-mindforge`。
+2. BRAT 里「Add a beta plugin」，填入仓库地址：`hellokunzai/obsidian-markdown-toolkit`。
 3. 启用后即可在第三方插件列表看到本插件，更新也由 BRAT 负责。
 
 ---
