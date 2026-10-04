@@ -6,7 +6,6 @@ import {
   FuzzySuggestModal,
   Notice,
   TFolder,
-  addIcon,
   getIconIds,
   setIcon,
   type Command,
@@ -232,43 +231,6 @@ function searchText(row: HTMLElement): string {
 const FILTERED_KIND_ROW = "mtk-kind-filtered";
 
 /**
- * The glyph on a custom order's clear button.
- *
- * A bespoke icon rather than a name from the registry, for the same reason the
- * file-order button draws its own: what this does is take back a standing
- * arrangement, which is neither `trash-2` (that deletes the folder) nor `x`
- * (that closes something), and the nearest registry glyph — `brush` — is the
- * one this plugin already uses to mean "clear the formatting of a selection".
- * A name that happens not to exist in the running app's icon set draws nothing
- * at all, silently; a registered one cannot go missing.
- *
- * `addIcon` draws into a 100-unit box, so every stroke states its own width —
- * see the same note in `features/file-order.ts`.
- */
-const CLEAR_ORDER_ICON = "mtk-order-clear";
-
-function registerClearOrderIcon(): void {
-  // 10 rather than 8: this glyph is read at 16px in a row, where an 8-unit
-  // stroke lands under 1.3 device pixels and the brush end stops reading as a
-  // brush at all.
-  const stroke = 'stroke-width="10" stroke-linejoin="round"';
-  const path = (d: string): string =>
-    `<path d="${d}" fill="none" stroke="currentColor" stroke-linecap="round" ${stroke}/>`;
-
-  /* 正面看的扫把：竖柄、比柄更宽的刷头横杆、三根排开的刷毛。
-     第一版画的是斜握的扫把，48px 下像扫把，16px 下那根横杆与柄交叉成剪刀 ——
-     正投影的两根横线 + 三根竖线在小尺寸下不会误读，宽窄关系也能撑住。 */
-  addIcon(
-    CLEAR_ORDER_ICON,
-    path("M50 14 V42") +
-      path("M28 42 H72") +
-      path("M36 52 V80") +
-      path("M50 52 V86") +
-      path("M64 52 V80")
-  );
-}
-
-/**
  * The cells a diagram-type row is searched by: the name it is drawn with, the
  * keyword someone types into a fence, and the sentence saying when to reach
  * for it.
@@ -352,9 +314,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   constructor(app: App, plugin: MarkdownEditorPlusPlugin) {
     super(app, plugin);
     this.plugin = plugin;
-    // Registered before any tab is built, like the file-order button's own
-    // glyph: a custom icon that is asked for before it exists draws nothing.
-    registerClearOrderIcon();
   }
 
   display(): void {
@@ -996,7 +955,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       attr: { role: "button", tabindex: "0", "aria-label": t("settings.toolbar.reorder") },
     });
     setIcon(grip, "grip-vertical");
-    attachRowReorder(scope, moved, grip, commit);
+    attachRowReorder(scope, moved, grip, commit, "cmdId");
     return grip;
   }
 
@@ -1367,14 +1326,16 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       attr: { hidden: "hidden" },
     });
 
-    // Nothing to search before the first folder is arranged, like the toolbar
-    // tab: a box over an empty list is one more control that can only ever
-    // answer "no". The empty list below says what to do instead.
-    if (paths.length > 0) host.appendChild(this.buildOrderSearch(list, noMatch));
+    // Both rows above the list are always here, empty vault or not: the search
+    // box is the tab's own furniture, and a control that appears only once
+    // there is something to search makes the page look like it changed shape.
+    // The filter itself is what knows there is nothing to match — see
+    // `applyOrderFilter`, which is told whether the list has rows at all.
+    host.appendChild(this.buildOrderSearch(list, noMatch));
     host.appendChild(list);
     host.appendChild(noMatch);
 
-    this.applyOrderFilter(list, noMatch, paths.length > 0);
+    this.applyOrderFilter(list, noMatch);
   }
 
   /**
@@ -1406,7 +1367,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     // Right-hand end of the row, in the toolbar's own order: the triangle that
     // opens the list, then the action. Same two boxes the toolbar puts there,
     // which is why a record and a toolbar row read alike at a glance.
-    const tree = this.buildOrderTree(path, 1);
+    const tree = this.buildOrderTree(path);
     const open = this.expandedOrders.has(path);
     const toggle = h("button", {
       cls: "clickable-icon mtk-order-toggle",
@@ -1424,15 +1385,11 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     row.appendChild(toggle);
 
     row.appendChild(
-      this.buildIconAction(CLEAR_ORDER_ICON, t("settings.order.row.clearAria", { path: label }), "mtk-order-clear", () => {
+      this.buildIconAction("trash-2", t("settings.order.row.clearAria", { path: label }), "mtk-order-clear", () => {
         delete this.plugin.settings.orderMap[path];
+        // Only records are ever opened now that the list is one level, so this
+        // is the whole of the forgotten state.
         this.expandedOrders.delete(path);
-        // Branches below this one are keyed by paths that no longer have a
-        // record to open, so they are dropped with it rather than left to make
-        // the set grow for the length of the visit.
-        for (const key of [...this.expandedOrders]) {
-          if (key.startsWith(`${path}/`)) this.expandedOrders.delete(key);
-        }
         void this.plugin.refreshFileOrder();
         new Notice(t("settings.order.row.cleared", { path: label }));
         // A rebuild rather than a row removal: the count in the reset row above
@@ -1448,84 +1405,95 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   }
 
   /**
-   * The names one record arranged, in the order it arranged them, as a list of
-   * nodes — each of which may carry a list of its own.
+   * The names one record arranged, in the order it arranged them: one row each,
+   * each with a handle that moves it inside this list.
+   *
+   * One level, deliberately. A recorded name can have a record of its own, and
+   * the first version drew that as a tree that opened again one level down —
+   * which made rows on the same list mean two different things (a name here, a
+   * folder with an order of its own there) and left the reader counting
+   * indentation to tell them apart. This list edits one array, so it is one
+   * list.
    *
    * The record's array *is* the custom order, so the names are rendered in the
-   * order they are stored and nothing sorts them. A name that happens to be a
-   * folder this plugin also holds a record for becomes an expandable node,
-   * which is how a tree of any depth appears without a field of its own: the
-   * record's keys already are paths.
-   *
-   * No depth guard is needed, and that is a property of the format rather than
-   * an assumption: a record is keyed by folder path and holds names, and a
-   * folder name cannot contain `/`, so every step down lengthens the path.
-   *
-   * `depth` is the row's indentation step, held as a custom property rather than
-   * as nested padding: the rows are drawn like the toolbar's submenu rows —
-   * transparent on a sunken surface, with a divider under each of them — and a
-   * divider that stopped where the indent began would not be that row. One step
-   * is one level, and the first level lands on the toolbar's own 30px.
+   * order they are stored and nothing sorts them.
    */
-  private buildOrderTree(parentPath: string, depth: number): HTMLElement {
+  private buildOrderTree(parentPath: string): HTMLElement {
     const tree = h("ul", { cls: "mtk-order-tree" });
     tree.id = `mtk-order-tree-${++this.orderTreeSeq}`;
 
     const order = this.plugin.settings.orderMap[parentPath] ?? [];
-    for (const name of order) {
-      tree.appendChild(this.buildOrderNode(name, childPath(parentPath, name), depth));
-    }
+    for (const name of order) tree.appendChild(this.buildOrderRow(tree, parentPath, name));
     return tree;
   }
 
-  /** One name inside a tree: itself, plus its own subtree when it has a record. */
-  private buildOrderNode(name: string, path: string, depth: number): HTMLElement {
-    const node = h("li", { cls: "mtk-order-node" });
+  /** One arranged name: a handle, and the name it moves. */
+  private buildOrderRow(tree: HTMLElement, parentPath: string, name: string): HTMLElement {
+    const node = h("li", { cls: "mtk-order-node", attr: { "data-order-name": name } });
     const row = h("div", { cls: "mtk-order-tree-row" });
-    row.style.setProperty("--mtk-order-depth", String(depth));
+    row.appendChild(this.buildOrderGrip(tree, node, parentPath, name));
 
     // A recorded name that is not a folder any more — deleted outside
     // Obsidian, or replaced by a file — is marked rather than dropped. The
     // record is what this tab shows, so hiding the entry would read as a name
     // that went missing from the list instead of one that went missing from the
     // vault; `prune` clears it on the next start.
-    const gone = this.folderAt(path) === null;
-    const children = this.plugin.settings.orderMap[path] ?? [];
-
-    if (children.length === 0) {
-      // Nothing on the right end: a name with no list to open has no triangle,
-      // and with the triangle on this side there is no column to keep in step
-      // with — every name starts at its own level's indent.
-      row.appendChild(this.buildOrderName(name, gone));
-      node.appendChild(row);
-      return node;
-    }
-
-    // The same division of labour the toolbar's rows make: a row with a list
-    // under it draws no divider of its own, because the list's top border is
-    // that divider.
-    row.classList.add("is-parent");
-    const sub = this.buildOrderTree(path, depth + 1);
-    const open = this.expandedOrders.has(path);
-    const toggle = h("button", {
-      cls: "clickable-icon mtk-order-toggle",
-      attr: {
-        type: "button",
-        "aria-expanded": String(open),
-        "aria-controls": sub.id,
-        "aria-label": t(open ? "settings.order.row.collapse" : "settings.order.row.expand", {
-          path: name,
-        }),
-      },
-    });
-    setIcon(toggle, "chevron-right");
-    toggle.addEventListener("click", () => this.toggleOrderBranch(path, toggle, sub, name));
-    row.appendChild(this.buildOrderName(name, gone));
-    row.appendChild(toggle);
+    row.appendChild(this.buildOrderName(name, this.folderAt(childPath(parentPath, name)) === null));
     node.appendChild(row);
-    node.appendChild(sub);
-    sub.toggleAttribute("hidden", !open);
     return node;
+  }
+
+  /**
+   * The handle that moves one name inside its record's list.
+   *
+   * `attachRowReorder` is the toolbar's own gesture, reused rather than written
+   * again: it is handed the list, the element to move, the handle, a commit,
+   * and the `data-` key that marks the rows it may reorder. So this handle has
+   * the same drag preview, the same keyboard path (arrow keys), and the same
+   * "the order is committed on release, once" as the toolbar's.
+   */
+  private buildOrderGrip(
+    tree: HTMLElement,
+    node: HTMLElement,
+    parentPath: string,
+    name: string
+  ): HTMLElement {
+    const label = t("settings.order.reorder", { name });
+    const grip = h("span", {
+      cls: "mtk-order-grip",
+      attr: { role: "button", tabindex: "0", "aria-label": label },
+    });
+    setIcon(grip, "grip-vertical");
+    attachRowReorder(tree, node, grip, () => this.commitOrderNames(parentPath, tree), "orderName");
+    return grip;
+  }
+
+  /**
+   * Reads the list's order back out of the DOM and writes it into the record.
+   *
+   * Matched by name rather than by position, for the toolbar's own reason: the
+   * drag has already put the list in the new order by the time this runs, so an
+   * index written into the markup beforehand would be a step behind.
+   *
+   * The write goes through `refreshFileOrder` on a later task, again like the
+   * toolbar's commit: the new order is on screen already, and laying the
+   * explorer out again must not happen on the pointerup turn.
+   */
+  private commitOrderNames(parentPath: string, tree: HTMLElement): void {
+    const order = this.plugin.settings.orderMap[parentPath];
+    if (!order) return;
+
+    const names = [...tree.children]
+      .filter(
+        (el): el is HTMLElement =>
+          el instanceof HTMLElement && typeof el.dataset.orderName === "string"
+      )
+      .map((el) => el.dataset.orderName as string);
+
+    // Never let a missing row turn into a silently dropped name.
+    if (names.length !== order.length) return;
+    order.splice(0, order.length, ...names);
+    setTimeout(() => void this.plugin.refreshFileOrder(), 0);
   }
 
   /** A name, wearing the "this folder is gone" mark when that is what it is. */
@@ -1601,7 +1569,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     input.value = this.orderQuery;
     input.addEventListener("input", () => {
       this.orderQuery = input.value;
-      this.applyOrderFilter(list, noMatch, true);
+      this.applyOrderFilter(list, noMatch);
     });
     setting.controlEl.appendChild(input);
     return setting.settingEl;
@@ -1616,31 +1584,33 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * the route that leads to them.
    *
    * What is matched is deliberately the record's own path and not the names
-   * inside its tree: those are hidden until the triangle is pressed, so a hit
-   * on one would answer with a record that does not visibly contain what was
-   * typed. A record is hidden whole — header and tree together — which is why
+   * inside its list: those are hidden until the record is opened, so a hit on
+   * one would answer with a record that does not visibly contain what was
+   * typed. A record is hidden whole — header and list together — which is why
    * the filter marks the `li` the record is.
+   *
+   * Whether there is anything to match is read off the list rather than handed
+   * in: an empty list is its own state, and a caller passing what it knew at
+   * build time is a caller that can be wrong — this used to be a parameter, and
+   * the search box's own handler passed `true` unconditionally, so an empty
+   * list answered a query with "nothing matched".
    */
-  private applyOrderFilter(
-    list: HTMLElement,
-    noMatch: HTMLElement,
-    hasRows: boolean
-  ): void {
+  private applyOrderFilter(list: HTMLElement, noMatch: HTMLElement): void {
     const needle = this.orderQuery.trim().toLowerCase();
+    const records = Array.from(list.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains("mtk-order-rec")
+    );
     let visible = 0;
-    if (hasRows) {
-      for (const record of Array.from(list.children)) {
-        if (!(record instanceof HTMLElement)) continue;
-        const haystack = (record.dataset.path ?? "").toLowerCase();
-        const shown = needle.length === 0 || haystack.includes(needle);
-        record.classList.toggle("mtk-order-filtered", !shown);
-        if (shown) visible += 1;
-      }
+    for (const record of records) {
+      const haystack = (record.dataset.path ?? "").toLowerCase();
+      const shown = needle.length === 0 || haystack.includes(needle);
+      record.classList.toggle("mtk-order-filtered", !shown);
+      if (shown) visible += 1;
     }
 
     // An empty list is not a failed search: its own row already says what to
     // do, and "no match" over it would answer a question nobody asked.
-    const none = hasRows && needle.length > 0 && visible === 0;
+    const none = records.length > 0 && needle.length > 0 && visible === 0;
     list.classList.toggle("is-no-match", none);
     noMatch.toggleAttribute("hidden", !none);
   }
@@ -2002,15 +1972,26 @@ function reduceMotion(): boolean {
  */
 const DRAG_LISTENER: AddEventListenerOptions = { capture: true };
 
+/**
+ * Attaches the reorder gesture to one handle.
+ *
+ * `rowKey` names the `data-` attribute that marks a list's reorderable rows, so
+ * the same gesture serves both lists that have one: the toolbar's rows are
+ * marked by command id, and a record's names by name. Matching on a key rather
+ * than on position is what lets the drag survive the DOM being put in the order
+ * the preview showed — the commit runs after the move, and any index written
+ * into the markup beforehand would already be a step behind.
+ */
 function attachRowReorder(
   list: HTMLElement,
   moved: HTMLElement,
   grip: HTMLElement,
-  commit: () => void
+  commit: () => void,
+  rowKey: string
 ): void {
   const rows = (): HTMLElement[] =>
     Array.from(list.children).filter(
-      (el): el is HTMLElement => el instanceof HTMLElement && typeof el.dataset.cmdId === "string"
+      (el): el is HTMLElement => el instanceof HTMLElement && typeof el.dataset[rowKey] === "string"
     );
 
   /**

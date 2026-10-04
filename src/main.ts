@@ -493,6 +493,10 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
    */
   async refreshFileOrder(): Promise<void> {
     this.fileOrder?.sync();
+    // Then lay the rows out again: an edit made in the settings tab changes the
+    // record, and the patch only applies it when the explorer next sorts
+    // itself — which nothing about a settings edit makes it do.
+    this.fileOrder?.resort();
     await this.saveSettings();
   }
 

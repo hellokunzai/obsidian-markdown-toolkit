@@ -1424,19 +1424,11 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
  * These are the toolbar's rows, one list over: the same sunken surface the
  * submenu rows sit on (`.mtk-toolbar-cmd-children`), the same transparent row
  * over it (`.mtk-toolbar-cmd.is-child`), the same 13px, a divider under every
- * row, and the same chevron button — 24px, muted, turning normal on hover.
- * Only one thing has to differ, and it is why the indent is a custom property
- * rather than nested padding: a toolbar child row is one fixed step inside its
- * submenu (`padding-left: 30px`), while this tree nests, so a row carries its
- * own depth and takes a 20px step per level. The first level therefore lands on
- * the same 30px the toolbar's child rows sit at, and the divider under a row
- * still runs the full width of the list instead of stopping where the indent
- * begins.
+ * row, and the same 30px first step — a toolbar child row is `padding-left:
+ * 30px` inside its submenu, and this is the only step this list has.
  *
- * The divider is split the way the toolbar splits it: a row with a list under
- * it draws none of its own (`.is-parent`), because the list's top border is
- * that divider, and the last row of a list draws none either, because the
- * record's own border closes the list.
+ * The divider is split the way the toolbar splits it: the last row draws none,
+ * because the record's own border closes the list.
  */
 .mtk-order-tree {
   list-style: none;
@@ -1455,15 +1447,12 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px 7px calc(10px + var(--mtk-order-depth, 1) * 20px);
+  padding: 7px 10px 7px 30px;
   background: transparent;
   border-bottom: 1px solid var(--background-modifier-border);
   font-size: 13px;
 }
 .mtk-order-node:last-child > .mtk-order-tree-row {
-  border-bottom: none;
-}
-.mtk-order-tree-row.is-parent {
   border-bottom: none;
 }
 .mtk-order-name {
@@ -1475,10 +1464,52 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   color: var(--text-normal);
 }
 /* A recorded name the vault no longer has. Marked, not hidden: see
-   `buildOrderNode` in `settings.ts`. */
+   `buildOrderRow` in `settings.ts`. */
 .mtk-order-gone {
   color: var(--text-faint);
   text-decoration: line-through;
+}
+
+/*
+ * The handle that moves a name inside its record: the toolbar grip's twin, at
+ * the row's left end instead of the list's. Same faint glyph, same grab cursor,
+ * same `touch-action: none` — without it a touch drag scrolls the settings
+ * panel out from under the pointer instead of moving the row.
+ */
+.mtk-order-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 22px;
+  color: var(--text-faint);
+  border-radius: var(--radius-s);
+  cursor: grab;
+  touch-action: none;
+}
+.mtk-order-grip:hover {
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+}
+.mtk-order-grip:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.mtk-order-grip svg {
+  width: 14px;
+  height: 14px;
+}
+/* A lifted name, drawn like a lifted toolbar row (see `.mtk-toolbar-cmd`). */
+.mtk-order-node.is-drag-lift {
+  position: relative;
+  z-index: 1;
+  background: var(--background-secondary);
+  outline: 1px solid var(--interactive-accent);
+  outline-offset: -1px;
+  border-radius: var(--radius-s);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16), 0 1px 4px rgba(0, 0, 0, 0.1);
+  will-change: transform;
 }
 
 /*
@@ -1665,7 +1696,8 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   }
 }
 .mtk-toolbar-cmd.is-landed,
-.mtk-toolbar-cmd-group.is-landed {
+.mtk-toolbar-cmd-group.is-landed,
+.mtk-order-node.is-landed {
   animation: mtk-toolbar-landed 240ms ease-out;
   border-radius: var(--radius-s);
 }
@@ -1763,7 +1795,8 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
     transition: none;
   }
   .mtk-toolbar-cmd.is-landed,
-  .mtk-toolbar-cmd-group.is-landed {
+  .mtk-toolbar-cmd-group.is-landed,
+  .mtk-order-node.is-landed {
     animation: none;
   }
 }

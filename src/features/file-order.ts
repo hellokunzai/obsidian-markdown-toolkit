@@ -290,6 +290,25 @@ export class FileOrder {
   }
 
   /**
+   * Lays the explorer's rows out again from the record as it stands.
+   *
+   * The patch applies an order when the explorer sorts itself, which is not
+   * something a settings edit causes. The settings tab edits the record
+   * directly — clearing one, or dragging a name to a new place — so without
+   * this the order would be written down and saved while the file tree beside
+   * the dialog kept showing the old arrangement until something else redrew it.
+   * That reads as "the drag did not take".
+   *
+   * A no-op without a patch, which is the state of a vault that has no recorded
+   * order and no reorder button: there the explorer is Obsidian's own, and
+   * there is nothing of ours to lay out.
+   */
+  resort(): void {
+    if (!this.patch) return;
+    this.sortAll();
+  }
+
+  /**
    * Everything the feature put in place, taken back out: the observer, any
    * gesture still in flight, the patch on the explorer's prototype, the button,
    * and every handle.

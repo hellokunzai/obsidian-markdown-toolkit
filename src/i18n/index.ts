@@ -295,6 +295,7 @@ const en: Dict = {
   "settings.order.row.collapse": "Hide the folders arranged inside {{path}}",
   "settings.order.row.gone":
     "This folder is not in the vault any more. The record is cleaned up the next time the app starts.",
+  "settings.order.reorder": "Drag to move {{name}}, or use the arrow keys",
   "settings.attachment.basic.heading": "Basic settings",
   "settings.attachment.folder.name": "Attachment folder",
   "settings.attachment.folder.desc":
@@ -874,6 +875,7 @@ const zhCn: Dict = {
   "settings.order.row.expand": "展开 {{path}} 里已排好序的文件夹",
   "settings.order.row.collapse": "收起 {{path}} 里已排好序的文件夹",
   "settings.order.row.gone": "这个文件夹已经不在库里了；记录会在下次启动时清理。",
+  "settings.order.reorder": "拖动调整 {{name}} 的位置，也可用方向键",
   "settings.attachment.basic.heading": "基础设置",
   "settings.attachment.folder.name": "附件文件夹",
   "settings.attachment.folder.desc": "支持变量的路径。以 './' 开头表示相对当前笔记所在文件夹，否则相对库根目录。留空则使用 App 自己的默认位置。",
