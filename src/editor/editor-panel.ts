@@ -536,7 +536,11 @@ export class EditorPanel {
       y,
       key: nodeId,
       depth: 0,
-      pinned: true,
+      // Mind maps hand the new node to the tidy tree layout: layoutMindmap
+      // skips pinned nodes, so a pinned add stacks children by hand and the
+      // parent never re-centres — edges kink off the node corners instead of
+      // fanning out from its edge midpoint.
+      pinned: this.model.mode !== "mindmap",
     });
     if (relation === "child") {
       this.model.edges.push({ id: `e${Date.now()}`, from: id, to: nodeId, label: "" });
@@ -546,7 +550,11 @@ export class EditorPanel {
         this.model.edges.push({ id: `e${Date.now()}b`, from: incoming.from, to: nodeId, label: "" });
       }
     }
-    this.settleBelow(nodeId);
+    if (this.model.mode === "mindmap") {
+      this.relayout();
+    } else {
+      this.settleBelow(nodeId);
+    }
     this.selectedId = nodeId;
     this.render();
     this.beginInlineEdit(nodeId);
