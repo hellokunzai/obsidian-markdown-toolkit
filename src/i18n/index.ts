@@ -181,10 +181,6 @@ const en: Dict = {
   "backgroundColor.colors.translucent": "Translucent Colors",
   "backgroundColor.colors.highlighter": "Highlighter Colors",
 
-  "settings.kinds.col.diagram": "Diagram",
-  "settings.kinds.col.keyword": "Keyword",
-  "settings.kinds.col.scene": "Use it for",
-  "settings.kinds.col.editable": "Visual editor",
   "settings.kinds.yes": "Yes",
   "settings.kinds.no": "No",
   "settings.kinds.searchTitle": "Search diagram types",
@@ -771,10 +767,6 @@ const zhCn: Dict = {
   "backgroundColor.colors.translucent": "半透明颜色",
   "backgroundColor.colors.highlighter": "荧光笔颜色",
 
-  "settings.kinds.col.diagram": "图表",
-  "settings.kinds.col.keyword": "关键字",
-  "settings.kinds.col.scene": "适用场景",
-  "settings.kinds.col.editable": "可视化编辑",
   "settings.kinds.yes": "支持",
   "settings.kinds.no": "不支持",
   "settings.kinds.searchTitle": "搜索图表",

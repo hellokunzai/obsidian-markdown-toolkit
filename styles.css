@@ -1102,71 +1102,107 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 /* --------------------------------------------------- the kinds reference */
 
 /*
- * A settings page, not a spreadsheet: the table keeps only the rules that make
- * the columns readable and drops the outer frame, so it sits in the page rather
- * than on top of it. The keyword goes in the monospace face because it is
- * something you type.
+ * The toolbar tab's list card, one tab over: the same hairline frame, the same
+ * corner radius, the same clipped corners — see `.mtk-toolbar-cmd-list`. What a
+ * row holds is not the same, because this list is a reference rather than a
+ * control: there is nothing here to arrange, so no row carries a handle, an
+ * icon button or an action.
  */
 .mtk-kinds {
   margin: 0 0 26px;
 }
 
-.mtk-kinds .mtk-kinds-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-ui-smaller);
+.mtk-kinds .mtk-kinds-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  overflow: hidden;
 }
 
-.mtk-kinds .mtk-kinds-table th {
-  padding: 0 12px 6px 0;
-  text-align: left;
-  font-weight: 600;
-  color: var(--text-muted);
+/*
+ * Name and answer share the first line; the keyword and the scene sit under
+ * them on a second. That pair of lines is the toolbar row's own shape — a name
+ * over its command id — and it is also what gives `sequenceDiagram`, the widest
+ * thing in the list, the whole row to sit in instead of a column of its own.
+ *
+ * The divider belongs to the row, with none after the last one, exactly as on
+ * that list.
+ */
+.mtk-kinds .mtk-kinds-list > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 1px 10px;
+  padding: 8px 10px;
+  background: var(--background-primary);
   border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+}
+
+.mtk-kinds .mtk-kinds-list > li:last-child {
+  border-bottom: none;
+}
+
+.mtk-kinds .mtk-kinds-list .mtk-kind-name {
+  grid-column: 1;
+  grid-row: 1;
+  color: var(--text-normal);
+}
+
+/*
+ * The one field someone reads to find out why a gantt chart has no edit
+ * button, so the two answers have to be told apart at a glance. It keeps its
+ * own width while the name takes the slack.
+ */
+.mtk-kinds .mtk-kinds-list .mtk-kind-can-edit,
+.mtk-kinds .mtk-kinds-list .mtk-kind-cannot-edit {
+  grid-column: 2;
+  grid-row: 1;
   white-space: nowrap;
 }
 
-.mtk-kinds .mtk-kinds-table td {
-  padding: 6px 12px 6px 0;
-  vertical-align: top;
-  color: var(--text-normal);
-  border-bottom: 1px solid var(--background-modifier-border);
+.mtk-kinds .mtk-kinds-list .mtk-kind-can-edit {
+  color: var(--text-accent);
 }
 
-.mtk-kinds .mtk-kinds-table tr > *:last-child {
-  padding-right: 0;
+.mtk-kinds .mtk-kinds-list .mtk-kind-cannot-edit {
+  color: var(--text-faint);
 }
 
-.mtk-kinds .mtk-kinds-table .mtk-kind-keyword {
+/*
+ * The second line. The keyword goes in the monospace face because it is
+ * something you type, and it keeps its width; the scene is the sentence that
+ * explains it and gives way first when the row runs out of room.
+ */
+.mtk-kinds .mtk-kinds-list .mtk-kind-sub {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.mtk-kinds .mtk-kinds-list .mtk-kind-keyword {
   font-family: var(--font-monospace);
   font-size: 11.5px;
   color: var(--text-accent);
   white-space: nowrap;
 }
 
-.mtk-kinds .mtk-kinds-table .mtk-kind-scene {
+.mtk-kinds .mtk-kinds-list .mtk-kind-scene {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--text-muted);
-}
-
-/*
- * The one column someone reads to find out why a gantt chart has no edit
- * button, so the two answers have to be told apart at a glance.
- */
-.mtk-kinds .mtk-kinds-table .mtk-kind-can-edit {
-  color: var(--text-accent);
-  white-space: nowrap;
-}
-
-.mtk-kinds .mtk-kinds-table .mtk-kind-cannot-edit {
-  color: var(--text-faint);
-  white-space: nowrap;
 }
 
 /*
  * ---- diagram-settings tab: what the filter row needs on its own ----
  *
  * The filter row is a `Setting` row, so the theme paints it like every other
- * row on the tab. What differs is what sits under it: the table has no top
+ * row on the tab. What differs is what sits under it: the list has no top
  * margin of its own, so the row keeps a beat of space after it on this page.
  */
 .mtk-kinds > .setting-item {
@@ -1174,8 +1210,8 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 /*
- * The table keeps its header while the search runs, so "nothing matched" is a
- * note under the table rather than a box standing in for it.
+ * "Nothing matched" is a note under the list rather than a box standing in for
+ * it, the same way it reads on the toolbar tab.
  */
 .mtk-kinds-search-empty {
   margin: 10px 0 0;
@@ -1188,10 +1224,16 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 
 /*
  * Rows the search has taken out. Hidden by `display`, not by removing them:
- * the row keeps its place in the table and every cell keeps its column width,
- * so nothing reflows as the query is narrowed.
+ * the row keeps its place in the list, so clearing the box hands back the order
+ * the user had rather than reshuffling what is left.
+ *
+ * Both ancestors are named because the row rule above names both: the hiding
+ * rule has to out-specify `.mtk-kinds .mtk-kinds-list > li`'s `display: grid`,
+ * and a bare `.mtk-kinds-list .mtk-kind-filtered` loses that one by a single
+ * type selector. The toolbar's rule gets away with one ancestor because its row
+ * rule (`.mtk-toolbar-cmd`) is a lone class; this one is not.
  */
-.mtk-kinds-table .mtk-kind-filtered {
+.mtk-kinds .mtk-kinds-list .mtk-kind-filtered {
   display: none;
 }
 

@@ -233,19 +233,19 @@ function searchText(row: HTMLElement): string {
  * Marks a diagram-type row that the search box has taken out.
  *
  * A second constant rather than a shared one with `FILTERED_ROW`: each hiding
- * rule is scoped to its own list, and the toolbar's needs `.mtk-toolbar-cmd-list`
- * in front of it to beat a row's `display: grid`. A table row has no such
- * ancestor to borrow, so it carries a rule of its own.
+ * rule is scoped to its own list, and both need that ancestor in front of it to
+ * beat the row's own `display: grid` — `.mtk-toolbar-cmd-list` for the toolbar,
+ * `.mtk-kinds-list` for the reference.
  */
 const FILTERED_KIND_ROW = "mtk-kind-filtered";
 
 /**
- * The cells a diagram-type row is searched by: the name it is drawn with, the
- * keyword someone types into a fence, and the sentence saying when to reach
- * for it.
+ * The parts of a diagram-type row the search box reads: the name it is drawn
+ * with, the keyword someone types into a fence, and the sentence saying when to
+ * reach for it.
  *
- * The "visual editor" column is left out on purpose. It holds one of two
- * words, so including it would answer half the table for a query like "yes" —
+ * The answer the row ends with is left out on purpose. It holds one of two
+ * words, so including it would answer half the list for a query like "yes" —
  * the same reason the toolbar searches a section heading by its name alone.
  */
 const KIND_SEARCH_CELLS = [".mtk-kind-name", ".mtk-kind-keyword", ".mtk-kind-scene"];
@@ -465,63 +465,76 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     return { row: setting, setEnabled };
   }
 
+  /**
+   * The list of every diagram kind this plugin can draw.
+   *
+   * It is the toolbar tab's list, one tab over: the same card (a hairline
+   * frame, the same corner radius, the same 13px) and the same row rhythm (a
+   * divider between rows, none after the last). What a row holds differs,
+   * because this is a reference rather than a control — there is nothing here
+   * to arrange, so a row carries no grip, no edit button and no delete. The
+   * name and the answer share the first line, and the keyword and the scene sit
+   * under them on a second, which is the shape the toolbar's own rows use for a
+   * name over its command id.
+   *
+   * The header row left with the table. It was the only thing naming the
+   * columns, and it was also the only reason the keyword had to fit a column of
+   * its own — `sequenceDiagram` is the widest thing in the list, and on a
+   * second line it has the whole row to sit in.
+   */
   private buildReference(): HTMLElement {
     const wrap = h("div", { cls: "mtk-kinds" });
 
-    const thead = h("thead");
-    const headRow = h("tr");
-    headRow.appendChild(h("th", { text: t("settings.kinds.col.diagram") }));
-    headRow.appendChild(h("th", { text: t("settings.kinds.col.keyword") }));
-    headRow.appendChild(h("th", { text: t("settings.kinds.col.scene") }));
-    headRow.appendChild(h("th", { text: t("settings.kinds.col.editable") }));
-    thead.appendChild(headRow);
-
-    const tbody = h("tbody");
+    const list = h("ul", { cls: "mtk-kinds-list" });
     for (const kind of DIAGRAM_KINDS) {
-      const row = h("tr");
-      row.appendChild(h("td", { cls: "mtk-kind-name", text: t(kind.nameKey) }));
-      row.appendChild(h("td", { cls: "mtk-kind-keyword", text: kind.keyword }));
-      row.appendChild(h("td", { cls: "mtk-kind-scene", text: t(kind.sceneKey) }));
+      const row = h("li");
+      row.appendChild(h("span", { cls: "mtk-kind-name", text: t(kind.nameKey) }));
       row.appendChild(
-        h("td", {
+        h("span", {
           cls: kind.mode ? "mtk-kind-can-edit" : "mtk-kind-cannot-edit",
           text: kind.mode ? t("settings.kinds.yes") : t("settings.kinds.no"),
         })
       );
-      tbody.appendChild(row);
+
+      /* The two lookups share the row's second line. Keyword first, because it
+         is the one people arrive with — "which diagram is `gantt`?" — and the
+         scene is the sentence that explains it. */
+      const sub = h("span", { cls: "mtk-kind-sub" });
+      sub.appendChild(h("span", { cls: "mtk-kind-keyword", text: kind.keyword }));
+      sub.appendChild(h("span", { cls: "mtk-kind-scene", text: t(kind.sceneKey) }));
+      row.appendChild(sub);
+
+      list.appendChild(row);
     }
 
-    const table = h("table", { cls: "mtk-kinds-table" });
-    table.appendChild(thead);
-    table.appendChild(tbody);
-
-    // Unlike the toolbar's box, this one never hides the list it filters: the
-    // header is the only thing on screen saying what the columns mean, so it
-    // stays put and the sentence about an empty result lands underneath.
+    // The sentence about an empty result lands under the list rather than in
+    // place of it, the same way it does on the toolbar tab: the rows the search
+    // took out keep their places in the list, so the box can be cleared and
+    // hand back exactly what was there.
     const noMatch = h("p", {
       cls: "mtk-kinds-search-empty",
       text: t("settings.kinds.searchEmpty"),
       attr: { hidden: "hidden" },
     });
 
-    wrap.appendChild(this.buildKindSearch(tbody, noMatch).settingEl);
-    wrap.appendChild(table);
+    wrap.appendChild(this.buildKindSearch(list, noMatch).settingEl);
+    wrap.appendChild(list);
     wrap.appendChild(noMatch);
 
-    this.applyKindFilter(tbody, noMatch);
+    this.applyKindFilter(list, noMatch);
     return wrap;
   }
 
   /**
-   * The search row that sits between the table's title and the table itself.
+   * The search row that sits above the list.
    *
    * The reference is a fixed list, so the everyday job is finding one row in
-   * it, and picking through four columns for "gantt" is work the box can do.
+   * it, and reading ten of them for "gantt" is work the box can do.
    *
-   * It filters in place rather than rebuilding the table: rows are never added
+   * It filters in place rather than rebuilding the list: rows are never added
    * or removed, only marked, so the caret stays in the box across a keystroke.
    * The box is refilled from `kindQuery`, so leaving the tab and coming back
-   * hands the user the same view they left instead of the full table.
+   * hands the user the same view they left instead of the full list.
    *
    * It is a `Setting` row, not a hand-drawn card, so it inherits whatever the
    * theme paints the other rows of this tab with — the previous custom card
@@ -529,7 +542,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * Built off-document and moved into place by the caller, like the interval
    * row above.
    */
-  private buildKindSearch(tbody: HTMLElement, noMatch: HTMLElement): Setting {
+  private buildKindSearch(list: HTMLElement, noMatch: HTMLElement): Setting {
     const setting = new Setting(document.createElement("div"))
       .setName(t("settings.kinds.searchTitle"))
       .setDesc(t("settings.kinds.searchDesc"));
@@ -540,7 +553,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         .setValue(this.kindQuery)
         .onChange((value) => {
           this.kindQuery = value;
-          this.applyKindFilter(tbody, noMatch);
+          this.applyKindFilter(list, noMatch);
         })
     );
 
@@ -551,13 +564,13 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * Shows only the rows whose name, keyword or scene contains the query.
    *
    * Every pass starts from scratch — the query and the row's own text, nothing
-   * carried over — so clearing the box restores the full table rather than
+   * carried over — so clearing the box restores the full list rather than
    * whatever the last search happened to leave behind.
    */
-  private applyKindFilter(tbody: HTMLElement, noMatch: HTMLElement): void {
+  private applyKindFilter(list: HTMLElement, noMatch: HTMLElement): void {
     const needle = this.kindQuery.trim().toLowerCase();
     let visible = 0;
-    for (const row of Array.from(tbody.children)) {
+    for (const row of Array.from(list.children)) {
       if (!(row instanceof HTMLElement)) continue;
       const shown = needle.length === 0 || kindSearchText(row).toLowerCase().includes(needle);
       row.classList.toggle(FILTERED_KIND_ROW, !shown);
