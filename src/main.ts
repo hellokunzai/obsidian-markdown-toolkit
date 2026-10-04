@@ -424,6 +424,10 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.hiddenStatusBar === "boolean"
           ? saved!.hiddenStatusBar
           : DEFAULT_SETTINGS.hiddenStatusBar,
+      hiddenRibbonButton:
+        typeof saved?.hiddenRibbonButton === "boolean"
+          ? saved!.hiddenRibbonButton
+          : DEFAULT_SETTINGS.hiddenRibbonButton,
       hiddenExcludeEntries: Array.isArray(saved?.hiddenExcludeEntries)
         ? saved!.hiddenExcludeEntries.filter((entry): entry is string => typeof entry === "string")
         : DEFAULT_SETTINGS.hiddenExcludeEntries,

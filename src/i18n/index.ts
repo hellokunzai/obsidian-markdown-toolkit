@@ -266,6 +266,9 @@ const en: Dict = {
   "settings.hidden.statusBar.name": "Hide the status-bar indicator",
   "settings.hidden.statusBar.desc":
     "Otherwise the status bar reports how many entries are hidden right now.",
+  "settings.hidden.ribbon.name": "Show the eye button in the sidebar",
+  "settings.hidden.ribbon.desc":
+    "Keeps a button in the left ribbon for revealing and re-hiding the entries. Turn off to remove it; the switches here stay in charge.",
 
   "hideRules.statusBar.hidden": "Hidden entries: {{count}}",
   "hideRules.ribbon.show": "Show the configured entries",
@@ -849,6 +852,9 @@ const zhCn: Dict = {
     "被排除的条目不会出现在搜索、关系图谱和未链接提及里，在快速切换中也更不显眼。",
   "settings.hidden.statusBar.name": "隐藏底部状态栏指示器",
   "settings.hidden.statusBar.desc": "默认会在状态栏显示当前隐藏了多少个条目。",
+  "settings.hidden.ribbon.name": "显示侧栏的眼睛按钮",
+  "settings.hidden.ribbon.desc":
+    "在左侧功能区保留一个按钮，用于一键显示/重新隐藏这些条目。关闭后移除该按钮，仍可在此面板切换。",
 
   "hideRules.statusBar.hidden": "已隐藏 {{count}} 个条目",
   "hideRules.ribbon.show": "显示被隐藏的条目",

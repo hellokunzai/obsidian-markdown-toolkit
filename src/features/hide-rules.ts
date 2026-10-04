@@ -124,9 +124,7 @@ export class HideRules {
   }
 
   enable(): void {
-    this.ribbonIcon = this.plugin.addRibbonIcon(this.ribbonIconName(), this.ribbonLabel(), () => {
-      void this.toggle();
-    });
+    this.ribbonIcon = this.settingsWantsRibbon() ? this.makeRibbonIcon() : null;
 
     // Registered so Obsidian drops the listener on plugin unload, avoiding
     // callbacks against a torn-down workspace.
@@ -167,9 +165,38 @@ export class HideRules {
 
   /** Re-reads the settings and re-applies everything they drive. */
   refresh(): void {
-    this.updateRibbon();
+    this.syncRibbon();
     this.apply();
     this.syncIgnoreList();
+  }
+
+  /* --------------------------------------------------------------- ribbon */
+
+  private settingsWantsRibbon(): boolean {
+    return this.plugin.settings.hiddenRibbonButton;
+  }
+
+  /**
+   * Puts the eye button in the ribbon, or takes it back out, to match the
+   * setting. `addRibbonIcon` has no remove counterpart in the typings this
+   * build ships, but the icon is a plain element in the ribbon container, so
+   * removing it is all Obsidian would do anyway — the plugin's own unload
+   * path relies on exactly that.
+   */
+  private syncRibbon(): void {
+    if (this.settingsWantsRibbon()) {
+      if (!this.ribbonIcon) this.ribbonIcon = this.makeRibbonIcon();
+      this.updateRibbon();
+      return;
+    }
+    this.ribbonIcon?.remove();
+    this.ribbonIcon = null;
+  }
+
+  private makeRibbonIcon(): HTMLElement {
+    return this.plugin.addRibbonIcon(this.ribbonIconName(), this.ribbonLabel(), () => {
+      void this.toggle();
+    });
   }
 
   /* ------------------------------------------------------------- observers */
@@ -293,8 +320,6 @@ export class HideRules {
       ? t("hideRules.statusBar.hidden", { count: String(count) })
       : "";
   }
-
-  /* --------------------------------------------------------------- ribbon */
 
   /**
    * The icon names the action, matching the plugin this rule syntax comes from:

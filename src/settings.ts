@@ -104,6 +104,14 @@ export interface MarkdownEditorPlusSettings {
   /** Hide the status-bar indicator that reports how many entries are hidden. */
   hiddenStatusBar: boolean;
   /**
+   * Whether the eye toggle button is put in the left ribbon.
+   *
+   * It governs the *button*, not the hiding: with it off the rules keep
+   * applying and the switches here stay in charge, only the one-click toggle
+   * goes away.
+   */
+  hiddenRibbonButton: boolean;
+  /**
    * The exact strings this plugin last wrote into the excluded-files list.
    *
    * Kept so they can be removed again precisely: re-deriving them from the rules
@@ -176,6 +184,7 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   hiddenIgnoreCase: true,
   hiddenExcludeList: true,
   hiddenStatusBar: true,
+  hiddenRibbonButton: true,
   hiddenExcludeEntries: [],
   orderButton: true,
   orderMode: false,
@@ -1243,6 +1252,16 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.hiddenStatusBar).onChange((value) => {
           this.plugin.settings.hiddenStatusBar = value;
+          void this.plugin.refreshHideRules();
+        })
+      );
+
+    new Setting(host)
+      .setName(t("settings.hidden.ribbon.name"))
+      .setDesc(t("settings.hidden.ribbon.desc"))
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.hiddenRibbonButton).onChange((value) => {
+          this.plugin.settings.hiddenRibbonButton = value;
           void this.plugin.refreshHideRules();
         })
       );
