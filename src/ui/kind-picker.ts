@@ -1,4 +1,10 @@
-import { FuzzySuggestModal, type App } from "obsidian";
+import {
+  FuzzySuggestModal,
+  prepareFuzzySearch,
+  type App,
+  type FuzzyMatch,
+  type SearchResult,
+} from "obsidian";
 import { DIAGRAM_KINDS, type DiagramKind } from "../core/kinds";
 import { t } from "../i18n";
 
@@ -7,9 +13,8 @@ import { t } from "../i18n";
  *
  * A picker rather than eleven commands: the command palette is for the handful
  * of things you reach for constantly, and ten more entries would only make the
- * two that matter harder to find. It is also the only place the *purpose* of
- * each kind can be shown — the scene line is what someone who cannot yet tell a
- * state diagram from a sequence diagram actually needs to read.
+ * two that matter harder to find. Each row shows only the kind's name; the
+ * keyword and scene stay searchable without being printed.
  */
 export class DiagramKindPicker extends FuzzySuggestModal<DiagramKind> {
   private readonly choose: (kind: DiagramKind) => void;
@@ -24,12 +29,37 @@ export class DiagramKindPicker extends FuzzySuggestModal<DiagramKind> {
     return DIAGRAM_KINDS;
   }
 
-  /**
-   * The scene is searchable too: someone hunting for "排期" has no reason to
-   * know that what they want is called a gantt chart.
-   */
+  /** Only the name is shown; keyword and scene remain searchable below. */
   getItemText(item: DiagramKind): string {
-    return `${t(item.nameKey)} ${item.keyword} ${t(item.sceneKey)}`;
+    return t(item.nameKey);
+  }
+
+  /**
+   * Name matches rank first and highlight; a hit on the keyword or the scene
+   * ("排期" → gantt, "数据库" → ER) still lists the kind, without highlights.
+   */
+  getSuggestions(query: string): FuzzyMatch<DiagramKind>[] {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return DIAGRAM_KINDS.map((item) => ({ item, match: { score: 0, matches: [] } }));
+    }
+    const search = prepareFuzzySearch(trimmed);
+    const results: FuzzyMatch<DiagramKind>[] = [];
+    for (const item of DIAGRAM_KINDS) {
+      const nameMatch = search(t(item.nameKey));
+      if (nameMatch) {
+        results.push({ item, match: nameMatch });
+        continue;
+      }
+      const extraMatch = search(`${item.keyword} ${t(item.sceneKey)}`);
+      if (extraMatch) {
+        // The hit lands on the hidden keyword/scene text, so drop its
+        // highlight ranges — they would point into a string that is
+        // never rendered.
+        results.push({ item, match: { score: extraMatch.score, matches: [] } });
+      }
+    }
+    return results.sort((a, b) => b.match.score - a.match.score);
   }
 
   onChooseItem(item: DiagramKind): void {
