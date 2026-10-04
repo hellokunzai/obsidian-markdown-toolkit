@@ -5,6 +5,8 @@ import {
   Modal,
   FuzzySuggestModal,
   Notice,
+  TFolder,
+  addIcon,
   getIconIds,
   setIcon,
   type Command,
@@ -12,8 +14,7 @@ import {
 } from "obsidian";
 import { t } from "./i18n";
 import { h } from "./utils/dom";
-import { applyTooltip } from "./utils/tooltip";
-import { commandName } from "./utils/commands";
+import { applyTooltip } from "./utils/tooltip";import { commandName } from "./utils/commands";
 import { DIAGRAM_KINDS } from "./core/kinds";
 import {
   defaultToolbarCommands,
@@ -28,6 +29,7 @@ import {
 import type { EmptyFolderHandling } from "./features/attachment-paths";
 import { resolveDuplicateSeparator, stripExtension } from "./features/attachment-paths";
 import type { Orders } from "./features/order-store";
+import { childPath, ROOT_KEY } from "./features/order-store";
 import { closeColorPicker } from "./ui/color-picker";
 import type MarkdownEditorPlusPlugin from "./main";
 
@@ -230,6 +232,43 @@ function searchText(row: HTMLElement): string {
 const FILTERED_KIND_ROW = "mtk-kind-filtered";
 
 /**
+ * The glyph on a custom order's clear button.
+ *
+ * A bespoke icon rather than a name from the registry, for the same reason the
+ * file-order button draws its own: what this does is take back a standing
+ * arrangement, which is neither `trash-2` (that deletes the folder) nor `x`
+ * (that closes something), and the nearest registry glyph — `brush` — is the
+ * one this plugin already uses to mean "clear the formatting of a selection".
+ * A name that happens not to exist in the running app's icon set draws nothing
+ * at all, silently; a registered one cannot go missing.
+ *
+ * `addIcon` draws into a 100-unit box, so every stroke states its own width —
+ * see the same note in `features/file-order.ts`.
+ */
+const CLEAR_ORDER_ICON = "mtk-order-clear";
+
+function registerClearOrderIcon(): void {
+  // 10 rather than 8: this glyph is read at 16px in a row, where an 8-unit
+  // stroke lands under 1.3 device pixels and the brush end stops reading as a
+  // brush at all.
+  const stroke = 'stroke-width="10" stroke-linejoin="round"';
+  const path = (d: string): string =>
+    `<path d="${d}" fill="none" stroke="currentColor" stroke-linecap="round" ${stroke}/>`;
+
+  /* 正面看的扫把：竖柄、比柄更宽的刷头横杆、三根排开的刷毛。
+     第一版画的是斜握的扫把，48px 下像扫把，16px 下那根横杆与柄交叉成剪刀 ——
+     正投影的两根横线 + 三根竖线在小尺寸下不会误读，宽窄关系也能撑住。 */
+  addIcon(
+    CLEAR_ORDER_ICON,
+    path("M50 14 V42") +
+      path("M28 42 H72") +
+      path("M36 52 V80") +
+      path("M50 52 V86") +
+      path("M64 52 V80")
+  );
+}
+
+/**
  * The cells a diagram-type row is searched by: the name it is drawn with, the
  * keyword someone types into a fence, and the sentence saying when to reach
  * for it.
@@ -280,9 +319,42 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    */
   private kindQuery = "";
 
+  /**
+   * What is typed in the file-order tab's search box.
+   *
+   * Its own field for the same reason the two above are separate: the three
+   * filter different lists on different tabs, and one shared query would mean
+   * clearing a search for a folder here quietly narrowing another tab's list.
+   * Kept across the re-renders a deletion causes, so clearing one folder's
+   * order does not throw away the search the user was using to find it.
+   */
+  private orderQuery = "";
+
+  /**
+   * Which records are open, by path, for as long as this tab stays open.
+   *
+   * Held here rather than read off the DOM so a rebuild — and this tab rebuilds
+   * itself after every single-record clear — hands back the tree the user had
+   * opened instead of folding everything up. Left to reset with the tab, like
+   * the searches: what is open is a property of the visit, not of the vault.
+   */
+  private expandedOrders = new Set<string>();
+
+  /**
+   * Counter behind the trees' element ids.
+   *
+   * Every tree needs an id for its toggle's `aria-controls` to point at, and an
+   * id has to be unique in the document — the settings pane is one document
+   * wide, so a counter is enough and no path has to be escaped into an id.
+   */
+  private orderTreeSeq = 0;
+
   constructor(app: App, plugin: MarkdownEditorPlusPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+    // Registered before any tab is built, like the file-order button's own
+    // glyph: a custom icon that is asked for before it exists draws nothing.
+    registerClearOrderIcon();
   }
 
   display(): void {
@@ -1267,6 +1339,310 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
           this.renderFileOrder(host);
         })
       );
+
+    // The list of folders whose subfolders were arranged by hand, one row per
+    // record. Sorted by path rather than taken in storage order: data.json's
+    // key order is insertion order, which reads as arbitrary to anyone who
+    // did not make the drags in the same sequence recently.
+    const paths = Object.keys(this.plugin.settings.orderMap).sort((a, b) =>
+      a.localeCompare(b)
+    );
+
+    const list = h("ul", { cls: "mtk-order-list" });
+    if (paths.length === 0) {
+      list.appendChild(
+        h("li", { cls: "mtk-order-empty", text: t("settings.order.listEmpty") })
+      );
+    } else {
+      for (const path of paths) list.appendChild(this.buildOrderRecord(host, path));
+    }
+
+    // Two different sentences, so two different elements — the same split the
+    // toolbar tab makes: "nothing arranged yet" belongs to the list, "nothing
+    // matched what you typed" belongs to the search and takes the list's
+    // place for as long as it is true.
+    const noMatch = h("p", {
+      cls: "mtk-order-search-empty",
+      text: t("settings.order.searchEmpty"),
+      attr: { hidden: "hidden" },
+    });
+
+    // Nothing to search before the first folder is arranged, like the toolbar
+    // tab: a box over an empty list is one more control that can only ever
+    // answer "no". The empty list below says what to do instead.
+    if (paths.length > 0) host.appendChild(this.buildOrderSearch(list, noMatch));
+    host.appendChild(list);
+    host.appendChild(noMatch);
+
+    this.applyOrderFilter(list, noMatch, paths.length > 0);
+  }
+
+  /**
+   * One record of the custom-order list: a header row, and the tree of names
+   * that were arranged underneath it.
+   *
+   * The path is the header's payload — the record holds names of subfolders,
+   * but the thing a user recognises and searches for is the folder they dragged
+   * in — so it gets the width and a clear button of its own, the single-record
+   * way out that the reset row above can only offer for everyone, plus a
+   * triangle that opens the names below.
+   *
+   * The tree hangs *inside* this element rather than beside it, which is what
+   * makes one search keystroke hide the whole record: the filter marks this
+   * `li`, and hiding it takes the header and every name below it with it. Put
+   * the tree next to the row instead and a filtered-out record would leave its
+   * names floating on the page.
+   *
+   * The vault root is stored as `/`, which is exact but reads as a glitch, so
+   * it is shown in words; the record itself is untouched.
+   */
+  private buildOrderRecord(host: HTMLElement, path: string): HTMLElement {
+    const label = this.orderLabel(path);
+    const record = h("li", { cls: "mtk-order-rec", attr: { "data-path": path } });
+    const row = h("div", { cls: "mtk-order-row" });
+
+    row.appendChild(h("span", { cls: "mtk-order-path", text: label }));
+
+    // Right-hand end of the row, in the toolbar's own order: the triangle that
+    // opens the list, then the action. Same two boxes the toolbar puts there,
+    // which is why a record and a toolbar row read alike at a glance.
+    const tree = this.buildOrderTree(path, 1);
+    const open = this.expandedOrders.has(path);
+    const toggle = h("button", {
+      cls: "clickable-icon mtk-order-toggle",
+      attr: {
+        type: "button",
+        "aria-expanded": String(open),
+        "aria-controls": tree.id,
+        "aria-label": t(open ? "settings.order.row.collapse" : "settings.order.row.expand", {
+          path: label,
+        }),
+      },
+    });
+    setIcon(toggle, "chevron-right");
+    toggle.addEventListener("click", () => this.toggleOrderBranch(path, toggle, tree, label));
+    row.appendChild(toggle);
+
+    row.appendChild(
+      this.buildIconAction(CLEAR_ORDER_ICON, t("settings.order.row.clearAria", { path: label }), "mtk-order-clear", () => {
+        delete this.plugin.settings.orderMap[path];
+        this.expandedOrders.delete(path);
+        // Branches below this one are keyed by paths that no longer have a
+        // record to open, so they are dropped with it rather than left to make
+        // the set grow for the length of the visit.
+        for (const key of [...this.expandedOrders]) {
+          if (key.startsWith(`${path}/`)) this.expandedOrders.delete(key);
+        }
+        void this.plugin.refreshFileOrder();
+        new Notice(t("settings.order.row.cleared", { path: label }));
+        // A rebuild rather than a row removal: the count in the reset row above
+        // belongs to the same record, and the empty state may have arrived.
+        this.renderFileOrder(host);
+      })
+    );
+
+    record.appendChild(row);
+    record.appendChild(tree);
+    tree.toggleAttribute("hidden", !open);
+    return record;
+  }
+
+  /**
+   * The names one record arranged, in the order it arranged them, as a list of
+   * nodes — each of which may carry a list of its own.
+   *
+   * The record's array *is* the custom order, so the names are rendered in the
+   * order they are stored and nothing sorts them. A name that happens to be a
+   * folder this plugin also holds a record for becomes an expandable node,
+   * which is how a tree of any depth appears without a field of its own: the
+   * record's keys already are paths.
+   *
+   * No depth guard is needed, and that is a property of the format rather than
+   * an assumption: a record is keyed by folder path and holds names, and a
+   * folder name cannot contain `/`, so every step down lengthens the path.
+   *
+   * `depth` is the row's indentation step, held as a custom property rather than
+   * as nested padding: the rows are drawn like the toolbar's submenu rows —
+   * transparent on a sunken surface, with a divider under each of them — and a
+   * divider that stopped where the indent began would not be that row. One step
+   * is one level, and the first level lands on the toolbar's own 30px.
+   */
+  private buildOrderTree(parentPath: string, depth: number): HTMLElement {
+    const tree = h("ul", { cls: "mtk-order-tree" });
+    tree.id = `mtk-order-tree-${++this.orderTreeSeq}`;
+
+    const order = this.plugin.settings.orderMap[parentPath] ?? [];
+    for (const name of order) {
+      tree.appendChild(this.buildOrderNode(name, childPath(parentPath, name), depth));
+    }
+    return tree;
+  }
+
+  /** One name inside a tree: itself, plus its own subtree when it has a record. */
+  private buildOrderNode(name: string, path: string, depth: number): HTMLElement {
+    const node = h("li", { cls: "mtk-order-node" });
+    const row = h("div", { cls: "mtk-order-tree-row" });
+    row.style.setProperty("--mtk-order-depth", String(depth));
+
+    // A recorded name that is not a folder any more — deleted outside
+    // Obsidian, or replaced by a file — is marked rather than dropped. The
+    // record is what this tab shows, so hiding the entry would read as a name
+    // that went missing from the list instead of one that went missing from the
+    // vault; `prune` clears it on the next start.
+    const gone = this.folderAt(path) === null;
+    const children = this.plugin.settings.orderMap[path] ?? [];
+
+    if (children.length === 0) {
+      // Nothing on the right end: a name with no list to open has no triangle,
+      // and with the triangle on this side there is no column to keep in step
+      // with — every name starts at its own level's indent.
+      row.appendChild(this.buildOrderName(name, gone));
+      node.appendChild(row);
+      return node;
+    }
+
+    // The same division of labour the toolbar's rows make: a row with a list
+    // under it draws no divider of its own, because the list's top border is
+    // that divider.
+    row.classList.add("is-parent");
+    const sub = this.buildOrderTree(path, depth + 1);
+    const open = this.expandedOrders.has(path);
+    const toggle = h("button", {
+      cls: "clickable-icon mtk-order-toggle",
+      attr: {
+        type: "button",
+        "aria-expanded": String(open),
+        "aria-controls": sub.id,
+        "aria-label": t(open ? "settings.order.row.collapse" : "settings.order.row.expand", {
+          path: name,
+        }),
+      },
+    });
+    setIcon(toggle, "chevron-right");
+    toggle.addEventListener("click", () => this.toggleOrderBranch(path, toggle, sub, name));
+    row.appendChild(this.buildOrderName(name, gone));
+    row.appendChild(toggle);
+    node.appendChild(row);
+    node.appendChild(sub);
+    sub.toggleAttribute("hidden", !open);
+    return node;
+  }
+
+  /** A name, wearing the "this folder is gone" mark when that is what it is. */
+  private buildOrderName(name: string, gone: boolean): HTMLElement {
+    const span = h("span", { cls: "mtk-order-name", text: name });
+    if (gone) {
+      span.classList.add("mtk-order-gone");
+      span.setAttribute("title", t("settings.order.row.gone"));
+    }
+    return span;
+  }
+
+  /** Opens or closes one branch, and remembers which. */
+  private toggleOrderBranch(
+    path: string,
+    toggle: HTMLElement,
+    branch: HTMLElement,
+    label: string
+  ): void {
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute(
+      "aria-label",
+      t(open ? "settings.order.row.collapse" : "settings.order.row.expand", { path: label })
+    );
+    branch.toggleAttribute("hidden", !open);
+    if (open) this.expandedOrders.add(path);
+    else this.expandedOrders.delete(path);
+  }
+
+  /** The vault root's stored `/` reads as a glitch, so it is shown in words. */
+  private orderLabel(path: string): string {
+    return path === ROOT_KEY ? t("settings.order.rootPath") : path;
+  }
+
+  /**
+   * The folder at `path`, or null when there is something else there.
+   *
+   * `getAbstractFileByPath` rather than `getFolderByPath`: the shorter call
+   * only arrived in Obsidian 1.5.7 and `manifest.minAppVersion` is 1.4.16.
+   */
+  private folderAt(path: string): TFolder | null {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    return file instanceof TFolder ? file : null;
+  }
+
+  /**
+   * The search row above the custom-order list.
+   *
+   * Filters in place rather than rebuilding the list — rows are only marked,
+   * so the caret stays in the box across a keystroke — and refills from
+   * `orderQuery`, so the rebuild a deletion causes hands back the same
+   * filtered view the user was reading.
+   */
+  private buildOrderSearch(list: HTMLElement, noMatch: HTMLElement): HTMLElement {
+    // No class of its own: the row is a `Setting` like the ones above it, and
+    // app.css already owns how a standard row behaves when the pane is narrow
+    // (`@container (max-width: 340px)` stacks it and stretches the control), so
+    // a layout rule here would be one more thing to keep in step with it.
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.order.searchTitle"))
+      .setDesc(t("settings.order.searchDesc"));
+
+    const input = h("input", {
+      cls: "mtk-toolbar-search-input",
+      attr: {
+        type: "search",
+        spellcheck: "false",
+        placeholder: t("settings.order.searchPlaceholder"),
+        "aria-label": t("settings.order.searchTitle"),
+      },
+    });
+    input.value = this.orderQuery;
+    input.addEventListener("input", () => {
+      this.orderQuery = input.value;
+      this.applyOrderFilter(list, noMatch, true);
+    });
+    setting.controlEl.appendChild(input);
+    return setting.settingEl;
+  }
+
+  /**
+   * Shows only the rows whose folder path contains the query.
+   *
+   * Each pass answers from scratch — the query and the record's own path,
+   * nothing carried over — so clearing the box restores the full list. The path
+   * is matched in full, not just the last segment: deep folders are found by
+   * the route that leads to them.
+   *
+   * What is matched is deliberately the record's own path and not the names
+   * inside its tree: those are hidden until the triangle is pressed, so a hit
+   * on one would answer with a record that does not visibly contain what was
+   * typed. A record is hidden whole — header and tree together — which is why
+   * the filter marks the `li` the record is.
+   */
+  private applyOrderFilter(
+    list: HTMLElement,
+    noMatch: HTMLElement,
+    hasRows: boolean
+  ): void {
+    const needle = this.orderQuery.trim().toLowerCase();
+    let visible = 0;
+    if (hasRows) {
+      for (const record of Array.from(list.children)) {
+        if (!(record instanceof HTMLElement)) continue;
+        const haystack = (record.dataset.path ?? "").toLowerCase();
+        const shown = needle.length === 0 || haystack.includes(needle);
+        record.classList.toggle("mtk-order-filtered", !shown);
+        if (shown) visible += 1;
+      }
+    }
+
+    // An empty list is not a failed search: its own row already says what to
+    // do, and "no match" over it would answer a question nobody asked.
+    const none = hasRows && needle.length > 0 && visible === 0;
+    list.classList.toggle("is-no-match", none);
+    noMatch.toggleAttribute("hidden", !none);
   }
 
   /* ----------------------------------------------------------- attachment */

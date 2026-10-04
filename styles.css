@@ -1298,14 +1298,21 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
  * The diagram-settings tab made this same move earlier: the card's own border
  * and background read as a stranger next to the rows the theme paints around
  * it, and a `Setting` inherits that look for free.
+ *
+ * The file-order tab's search box reuses this class as it stands: it is the
+ * same control doing the same job one tab over, so a second name would only be
+ * a second rule to keep in step.
  */
 .mtk-toolbar-search-input {
   width: 220px;
   max-width: 100%;
 }
 
-/* Takes the list's place, and its box, when a search finds nothing. */
-.mtk-toolbar-search-empty {
+/* Takes the list's place, and its box, when a search finds nothing. The
+ * file-order tab's list draws the same box in the same situation, so the two
+ * share the rule rather than growing a near-duplicate below. */
+.mtk-toolbar-search-empty,
+.mtk-order-search-empty {
   margin: 14px 0 0;
   padding: 14px;
   border: 1px solid var(--background-modifier-border);
@@ -1313,7 +1320,8 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
 }
-.mtk-toolbar-search-empty[hidden] {
+.mtk-toolbar-search-empty[hidden],
+.mtk-order-search-empty[hidden] {
   display: none;
 }
 
@@ -1326,7 +1334,13 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 .mtk-toolbar-cmd-list .mtk-toolbar-cmd-filtered {
   display: none;
 }
-.mtk-toolbar-cmd-list.is-no-match {
+/* The file-order tab's rows are `li`s the theme would show by default, so the
+ * class alone is enough there — no grid of the list's own to beat. */
+.mtk-order-list .mtk-order-filtered {
+  display: none;
+}
+.mtk-toolbar-cmd-list.is-no-match,
+.mtk-order-list.is-no-match {
   display: none;
 }
 /*
@@ -1342,7 +1356,14 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 /* ---- toolbar tab: the command list ---- */
-.mtk-toolbar-cmd-list {
+
+/*
+ * The file-order tab's list draws the same card and takes the same base rules;
+ * it only differs in its rows, which are laid out in the "order tab" section
+ * right below this one.
+ */
+.mtk-toolbar-cmd-list,
+.mtk-order-list {
   list-style: none;
   margin: 14px 0 0;
   padding: 0;
@@ -1350,10 +1371,159 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   border-radius: var(--radius-m);
   overflow: hidden;
 }
-.mtk-toolbar-cmd-empty {
+.mtk-toolbar-cmd-empty,
+.mtk-order-empty {
   padding: 14px;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
+}
+
+/*
+ * ---- order tab: the custom-order list ----
+ *
+ * One record per folder whose subfolders were arranged by hand: a header row,
+ * and — once its triangle is pressed — the tree of names that were arranged
+ * under it. The container is the toolbar's list card (see above); these are the
+ * pieces inside it.
+ *
+ * The path is the header's payload: it takes the whole width and stops at one
+ * line, since a deep path is exactly what the search box above is for, and a
+ * header that wrapped to three lines would turn the list into a wall.
+ * `direction: rtl` is not used to keep the tail visible — the row's own text is
+ * mid-path, not a filename — so plain ellipsis at the end it is.
+ *
+ * The divider belongs to the record, not to its header row: a record with an
+ * open tree is one card, and a line drawn under its header would cut it in two.
+ */
+.mtk-order-rec {
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.mtk-order-rec:last-child {
+  border-bottom: none;
+}
+.mtk-order-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--background-primary);
+  font-size: var(--font-ui-smaller);
+}
+.mtk-order-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+}
+
+/*
+ * ---- order tab: the tree under a record ----
+ *
+ * These are the toolbar's rows, one list over: the same sunken surface the
+ * submenu rows sit on (`.mtk-toolbar-cmd-children`), the same transparent row
+ * over it (`.mtk-toolbar-cmd.is-child`), the same 13px, a divider under every
+ * row, and the same chevron button — 24px, muted, turning normal on hover.
+ * Only one thing has to differ, and it is why the indent is a custom property
+ * rather than nested padding: a toolbar child row is one fixed step inside its
+ * submenu (`padding-left: 30px`), while this tree nests, so a row carries its
+ * own depth and takes a 20px step per level. The first level therefore lands on
+ * the same 30px the toolbar's child rows sit at, and the divider under a row
+ * still runs the full width of the list instead of stopping where the indent
+ * begins.
+ *
+ * The divider is split the way the toolbar splits it: a row with a list under
+ * it draws none of its own (`.is-parent`), because the list's top border is
+ * that divider, and the last row of a list draws none either, because the
+ * record's own border closes the list.
+ */
+.mtk-order-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--background-secondary);
+  border-top: 1px solid var(--background-modifier-border);
+}
+.mtk-order-tree[hidden] {
+  display: none;
+}
+.mtk-order-node {
+  list-style: none;
+}
+.mtk-order-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 7px calc(10px + var(--mtk-order-depth, 1) * 20px);
+  background: transparent;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+}
+.mtk-order-node:last-child > .mtk-order-tree-row {
+  border-bottom: none;
+}
+.mtk-order-tree-row.is-parent {
+  border-bottom: none;
+}
+.mtk-order-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+}
+/* A recorded name the vault no longer has. Marked, not hidden: see
+   `buildOrderNode` in `settings.ts`. */
+.mtk-order-gone {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+/*
+ * The triangles, drawn like the toolbar's submenu toggle — same box, same
+ * muted glyph that turns normal on hover, same quarter turn when open — so a
+ * row that expands reads the same on both tabs. Both sit at their row's right
+ * end, as the toolbar's does.
+ *
+ * The clear button is the toolbar's delete button in all but its box: the same
+ * error colour and the same error-tinted hover, since clearing a record is this
+ * page's one destructive action. Its box is 24px rather than that button's 28px
+ * only because these rows are one line tall — the toolbar's rows there carry
+ * two, and a 28px control would set the height of a row that has nothing else
+ * in it.
+ */
+.clickable-icon.mtk-order-toggle {
+  flex: 0 0 auto;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 0;
+  color: var(--text-muted);
+}
+.clickable-icon.mtk-order-toggle:hover {
+  color: var(--text-normal);
+}
+.clickable-icon.mtk-order-clear {
+  flex: 0 0 auto;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 0;
+  color: var(--text-error);
+}
+.clickable-icon.mtk-order-clear:hover {
+  color: var(--text-error);
+  background: var(--background-modifier-error);
+}
+.mtk-order-toggle svg {
+  transition: transform 120ms ease;
+}
+.mtk-order-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
 }
 .mtk-toolbar-cmd {
   display: grid;
@@ -1581,7 +1751,8 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   transform: rotate(90deg);
 }
 @media (prefers-reduced-motion: reduce) {
-  .mtk-toolbar-cmd-toggle svg {
+  .mtk-toolbar-cmd-toggle svg,
+  .mtk-order-toggle svg {
     transition: none;
   }
   /*

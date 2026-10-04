@@ -97,7 +97,7 @@ The settings are split into four tabs:
 |---|---|
 | **Diagram settings** | Auto-save and its interval, the diagram-kind table (searchable, with keyword and visual-editor columns) |
 | **Toolbar** | Toolbar background colour (follow theme / transparent / eight presets / a typed colour), command search, add or remove commands and submenus, section headings, drag to reorder |
-| **File settings** | File hiding (entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator) and file order (show the reorder button, reset all custom order) |
+| **File settings** | File hiding (entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator) and file order (show the reorder button, search arranged folders by path, expand a folder to see the order you gave its children, clear one custom order or all of them) |
 | **Attachment settings** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |
 
 ---

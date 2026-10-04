@@ -67,6 +67,17 @@ export function nameOf(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
 }
 
+/**
+ * The path of `name` inside `folderPath` — the inverse of `parentKey`.
+ *
+ * `folderPath` is a record's key, so a name recorded there sits directly under
+ * it. The root is stored as `/`, which is not a prefix a child path repeats, so
+ * it is the one case that does not join with a slash.
+ */
+export function childPath(folderPath: string, name: string): string {
+  return folderPath === ROOT_KEY ? name : `${folderPath}/${name}`;
+}
+
 function names(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string") : [];
 }
