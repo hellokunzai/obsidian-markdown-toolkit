@@ -201,7 +201,8 @@ const en: Dict = {
 
   "settings.tab.general": "Diagram settings",
   "settings.tab.toolbar": "Toolbar",
-  "settings.tab.files": "File settings",
+  "settings.tab.hiding": "File hiding",
+  "settings.tab.order": "File order",
   "settings.tab.attachment": "Attachment settings",
   "settings.toolbar.add": "Add command",
   "settings.toolbar.addSubmenu": "Add submenu",
@@ -250,8 +251,6 @@ const en: Dict = {
   "settings.toolbar.cancel": "Cancel",
   "settings.toolbar.save": "Save",
   "settings.toolbar.noCommand": "Pick a command first.",
-  "settings.files.hiding.heading": "File hiding",
-  "settings.files.order.heading": "File order",
   "settings.hidden.rules.name": "Entries to hide",
   "settings.hidden.rules.desc":
     "An exact name, startsWith::PREFIX, or endsWith::SUFFIX. Example: startsWith::. hides dot entries; attachments hides that folder.",
@@ -773,7 +772,8 @@ const zhCn: Dict = {
 
   "settings.tab.general": "图表设置",
   "settings.tab.toolbar": "工具栏",
-  "settings.tab.files": "文件设置",
+  "settings.tab.hiding": "文件隐藏",
+  "settings.tab.order": "文件排序",
   "settings.tab.attachment": "附件设置",
   "settings.toolbar.add": "添加命令",
   "settings.toolbar.addSubmenu": "添加子菜单",
@@ -822,8 +822,6 @@ const zhCn: Dict = {
   "settings.toolbar.cancel": "取消",
   "settings.toolbar.save": "保存",
   "settings.toolbar.noCommand": "请先选择一个命令。",
-  "settings.files.hiding.heading": "文件隐藏",
-  "settings.files.order.heading": "文件排序",
   "settings.hidden.rules.name": "要隐藏的条目",
   "settings.hidden.rules.desc":
     "可以写精确名称、startsWith::前缀，或 endsWith::后缀。示例：startsWith::. 隐藏所有点开头的条目；attachments 隐藏这个文件夹。",

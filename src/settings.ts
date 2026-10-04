@@ -304,7 +304,8 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     const tabs: Array<{ id: string; label: string; render: (host: HTMLElement) => void }> = [
       { id: "toolbar", label: t("settings.tab.toolbar"), render: (host) => this.renderToolbar(host) },
       { id: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
-      { id: "files", label: t("settings.tab.files"), render: (host) => this.renderFiles(host) },
+      { id: "hiding", label: t("settings.tab.hiding"), render: (host) => this.renderFileHiding(host) },
+      { id: "order", label: t("settings.tab.order"), render: (host) => this.renderFileOrder(host) },
       { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
     ];
 
@@ -1156,27 +1157,6 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     }, 0);
   }
 
-  /* --------------------------------------------------------------- files */
-
-  /**
-   * Hiding and ordering share one page: both answer "what does the file
-   * explorer show me", and neither half is long enough to carry a tab of its
-   * own. Each half keeps a heading, so the page does not read as one long list.
-   */
-  private renderFiles(host: HTMLElement): void {
-    host.appendChild(h("h3", { text: t("settings.files.hiding.heading") }));
-    this.renderFileHiding(host);
-
-    host.appendChild(h("h3", { text: t("settings.files.order.heading") }));
-
-    // The order half gets a container of its own: the reset button rebuilds
-    // that half in place, and rebuilding straight into `host` would take the
-    // heading above it and the hiding half with it.
-    const orderHost = h("div", {});
-    host.appendChild(orderHost);
-    this.renderFileOrder(orderHost);
-  }
-
   /* ------------------------------------------------------------- hiding */
 
   private renderFileHiding(host: HTMLElement): void {
@@ -1242,8 +1222,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private renderFileOrder(host: HTMLElement): void {
     // Cleared for the same reason as the toolbar panel: this is re-rendered in
     // place after the reset below, and appending would duplicate the page.
-    // `host` is this half's own container, so clearing it leaves the heading
-    // above and the hiding half before it untouched.
+    // `host` is this tab's whole panel, so clearing it only resets this tab.
     host.replaceChildren();
 
     new Setting(host)
