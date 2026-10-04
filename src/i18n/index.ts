@@ -289,7 +289,7 @@ const en: Dict = {
     "A path that supports variables. A leading './' is relative to the current note's folder; otherwise it is relative to the vault root. Leave empty to use the app's own default location.",
   "settings.attachment.template.name": "Attachment file name",
   "settings.attachment.template.desc":
-    "Template for the saved file name. Supports ${originalFileName} for the dropped file's own name.",
+    "Template for the saved file name. Supports ${originalFileName} for the dropped file's own name. Variables can be placed anywhere in the template, including at the start.",
   "settings.attachment.tokens":
     "Variables: ${noteFileName} · ${folderPath} · ${originalFileName} · ${date:YYYYMMDDHHmmss}. To write a literal ${ } use \\${ }.",
   "settings.attachment.variables.name": "Template variables",
@@ -856,7 +856,7 @@ const zhCn: Dict = {
   "settings.attachment.folder.name": "附件文件夹",
   "settings.attachment.folder.desc": "支持变量的路径。以 './' 开头表示相对当前笔记所在文件夹，否则相对库根目录。留空则使用 App 自己的默认位置。",
   "settings.attachment.template.name": "附件文件名",
-  "settings.attachment.template.desc": "保存文件时使用的命名模板。支持 ${originalFileName} 表示拖入文件原本的名字。",
+  "settings.attachment.template.desc": "保存文件时使用的命名模板。支持 ${originalFileName} 表示拖入文件原本的名字。变量可放在模板任意位置，包括最前面。",
   "settings.attachment.tokens": "可用变量：${noteFileName} · ${folderPath} · ${originalFileName} · ${date:YYYYMMDDHHmmss}。要输出字面的 ${ } 写成 \\${ }。",
   "settings.attachment.variables.name": "可用变量",
   "settings.attachment.specialChars.heading": "特殊字符",
