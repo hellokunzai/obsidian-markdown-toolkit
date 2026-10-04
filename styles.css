@@ -2387,3 +2387,324 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .workspace-tab-container:fullscreen {
   background-color: var(--background-primary);
 }
+
+/* ================================================================== tables */
+
+/*
+ * A table that carries formulas, framed like a diagram.
+ *
+ * The frame itself is `.mtk-embed`, `.mtk-embed-action` and `.mtk-embed-meta`
+ * — the very same rules a diagram wears, which is the point: a note holding
+ * both must not look like two plugins. What follows is only what a *table*
+ * needs that a drawing does not.
+ */
+
+/*
+ * The reserved bands.
+ *
+ * A drawing is centred with margin to spare, so the corner buttons land on
+ * empty canvas. A table is as wide as its column, which puts the buttons — and
+ * the badge — straight over the first and last cell. So the area around a table
+ * reserving the space they occupy is not a nicety here, it is the difference
+ * between a frame and a frame with two 26px squares on top of its own content.
+ *
+ * Top: the buttons sit at `top: 8px` and are 26px tall.
+ * Bottom: the badge is 11px text, so a line box of roughly 16px, at
+ *   `bottom: 7px` — 22px was measured to still overlap by 1px, hence 28.
+ */
+.mtk-embed .mtk-embed-table {
+  padding: 36px 16px 28px;
+}
+
+/*
+ * The table this plugin paints.
+ *
+ * It sits in a bordered, rounded box of its own rather than carrying a border
+ * on every cell: a collapsed table with per-cell borders draws its own outer
+ * edge right up against the frame's background, which made the first version
+ * read as a screenshot pasted into the note.
+ *
+ * Every selector is rooted at `.mtk-embed .mtk-embed-table` rather than at
+ * `.mtk-embed` alone. That is not decoration — inside the editor Obsidian's own
+ * `.cm-content table` rules are in the cascade as well, and the extra class is
+ * what keeps the surface and the header band from being flattened.
+ */
+.mtk-embed .mtk-embed-table .mtk-tbl-wrap {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mtk-embed .mtk-embed-table table.mtk-tbl {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13.5px;
+  line-height: 1.5;
+  /* The table is a surface in its own right. Without this the cells are
+     transparent, the frame's own grey shows straight through, and a header
+     painted that same grey has nothing to be a band against. */
+  background-color: var(--background-primary);
+}
+.mtk-embed .mtk-embed-table table.mtk-tbl th,
+.mtk-embed .mtk-embed-table table.mtk-tbl td {
+  padding: 8px 12px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+}
+/* Separated columns and banded rows, which together are what let the eye run
+   down a column of figures — the whole reason this table exists. */
+.mtk-embed .mtk-embed-table table.mtk-tbl th:not(:last-child),
+.mtk-embed .mtk-embed-table table.mtk-tbl td:not(:last-child) {
+  border-right: 1px solid var(--background-modifier-border);
+}
+/*
+ * The header.
+ *
+ * `--background-secondary` on its own is not enough, and that was the bug: the
+ * frame around the table is painted with the very same variable, so the band
+ * had nothing to contrast against and simply was not visible. The flat overlay
+ * is what makes it a band on any theme — it shifts the colour by a fixed
+ * amount instead of reaching for a variable that has already been spent.
+ */
+.mtk-embed .mtk-embed-table table.mtk-tbl thead th {
+  background-color: var(--background-secondary);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05));
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Banded rows, by the same fixed-shift approach and for the same reason. */
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:nth-child(even) td {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.022), rgba(0, 0, 0, 0.022));
+}
+/* The row that computes, and the cells in it — tinted with the accent rather
+   than with a second grey, so it cannot be mistaken for the header. */
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr.mtk-calc td {
+  background-color: rgba(123, 92, 214, 0.1);
+  background-image: none;
+  font-weight: 500;
+}
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:last-child td {
+  border-bottom: 0;
+}
+.mtk-embed .mtk-embed-table table.mtk-tbl td.is-num,
+.mtk-embed .mtk-embed-table table.mtk-tbl th.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.mtk-embed .mtk-embed-table table.mtk-tbl td.is-err {
+  color: var(--text-error);
+}
+
+/*
+ * The `ƒ` marker.
+ *
+ * Inline, in front of the value, rather than pinned to the cell's corner. A
+ * table is dense, and a corner marker lands on top of the number it belongs
+ * to — a figure with a glyph through it reads as a rendering fault. In front of
+ * the value it reads as a label, which is what it is.
+ */
+.mtk-embed .mtk-fx-mark {
+  color: var(--text-accent);
+  font-size: 10px;
+  font-weight: 600;
+  margin-right: 4px;
+  opacity: 0.75;
+}
+
+/*
+ * "Native" mode writes its answers into the cells Obsidian drew, so there is
+ * nearly nothing to style — the table keeps the theme's own look, which is the
+ * entire point of the mode. What is added is the alignment that makes a column
+ * of figures readable, and the error colour.
+ */
+.mtk-embed .mtk-cell-native td.mtk-cell-computed {
+  font-variant-numeric: tabular-nums;
+}
+.mtk-embed .mtk-cell-native .mtk-cell-error {
+  color: var(--text-error);
+}
+
+/*
+ * A framed table inside the editor.
+ *
+ * The width is set in pixels on the holder, from the editor's own content
+ * column — not asked for as a percentage. The renderer puts a table inside an
+ * element sized to its contents, and a percentage there resolves against a
+ * width the frame is itself deciding, so the frame comes out hugging the table
+ * instead of spanning the note. A measured width has no such loop.
+ *
+ * There used to be a `padding: 16px` override on the table area here, to make
+ * the frame read tighter in the editor. It had to go: it beat the reserved
+ * bands above on specificity, which put the corner buttons and the count badge
+ * straight on top of the table's first and last rows — the very overlap those
+ * bands exist to prevent.
+ */
+.cm-content .mtk-embed-host {
+  display: block;
+  margin: 0.5em 0;
+}
+
+/* The `</>` view: the note's own Markdown, as it is written in the file. */
+.mtk-embed .mtk-tbl-source {
+  margin: 0;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--text-normal);
+}
+.mtk-embed .mtk-tbl-source .fx {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+/* =========================================================== table editor */
+
+/* The chart canvas pans, so it wears a grab cursor. A table editor is a grid
+   you click in, not a surface you drag. */
+.mtk-editor .mtk-canvas.is-sheet {
+  cursor: default;
+}
+
+/*
+ * The scroll container fills the canvas, so the grid can overflow it rather
+ * than sit inside it with a margin.
+ *
+ * `overflow-y: scroll` rather than `auto` is deliberate: the grid always fills
+ * the canvas vertically, so it always overflows, so the scrollbar is always
+ * there. Reserving it up front is what keeps `clientWidth` stable — with `auto`
+ * the width is read before the scrollbar exists, the columns are sized from a
+ * width that is about to shrink, and a second, horizontal scrollbar appears to
+ * make up the difference.
+ */
+.mtk-tbl-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: scroll;
+  overflow-x: auto;
+}
+
+/* `max-content` so the grid is as wide as its columns, `min-width: 100%` so it
+   still covers the canvas when they do not add up to it. */
+.mtk-tbl-sheet {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+
+.mtk-sheet-row {
+  display: flex;
+}
+.mtk-sheet-row.is-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.mtk-sheet-cell {
+  flex: 0 0 auto;
+  height: 34px;
+  line-height: 34px;
+  padding: 0 10px;
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-color: var(--background-primary);
+  cursor: cell;
+}
+.mtk-sheet-row.is-head .mtk-sheet-cell {
+  background-color: var(--background-secondary);
+  font-weight: 600;
+  text-align: center;
+  padding: 0;
+  cursor: default;
+}
+
+/* The row numbers ride along the left edge: a formula that scrolls away from
+   its own coordinates is one you cannot check. */
+.mtk-tbl-sheet .mtk-sheet-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 42px;
+  flex: 0 0 42px;
+  padding: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+  background-color: var(--background-secondary);
+  cursor: default;
+}
+.mtk-tbl-sheet .mtk-sheet-row.is-head .mtk-sheet-gutter {
+  z-index: 4;
+}
+
+.mtk-sheet-cell.is-num {
+  text-align: right;
+}
+.mtk-sheet-cell.is-fx {
+  background-color: rgba(123, 92, 214, 0.07);
+}
+.mtk-sheet-cell.is-selected {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.mtk-sheet-cell.is-err {
+  color: var(--text-error);
+}
+/* Cells past the table's own columns, drawn only so the grid reaches the edge. */
+.mtk-sheet-cell.is-filler {
+  cursor: default;
+  color: var(--text-faint);
+}
+
+/*
+ * The formula bar: the cell's address, and its *source*.
+ *
+ * The cell shows a value and this shows the formula that produced it, which is
+ * the one place the two can be told apart. Editing happens here rather than in
+ * the cell for exactly that reason — a grid where typing into a cell is
+ * ambiguous about whether you are replacing the formula or its answer is worse
+ * than one that keeps the source on a line of its own.
+ */
+.mtk-fxbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+}
+.mtk-fxbar .ref {
+  min-width: 46px;
+  text-align: center;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  color: var(--text-muted);
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.mtk-fxbar .val {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-monospace);
+  font-size: 12.5px;
+  color: var(--text-normal);
+  background-color: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.mtk-fxbar .val:focus {
+  box-shadow: none;
+  outline: none;
+}

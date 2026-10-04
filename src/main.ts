@@ -22,6 +22,8 @@ import {
 } from "./embed/reading-processor";
 import { EditorSession, type SessionRegistry } from "./editor/editor-session";
 import { livePreviewExtension, refreshLivePreview } from "./embed/live-preview";
+import { registerTableBlocks, refreshTableBlocks, type TableBlockHost } from "./embed/table-block";
+import { tableLivePreviewExtension } from "./embed/table-live-preview";
 import { DiagramView } from "./editor/diagram-view";
 import { VIEW_TYPE_DIAGRAM } from "./editor/view-type";
 import { listFences, siblingFences, type BlockTarget } from "./block/block-target";
@@ -86,7 +88,7 @@ function migrateHiddenRules(value: string): string {
   return value.trim() === "^\\." ? DEFAULT_SETTINGS.hiddenRules : value;
 }
 
-export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramBlockHost, SessionRegistry {
+export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramBlockHost, TableBlockHost, SessionRegistry {
   settings!: MarkdownEditorPlusSettings;
 
   private readonly sessions = new Map<string, EditorSession>();
@@ -127,6 +129,12 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     registerColorIcons();
 
     registerDiagramBlocks(this, this);
+    registerTableBlocks(this, this);
+    /* Tables are framed in the editor too, by walking the editor's own DOM —
+       see `table-live-preview.ts` for why that is a different mechanism from
+       the post processor above, and for the one rule it follows (a table the
+       caret is in is never touched). */
+    this.registerEditorExtension(tableLivePreviewExtension(this));
     // The reading view is served by the code block processor above; the editor
     // needs its own extension, because Live Preview draws mermaid itself before
     // plugin post processing ever runs.
@@ -321,6 +329,18 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
   }
 
   /**
+   * Repaints every table frame in the reading view.
+   *
+   * The render mode is read once, when a frame is built, so changing it has to
+   * rebuild the frames already on screen. The settings panel is typically open
+   * over the very note the change is about, and a mode that only took effect on
+   * the next reload would read as one that had not been saved.
+   */
+  refreshTables(): void {
+    refreshTableBlocks();
+  }
+
+  /**
    * Hands the auto-save settings to every editor that is currently open.
    *
    * The settings tab calls this on each change, for the same reason the toolbar
@@ -475,6 +495,22 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.deleteOrphanedOnNoteDelete === "boolean"
           ? saved!.deleteOrphanedOnNoteDelete
           : DEFAULT_SETTINGS.deleteOrphanedOnNoteDelete,
+      /* Both are closed sets rather than free text, and both are read back out
+         of a `data.json` a user can edit: a value the dropdowns cannot express
+         falls back to the default here rather than reaching a renderer that
+         would have to guess what it meant. */
+      tableTarget:
+        saved?.tableTarget === "all" || saved?.tableTarget === "computed"
+          ? saved.tableTarget
+          : DEFAULT_SETTINGS.tableTarget,
+      tableRenderMode:
+        saved?.tableRenderMode === "native" || saved?.tableRenderMode === "drawn"
+          ? saved.tableRenderMode
+          : DEFAULT_SETTINGS.tableRenderMode,
+      tableFillMode:
+        saved?.tableFillMode === "pad" || saved?.tableFillMode === "stretch"
+          ? saved.tableFillMode
+          : DEFAULT_SETTINGS.tableFillMode,
     };
 
     // Written back the moment it is converted, so the migration happens once

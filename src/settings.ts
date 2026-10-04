@@ -55,6 +55,47 @@ export const MIN_AUTO_SAVE_SECONDS = 5;
 export const MAX_AUTO_SAVE_SECONDS = 300;
 const AUTO_SAVE_STEP = 5;
 
+/**
+ * How a table that carries formulas is drawn in the note.
+ *
+ * `"native"` keeps the table Obsidian rendered and only writes the computed
+ * values into its existing cells, so a computed table and a hand-written one
+ * stay indistinguishable — the trade being that nothing can then mark *which*
+ * cells were computed.
+ *
+ * `"drawn"` replaces the table with one this plugin paints. That is what makes
+ * the `ƒ` marker, right-aligned figures and a tinted totals row possible at
+ * all, and it is the default because those marks are the reason to compute at
+ * render time in the first place: without them a reader cannot tell a total
+ * from a typo.
+ */
+export type TableRenderMode = "native" | "drawn";
+
+/**
+ * How the table editor's grid fills its canvas.
+ *
+ * `"pad"` holds a fixed column width and adds empty columns and rows until the
+ * canvas is full. That is the spreadsheet convention, and the one that keeps a
+ * column the same width however much is on screen.
+ *
+ * `"stretch"` shares the available width between the columns the table actually
+ * has. Fewer empty cells to look past, at the cost of a four-column table
+ * drawn very wide.
+ */
+export type TableFillMode = "pad" | "stretch";
+
+/**
+ * Which tables the plugin takes over.
+ *
+ * `"all"` frames every table in the note. That is the default because the
+ * original ask was to *render* tables — the frame, the count badge and the edit
+ * button are about the table, and a table with no formulas in it is still a
+ * table. `"computed"` narrows it to tables that actually compute something,
+ * which is the quieter choice for a vault that only ever wants the plugin to
+ * show up where it is doing arithmetic.
+ */
+export type TableTarget = "all" | "computed";
+
 export interface MarkdownEditorPlusSettings {
   /* Four rows left this tab, along with the options behind them: the flowchart's
      default direction, a mind map's growth direction, whether dragged positions
@@ -161,6 +202,14 @@ export interface MarkdownEditorPlusSettings {
   emptyFolderHandling: EmptyFolderHandling;
   /** Delete a deleted note's now-unreferenced attachments automatically. */
   deleteOrphanedOnNoteDelete: boolean;
+
+  // ---- Table formulas (0.20.0) ----
+  /** Which tables the plugin frames. See `TableTarget`. */
+  tableTarget: TableTarget;
+  /** How a table carrying formulas is drawn in the note. See `TableRenderMode`. */
+  tableRenderMode: TableRenderMode;
+  /** How the table editor's grid fills its canvas. See `TableFillMode`. */
+  tableFillMode: TableFillMode;
 }
 
 export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
@@ -198,6 +247,16 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   attachmentDuplicateSeparator: "-",
   emptyFolderHandling: "delete-and-parents",
   deleteOrphanedOnNoteDelete: true,
+
+  // Painted tables lead: the `ƒ` marker is the reason to compute at render
+  // time at all — without it a reader cannot tell a total from a typo.
+  // Every table is framed. The frame is what "render the table" means; a table
+  // without a formula in it is still a table, and leaving the plugin invisible
+  // wherever there is no arithmetic makes it look like it is not installed.
+  tableTarget: "all",
+  tableRenderMode: "drawn",
+  // The spreadsheet convention, so a column keeps its width as the table grows.
+  tableFillMode: "pad",
 };
 
 /**
@@ -346,6 +405,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       { id: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
       { id: "hiding", label: t("settings.tab.hiding"), render: (host) => this.renderFileHiding(host) },
       { id: "order", label: t("settings.tab.order"), render: (host) => this.renderFileOrder(host) },
+      { id: "table", label: t("settings.tab.table"), render: (host) => this.renderTable(host) },
       { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
     ];
 
@@ -373,6 +433,74 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     });
 
     select(0);
+  }
+
+  /* ---------------------------------------------------------------- table */
+
+  /**
+   * The table tab: how a computed table is drawn, and how the editor fills.
+   *
+   * Both are dropdowns rather than switches because each has two answers and
+   * neither one is "off" — a switch would have to pick a winner and then
+   * explain why the other is a deviation from it.
+   *
+   * Every change is written and acted on immediately. The note behind the
+   * settings dialog is where the effect shows, so a mode that only arrived
+   * after a reload would read as one that had not been saved.
+   */
+  private renderTable(host: HTMLElement): void {
+    const target = new Setting(host)
+      .setName(t("settings.table.target.name"))
+      .setDesc(t("settings.table.target.desc"));
+
+    target.addDropdown((dropdown) => {
+      dropdown
+        .addOption("all", t("settings.table.target.all"))
+        .addOption("computed", t("settings.table.target.computed"))
+        .setValue(this.plugin.settings.tableTarget)
+        .onChange((value) => {
+          this.plugin.settings.tableTarget = value === "computed" ? "computed" : "all";
+          this.plugin.refreshTables();
+          void this.plugin.saveSettings();
+        });
+    });
+
+    const mode = new Setting(host)
+      .setName(t("settings.table.mode.name"))
+      .setDesc(t("settings.table.mode.desc"));
+
+    mode.addDropdown((dropdown) => {
+      dropdown
+        .addOption("native", t("settings.table.mode.native"))
+        .addOption("drawn", t("settings.table.mode.drawn"))
+        .setValue(this.plugin.settings.tableRenderMode)
+        .onChange((value) => {
+          /* Narrowed rather than cast: a dropdown option is a string, and the
+             setting is a two-value union. Anything that is not the other option
+             is the default, which is what makes a hand-edited `data.json` the
+             only way to get here with a third value. */
+          this.plugin.settings.tableRenderMode = value === "native" ? "native" : "drawn";
+          this.plugin.refreshTables();
+          void this.plugin.saveSettings();
+        });
+    });
+
+    const fill = new Setting(host)
+      .setName(t("settings.table.fill.name"))
+      .setDesc(t("settings.table.fill.desc"));
+
+    fill.addDropdown((dropdown) => {
+      dropdown
+        .addOption("pad", t("settings.table.fill.pad"))
+        .addOption("stretch", t("settings.table.fill.stretch"))
+        .setValue(this.plugin.settings.tableFillMode)
+        .onChange((value) => {
+          this.plugin.settings.tableFillMode = value === "stretch" ? "stretch" : "pad";
+          void this.plugin.saveSettings();
+        });
+    });
+
+    host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.table.note") }));
   }
 
   /* -------------------------------------------------------------- general */
