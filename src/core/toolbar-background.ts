@@ -11,8 +11,8 @@
  * The lever is a single custom property. `styles.css` paints the bar with
  * `var(--mtk-editor-toolbar-bg, var(--background-secondary))`, so the default
  * is exactly the colour it always was, and this module is everything around
- * that one line: which strings are allowed into it, where the inline property
- * is written and taken back out, and the swatches the settings page offers.
+ * that one line: which strings are allowed into it and where the inline
+ * property is written and taken back out.
  *
  * Three decisions worth writing down:
  *
@@ -24,9 +24,7 @@
  * 2. **`var()` is accepted, not merely tolerated.** Naming a theme variable is
  *    how one colour survives both of Obsidian's themes — `var(--text-accent)`
  *    tracks whatever the user's theme does in light *and* dark, which no hex
- *    code can. The presets are translucent for the same reason: an alpha
- *    channel mixes with whatever is behind the bar, so a single set of swatches
- *    reads as a tint in a light theme and as a lift in a dark one.
+ *    code can.
  * 3. **The value is validated, never "sanitised".** A `data.json` is text a
  *    user can edit by hand and this string ends up in a `style` property, so
  *    anything outside the accepted shapes is refused at the door (and the field
@@ -82,31 +80,6 @@ export function normalizeToolbarBackground(raw: string): string | null {
   if (HEX.test(text) || FUNC.test(text)) return text.toLowerCase();
   return null;
 }
-
-/**
- * The presets offered before the field, in the order they are drawn.
- *
- * Translucent rather than opaque, and that is the whole reason they work on
- * both themes: an alpha channel mixes with whatever is behind the bar, so the
- * same eight swatches read as a tint in a light theme and as a lift in a dark
- * one. Opaque codes would need a second palette, and a second palette would
- * need a theme switch to be worth anything.
- *
- * Deliberately not a table of theme variables either. Naming a variable is a
- * thing the field is for, but it is not a thing a fixed swatch can preview: the
- * swatch would have to call `getComputedStyle` to draw itself, and would then
- * show a colour that is no longer right one theme switch later.
- */
-export const TOOLBAR_BACKGROUND_PRESETS: readonly string[] = [
-  "rgba(140,140,140,0.14)",
-  "rgba(240,107,5,0.16)",
-  "rgba(240,200,0,0.18)",
-  "rgba(3,135,102,0.16)",
-  "rgba(5,117,197,0.16)",
-  "rgba(74,82,199,0.16)",
-  "rgba(136,49,204,0.16)",
-  "rgba(214,69,110,0.16)",
-];
 
 /**
  * Writes the colour onto the bar, or takes the property back out.

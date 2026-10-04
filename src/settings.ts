@@ -22,16 +22,13 @@ import {
   type ToolbarCommand,
 } from "./core/toolbar-commands";
 import {
-  applyToolbarBackground,
-  normalizeToolbarBackground,
   TOOLBAR_BACKGROUND_DEFAULT,
-  TOOLBAR_BACKGROUND_PRESETS,
   TOOLBAR_BACKGROUND_TRANSPARENT,
 } from "./core/toolbar-background";
 import type { EmptyFolderHandling } from "./features/attachment-paths";
 import { resolveDuplicateSeparator, stripExtension } from "./features/attachment-paths";
 import type { Orders } from "./features/order-store";
-import { closeColorPicker, ColorPickerPanel, type ColorCell } from "./ui/color-picker";
+import { closeColorPicker } from "./ui/color-picker";
 import type MarkdownEditorPlusPlugin from "./main";
 
 /**
@@ -92,17 +89,6 @@ export interface MarkdownEditorPlusSettings {
    * `core/toolbar-background.ts` for why this is a string and not a colour.
    */
   editorToolbarBackground: string;
-  /**
-   * Whether Obsidian's own mobile toolbar (the bar above the keyboard) is
-   * hidden.
-   *
-   * Phone only — the desktop app has no such bar, so the flag does nothing
-   * there. The hiding itself is pure CSS off a `body` class, so Obsidian can
-   * re-create the element as the keyboard comes and goes without the plugin
-   * having to chase it. Off by default: removing the app's own UI is not
-   * something to do unasked.
-   */
-  hideMobileToolbar: boolean;
   /**
    * Entry names to hide in the file explorer, one per line: an exact name, a
    * `startsWith::PREFIX`, or an `endsWith::SUFFIX`.
@@ -182,9 +168,6 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   // The theme's own colour, said as "no override": the bar keeps the
   // `--background-secondary` it has always been painted with.
   editorToolbarBackground: TOOLBAR_BACKGROUND_DEFAULT,
-  // Off by default: the mobile toolbar is Obsidian's own UI, and hiding it
-  // is the user's call to make, not the plugin's.
-  hideMobileToolbar: false,
   // The dotfiles rule the regular-expression version shipped as its default,
   // said again in the syntax that replaced it.
   hiddenRules: "startsWith::.",
@@ -575,19 +558,9 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private renderToolbar(host: HTMLElement): void {
     host.replaceChildren();
 
-    // Hiding Obsidian's own mobile toolbar lives here rather than in some
-    // "mobile" section: the only reason to hide it is that this plugin's own
-    // bar took its job, so the switch sits next to that bar's settings.
-    new Setting(host)
-      .setName(t("settings.mobileToolbar.hide.name"))
-      .setDesc(t("settings.mobileToolbar.hide.desc"))
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.hideMobileToolbar).onChange(async (value) => {
-          this.plugin.settings.hideMobileToolbar = value;
-          this.plugin.refreshMobileToolbarVisibility();
-          await this.plugin.saveSettings();
-        })
-      );
+    // Obsidian's own mobile toolbar is hidden unconditionally since the
+    // switch that used to live here was removed: this plugin's pinned bar
+    // replaces it, which is the whole point of installing the plugin.
 
     const commands = this.plugin.settings.toolbarCommands;
 
@@ -623,25 +596,17 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * The row that sets the colour behind the bar.
    *
    * A `Setting` row now, like the rest of this tab, so it inherits the theme's
-   * row chrome instead of painting its own card. What is being picked is still
-   * a colour, so it is shown rather than named: the control is a preview button
-   * painted from the very custom property the bar carries, which makes it the
-   * setting rather than a second rendering of it that could drift.
-   *
-   * The palette itself is the plugin's colour panel, hung under that button:
-   * ten cells are a lot to keep on a settings card for a choice most people
-   * make once, and the panel already knows how to place itself, take Escape,
-   * and hand back a code typed into its field. Three ways in, for three
-   * different users: pick a preset, name a theme variable, or pick "follow the
-   * theme" and stop thinking about it. All three end in the one custom
-   * property, so a fourth would add a cell and change nothing else.
+   * row chrome instead of painting its own card. The choice itself has been
+   * reduced to two answers that a dropdown names better than a palette shows:
+   * "follow the theme" (the default — the property stays unset and
+   * `styles.css`'s `var()` fallback paints the bar) and "transparent" (the note
+   * shows through the strip). The old preview button, colour panel and reset
+   * action are gone with them: with nothing left to paint, a select that says
+   * which state is current is the whole control.
    */
   private buildToolbarBackground(): HTMLElement {
     /* Read defensively, like the bar itself: a `data.json` written before this
-       field existed has no value to hand back. A function rather than a local,
-       because the panel is opened later than the row is built and has to be
-       told what is true then — picking a colour does not re-render the row, so
-       a captured value would go stale the first time one was chosen. */
+       field existed has no value to hand back. */
     const stored = (): string => {
       const value = this.plugin.settings.editorToolbarBackground;
       return typeof value === "string" ? value : TOOLBAR_BACKGROUND_DEFAULT;
@@ -651,31 +616,9 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       .setName(t("settings.toolbar.bg.title"))
       .setDesc(t("settings.toolbar.bg.desc"));
 
-    /* The trigger is the preview. It is painted from the same declaration the
-       bar is — `var(--mtk-editor-toolbar-bg, var(--background-secondary))` — so
-       the common case needs nothing written here at all: setting the property
-       *is* showing the choice. What the two values that are not colours get
-       instead is a class, because a button painted with nothing is
-       indistinguishable from one whose colour failed to load. */
-    const trigger = h("button", {
-      cls: "mtk-toolbar-bg-open",
-      attr: { type: "button", "aria-haspopup": "dialog" },
-    });
-    applyTooltip(trigger, t("settings.toolbar.bg.pick"));
-    const glyph = h("span", { cls: "mtk-toolbar-bg-open-glyph" });
-    setIcon(glyph, "sun-moon");
-    trigger.appendChild(glyph);
-
-    const paint = (value: string): void => {
-      applyToolbarBackground(trigger, value);
-      trigger.classList.toggle("is-theme", value === TOOLBAR_BACKGROUND_DEFAULT);
-      trigger.classList.toggle("is-none", value === TOOLBAR_BACKGROUND_TRANSPARENT);
-    };
-
-    /** Writes the choice down, shows it, then repaints the bar in the editor. */
+    /** Writes the choice down, then repaints the bar in the editor. */
     const write = (value: string): void => {
       this.plugin.settings.editorToolbarBackground = value;
-      paint(value);
       /* Repainted here rather than on the next visit to this tab: the editor is
          usually open behind the settings dialog, and a colour that only showed
          up after a reload would read as one that had not been saved. */
@@ -683,60 +626,14 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       void this.plugin.saveSettings();
     };
 
-    /* One cell per value, in the order the panel draws them. Which values there
-       are is the domain module's business; only the two labels are this
-       layer's, which is why the two that are not colour codes are described
-       here — the panel cannot know what to call them. */
-    const cells: ColorCell[] = [
-      {
-        value: TOOLBAR_BACKGROUND_DEFAULT,
-        label: t("settings.toolbar.bg.followTheme"),
-        mark: "theme",
-      },
-      {
-        value: TOOLBAR_BACKGROUND_TRANSPARENT,
-        label: t("settings.toolbar.bg.transparent"),
-        mark: "none",
-      },
-      ...TOOLBAR_BACKGROUND_PRESETS,
-    ];
-
-    trigger.addEventListener("click", () => {
-      const before = stored();
-      new ColorPickerPanel({
-        title: t("settings.toolbar.bg.title"),
-        bands: [{ caption: t("settings.toolbar.bg.presets"), colors: cells }],
-        // Squares, ten to a row: this is a palette of surfaces rather than a
-        // set of pen caps, and ten is exactly one row of the panel's grid.
-        round: false,
-        anchor: trigger,
-        // The door the stored value comes back through, and now the one the
-        // panel knocks on as well — see `loadSettings` for the other half.
-        accepts: normalizeToolbarBackground,
-        // Marked, so the panel says which one is in use rather than leaving the
-        // user to compare a colour they can see with ten they can see.
-        current: before,
-        hexPlaceholder: t("settings.toolbar.bg.placeholder"),
-        invalidHint: t("settings.toolbar.bg.invalid"),
-        // A code the user already has in mind is the point of the field. When
-        // the bar is following the theme there is no code to offer, and an
-        // empty box under a placeholder says that better than a guess would.
-        seed: before,
-        onPick: write,
-      }).open();
+    setting.addDropdown((dropdown) => {
+      dropdown
+        .addOption(TOOLBAR_BACKGROUND_DEFAULT, t("settings.toolbar.bg.followTheme"))
+        .addOption(TOOLBAR_BACKGROUND_TRANSPARENT, t("settings.toolbar.bg.transparent"))
+        .setValue(stored())
+        .onChange((value) => write(value));
     });
 
-    setting.controlEl.appendChild(trigger);
-    setting.controlEl.appendChild(
-      this.buildIconAction(
-        "rotate-ccw",
-        t("settings.toolbar.bg.reset"),
-        "mtk-toolbar-bg-reset",
-        () => write(TOOLBAR_BACKGROUND_DEFAULT)
-      )
-    );
-
-    paint(stored());
     return setting.settingEl;
   }
 

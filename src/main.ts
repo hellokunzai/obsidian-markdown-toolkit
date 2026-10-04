@@ -140,9 +140,12 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     this.editorToolbar = new EditorToolbar(this);
     this.editorToolbar.enable();
 
-    // Pure body-class application; the CSS rule does the actual hiding, so
-    // this works however often Obsidian re-creates its mobile toolbar.
-    this.refreshMobileToolbarVisibility();
+    // Hiding Obsidian's own mobile toolbar is unconditional since the switch
+    // was removed: this bar exists to replace that toolbar, so the class goes
+    // on the moment the plugin loads. Pure body-class application; the CSS
+    // rule does the actual hiding, so this works however often Obsidian
+    // re-creates its mobile toolbar.
+    document.body.classList.add(HIDE_MOBILE_TOOLBAR_CLASS);
 
     // 0.9.0 format painter, enabled before the toolbar so the first click on
     // a toolbar button can already be recorded.
@@ -318,16 +321,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
   }
 
   /**
-   * Re-reads the mobile-toolbar hiding switch (called from settings and on
-   * load). The class is the whole mechanism: the stylesheet hides the bar
-   * while it is present, so the bar stays hidden even as Obsidian tears its
-   * mobile chrome down and rebuilds it around the keyboard.
-   */
-  refreshMobileToolbarVisibility(): void {
-    document.body.classList.toggle(HIDE_MOBILE_TOOLBAR_CLASS, this.settings.hideMobileToolbar);
-  }
-
-  /**
    * Hands the auto-save settings to every editor that is currently open.
    *
    * The settings tab calls this on each change, for the same reason the toolbar
@@ -411,11 +404,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.editorToolbarBackground === "string"
           ? normalizeToolbarBackground(saved.editorToolbarBackground) ?? TOOLBAR_BACKGROUND_DEFAULT
           : DEFAULT_SETTINGS.editorToolbarBackground,
-      // Same plain on/off treatment as the flag above.
-      hideMobileToolbar:
-        typeof saved?.hideMobileToolbar === "boolean"
-          ? saved!.hideMobileToolbar
-          : DEFAULT_SETTINGS.hideMobileToolbar,
       hiddenRules:
         typeof saved?.hiddenRules === "string"
           ? migrateHiddenRules(saved!.hiddenRules)

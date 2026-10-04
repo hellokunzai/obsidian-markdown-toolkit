@@ -47,7 +47,7 @@ A customizable formatting toolbar (40+ buttons by default, drag-to-reorder subme
 - **Fullscreen focus mode**: expand the editor to fill the screen, hiding sidebars and the status bar.
 - **Diagram submenu**: the bar carries a "Diagrams" entry that inserts a flowchart or mind-map block outright, or opens the picker for any kind.
 - **Section headings**: drop your own labelled dividers into the bar and edit or delete their text, so the buttons end up grouped the way you think.
-- **Mobile toolbar**: on a phone, hide Obsidian's own toolbar above the keyboard and keep this plugin's bar as the only one (the switch lives under *Diagram settings*).
+- **Mobile toolbar**: on a phone, Obsidian's own toolbar above the keyboard is hidden automatically, keeping this plugin's bar as the only one (always on — no setting needed).
 - **Toolbar background**: the bar's own colour — follow the theme, go transparent, or pick one of eight presets; you can also type `#rrggbb`, `rgb()`/`hsl()` or `var(--theme-variable)`.
 
 Commands: `Toggle format brush` · `Underline` · `Font colour` · `Background colour` · `Fullscreen focus mode`.
@@ -95,7 +95,7 @@ The settings are split into four tabs:
 
 | Tab | Contents |
 |---|---|
-| **Diagram settings** | Auto-save and its interval, the diagram-kind table (searchable, with keyword and visual-editor columns), hide Obsidian's mobile toolbar |
+| **Diagram settings** | Auto-save and its interval, the diagram-kind table (searchable, with keyword and visual-editor columns) |
 | **Toolbar** | Toolbar background colour (follow theme / transparent / eight presets / a typed colour), command search, add or remove commands and submenus, section headings, drag to reorder |
 | **File settings** | File hiding (entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator) and file order (show the reorder button, reset all custom order) |
 | **Attachment settings** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |

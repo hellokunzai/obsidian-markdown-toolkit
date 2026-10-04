@@ -122,7 +122,6 @@ export class EditorToolbar {
       "time: " + new Date().toISOString(),
       "is-mobile: " + document.body.classList.contains("is-mobile"),
       "is-hidden-nav: " + document.body.classList.contains("is-hidden-nav"),
-      "hideMobileToolbar setting: " + this.plugin.settings.hideMobileToolbar,
       "mtk-hide-mobile-toolbar on body: " + document.body.classList.contains("mtk-hide-mobile-toolbar"),
       "body classes: " + document.body.className,
       "--safe-area-inset-top: " + rootStyle.getPropertyValue("--safe-area-inset-top"),
