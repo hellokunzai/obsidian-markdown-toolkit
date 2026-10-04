@@ -2400,20 +2400,26 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
  */
 
 /*
- * The reserved bands.
+ * No padding: the table *is* the frame.
  *
- * A drawing is centred with margin to spare, so the corner buttons land on
- * empty canvas. A table is as wide as its column, which puts the buttons — and
- * the badge — straight over the first and last cell. So the area around a table
- * reserving the space they occupy is not a nicety here, it is the difference
- * between a frame and a frame with two 26px squares on top of its own content.
+ * This block used to reserve a band top and bottom (`36px 16px 28px`) so the
+ * corner buttons and the count badge had somewhere to sit that was not on top
+ * of a cell. What that bought was a table floating inside a grey box with a
+ * gutter on all four sides, which is not what a table in a note should look
+ * like — so the band is gone and the table runs edge to edge.
  *
- * Top: the buttons sit at `top: 8px` and are 26px tall.
- * Bottom: the badge is 11px text, so a line box of roughly 16px, at
- *   `bottom: 7px` — 22px was measured to still overlap by 1px, hence 28.
+ * The chrome did not go anywhere, it just has less room: it is hover-only, and
+ * the two things that used to be guaranteed by empty space are now guaranteed
+ * by assertions — the buttons must stay inside the header band (26px at
+ * `top: 8px`, against a ~36px band, so they never reach the data rows), and the
+ * badge is given a surface of its own below so it stays readable over a row.
+ *
+ * The one place a band survives is the `</>` view at the bottom of this file:
+ * that is text rather than a table, and text flush against a border reads as a
+ * mistake rather than as a full-bleed layout.
  */
 .mtk-embed .mtk-embed-table {
-  padding: 36px 16px 28px;
+  padding: 0;
 }
 
 /*
@@ -2430,8 +2436,9 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
  * what keeps the surface and the header band from being flattened.
  */
 .mtk-embed .mtk-embed-table .mtk-tbl-wrap {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
+  /* The frame is the table's box now. A border and a radius of its own would
+     draw a second box inside the first, which is the same white space as before
+     with a line through it. */
   overflow: hidden;
 }
 .mtk-embed .mtk-embed-table table.mtk-tbl {
@@ -2497,6 +2504,25 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 }
 
 /*
+ * The badge, now that the table runs under it.
+ *
+ * A diagram's badge sits on empty canvas and can be bare 11px grey text. A
+ * table's badge sits on the last row of a table, over whatever number happens
+ * to be in the last cell, so it needs a surface of its own or it reads as text
+ * someone dropped on the data.
+ *
+ * Scoped with `~` to a frame that holds a table rather than restyling
+ * `.mtk-embed-meta` itself, which every diagram also wears.
+ */
+.mtk-embed .mtk-embed-table ~ .mtk-embed-meta {
+  right: 6px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background-color: var(--background-primary);
+}
+
+/*
  * The `ƒ` marker.
  *
  * Inline, in front of the value, rather than pinned to the cell's corner. A
@@ -2545,9 +2571,12 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   margin: 0.5em 0;
 }
 
-/* The `</>` view: the note's own Markdown, as it is written in the file. */
+/* The `</>` view: the note's own Markdown, as it is written in the file.
+   This is the one place the reserved band is kept — see the note on
+   `.mtk-embed-table` above. */
 .mtk-embed .mtk-tbl-source {
   margin: 0;
+  padding: 36px 16px 28px;
   font-family: var(--font-monospace);
   font-size: 12px;
   line-height: 1.7;
