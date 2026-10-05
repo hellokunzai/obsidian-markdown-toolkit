@@ -2903,8 +2903,12 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-fxbar {
   display: flex;
   align-items: stretch;
-  gap: 8px;
-  padding: 7px 12px;
+  gap: 5px;
+  /* No horizontal padding: the name box and the source field are the formula
+     bar's own edges, so they have to sit on the same vertical lines as the
+     toolbar band above and the grid below. The toolbar keeps its 12px inset
+     because its buttons are *content* inside a band, not the band's edges. */
+  padding: 7px 0;
   border-bottom: 1px solid var(--background-modifier-border);
   background-color: var(--background-primary);
 }
@@ -2913,7 +2917,7 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   align-items: center;
   gap: 6px;
   min-width: 72px;
-  height: 30px;
+  height: 26px;
   padding: 0 8px;
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
@@ -2971,7 +2975,7 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   gap: 8px;
   flex: 1 1 auto;
   min-width: 0;
-  height: 30px;
+  height: 26px;
   padding: 0 10px 0 4px;
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
