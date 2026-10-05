@@ -173,7 +173,9 @@ class TablePanel extends Modal {
   private gridHost!: HTMLElement;
   private sheetEl!: HTMLElement;
   private toolbarEl!: HTMLElement;
-  private refEl!: HTMLElement;
+  private refBox!: HTMLElement;
+  private refLabel!: HTMLElement;
+  private fxBtn!: HTMLButtonElement;
   private inputEl!: HTMLInputElement;
   private cellInput!: HTMLInputElement;
   private rangeBox!: HTMLElement;
@@ -211,8 +213,29 @@ class TablePanel extends Modal {
     editor.appendChild(this.toolbarEl);
 
     const bar = h("div", { cls: "mtk-fxbar" });
-    this.refEl = h("span", { cls: "ref" });
-    bar.appendChild(this.refEl);
+
+    /* The name box: a clickable cell address that opens a dropdown of every cell
+       in the table, so you can jump straight to one without hunting by hand. */
+    this.refBox = h("div", { cls: "mtk-ref-box" });
+    this.refLabel = h("span", { cls: "ref" });
+    this.refBox.appendChild(this.refLabel);
+    this.refBox.appendChild(h("span", { cls: "mtk-ref-caret", text: "⌄" }));
+    applyTooltip(this.refBox, t("table.nameBox"));
+    this.refBox.addEventListener("click", (event: MouseEvent) => this.openRefMenu(event));
+    bar.appendChild(this.refBox);
+
+    /* The edit group: an ƒ button that opens the aggregate-function menu on the
+       left, and the source field on the right. This is where the toolbar's old σ
+       lived — moved here so there is a single, spreadsheet-shaped place to start a
+       formula. */
+    const group = h("div", { cls: "mtk-fx-group" });
+    this.fxBtn = h("button", { cls: "mtk-fx-btn", attr: { type: "button" } }) as HTMLButtonElement;
+    this.fxBtn.textContent = "fx";
+    applyTooltip(this.fxBtn, t("table.formula.insert"));
+    this.fxBtn.addEventListener("click", (event: MouseEvent) => this.openFxMenu(event));
+    group.appendChild(this.fxBtn);
+    group.appendChild(h("span", { cls: "mtk-fx-sep" }));
+
     this.inputEl = h("input", {
       cls: "val",
       attr: { type: "text", spellcheck: "false" },
@@ -236,7 +259,8 @@ class TablePanel extends Modal {
       }
     });
     this.inputEl.addEventListener("blur", () => this.commitInput());
-    bar.appendChild(this.inputEl);
+    group.appendChild(this.inputEl);
+    bar.appendChild(group);
     editor.appendChild(bar);
 
     this.canvasEl = h("div", { cls: "mtk-canvas is-sheet" });
@@ -288,25 +312,6 @@ class TablePanel extends Modal {
     this.toolbarEl.appendChild(this.button("", "rows", t("table.row.add"), () => this.addRow()));
     this.toolbarEl.appendChild(this.button("", "columns", t("table.col.add"), () => this.addColumn()));
     this.toolbarEl.appendChild(this.divider());
-
-    /* The ƒ menu is an Obsidian `Menu` rather than a panel of our own: it is a
-       list of commands, which is exactly what `Menu` is, and it arrives with
-       the keyboard handling and the placement this would otherwise have to
-       re-implement. */
-    this.toolbarEl.appendChild(
-      this.button("", "sigma", t("table.formula.insert"), (event: MouseEvent) => {
-        const menu = new Menu();
-        for (const name of FUNCTIONS) {
-          menu.addItem((item) =>
-            item
-              .setTitle(name)
-              .setIcon("sigma")
-              .onClick(() => this.insertFormula(name))
-          );
-        }
-        menu.showAtMouseEvent(event);
-      })
-    );
   }
 
   private button(
@@ -1083,7 +1088,7 @@ class TablePanel extends Modal {
 
   private syncBar(): void {
     const { row, col } = this.active;
-    this.refEl.textContent = columnLetter(col) + (row + 1);
+    this.refLabel.textContent = columnLetter(col) + (row + 1);
     if (!this.editing) this.inputEl.value = this.rawAt(row, col);
   }
 
@@ -1320,6 +1325,38 @@ class TablePanel extends Modal {
    * row — putting it under a totals row would double-count, and there is nothing
    * here that could know better.
    */
+  /* ------------------------------------------------------- 公式栏下拉 */
+
+  /** Opens a dropdown of every cell in the table and jumps to the one picked. */
+  private openRefMenu(event: MouseEvent): void {
+    const menu = new Menu();
+    const cols = this.model.header.length;
+    const rows = this.model.body.length + 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const addr = columnLetter(c) + (r + 1);
+        menu.addItem((item) => item.setTitle(addr).onClick(() => this.selectCell(r, c)));
+      }
+    }
+    const rect = this.refBox.getBoundingClientRect();
+    menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    event.stopPropagation();
+  }
+
+  /** Opens the aggregate-function menu — the ƒ menu that used to live in the toolbar. */
+  private openFxMenu(event: MouseEvent): void {
+    const menu = new Menu();
+    for (const name of FUNCTIONS) {
+      menu.addItem((item) =>
+        item
+          .setTitle(name)
+          .setIcon("sigma")
+          .onClick(() => this.insertFormula(name))
+      );
+    }
+    menu.showAtMouseEvent(event);
+  }
+
   private insertFormula(name: string): void {
     const { row, col } = this.active;
     if (row === 0) return;

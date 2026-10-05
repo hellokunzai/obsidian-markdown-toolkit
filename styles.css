@@ -2908,15 +2908,32 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   border-bottom: 1px solid var(--background-modifier-border);
   background-color: var(--background-primary);
 }
-.mtk-fxbar .ref {
+.mtk-fxbar .mtk-ref-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   min-width: 46px;
-  text-align: center;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background-color: var(--background-secondary);
+  color: var(--text-muted);
   font-family: var(--font-monospace);
   font-size: 12px;
-  color: var(--text-muted);
-  background-color: var(--background-secondary);
-  border-radius: 4px;
-  padding: 3px 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.mtk-fxbar .mtk-ref-box:hover {
+  background-color: var(--background-modifier-hover);
+}
+.mtk-fxbar .mtk-ref-box .ref {
+  min-width: 0;
+  text-align: center;
+  color: var(--text-normal);
+}
+.mtk-fxbar .mtk-ref-caret {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.7;
 }
 .mtk-fxbar .val {
   flex: 1 1 auto;
@@ -2931,4 +2948,39 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-fxbar .val:focus {
   box-shadow: none;
   outline: none;
+}
+
+/* The ƒ button and the source field share one group: the button on the left,
+   a thin separator, and the field filling the rest. Kept as a group so the button
+   never stretches and the field always gets the spare width. */
+.mtk-fxbar .mtk-fx-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mtk-fxbar .mtk-fx-btn {
+  flex: 0 0 auto;
+  min-width: 0;
+  height: auto;
+  padding: 3px 9px;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-normal);
+  background-color: var(--background-secondary);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.mtk-fxbar .mtk-fx-btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+.mtk-fxbar .mtk-fx-sep {
+  flex: 0 0 auto;
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 0;
+  background-color: var(--background-modifier-border);
 }
