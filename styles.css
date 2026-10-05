@@ -2628,11 +2628,18 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 }
 
 /* `max-content` so the grid is as wide as its columns, `min-width: 100%` so it
-   still covers the canvas when they do not add up to it. */
+   still covers the canvas when they do not add up to it.
+
+   `position: relative` makes the sheet the containing block for the selection
+   rectangle and the cell editor, so both are measured in cell coordinates and
+   scroll with the grid. `user-select: none` stops a drag across cells from
+   painting a text selection over the numbers. */
 .mtk-tbl-sheet {
   display: block;
   width: max-content;
   min-width: 100%;
+  position: relative;
+  user-select: none;
 }
 
 .mtk-sheet-row {
@@ -2706,6 +2713,86 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-sheet-cell.is-filler {
   cursor: default;
   color: var(--text-faint);
+}
+
+/* A column letter and a row number are click targets: they select the whole
+   column or row. These outrank the row-header `cursor: default`. */
+.mtk-sheet-row.is-head .mtk-sheet-cell[data-head="col"] {
+  cursor: pointer;
+}
+.mtk-tbl-sheet .mtk-sheet-gutter[data-head="row"] {
+  cursor: pointer;
+}
+
+/* A cell inside the selection wears a wash; the rectangle below draws the edge.
+   Written before `is-hl` so the active column's letter keeps its own colour. */
+.mtk-sheet-cell.in-range {
+  background-color: rgba(123, 92, 214, 0.1);
+}
+.mtk-sheet-cell.in-range.is-fx {
+  background-color: rgba(123, 92, 214, 0.17);
+}
+
+/* The active cell's column letter and row number, so a formula's coordinates
+   can be read off the selection instead of counted. */
+.mtk-sheet-cell.is-hl {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
+}
+
+/*
+ * The selection outline: a single rectangle over the range rather than an
+ * outline per cell, which is what makes a multi-cell selection read as one box
+ * instead of a grid of boxes.
+ */
+.mtk-range-box {
+  position: absolute;
+  z-index: 2;
+  display: none;
+  pointer-events: none;
+  border: 2px solid var(--interactive-accent);
+  border-radius: 1px;
+}
+.mtk-range-box.is-on {
+  display: block;
+}
+
+/* The fill handle rides the box's bottom-right corner and is the only part of
+   the overlay that takes the pointer. */
+.mtk-fill-handle {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  background: var(--background-primary);
+  border: 2px solid var(--interactive-accent);
+  border-radius: 2px;
+  pointer-events: auto;
+  cursor: crosshair;
+  z-index: 4;
+}
+
+/* Editing a cell happens in a box drawn over it, not in the cell itself — see
+   the note on the formula bar for why the two are kept apart. */
+.mtk-cell-input {
+  position: absolute;
+  z-index: 3;
+  display: none;
+  box-sizing: border-box;
+  border: 2px solid var(--interactive-accent);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  padding: 0 8px;
+  margin: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+  outline: none;
+}
+.mtk-cell-input.is-on {
+  display: block;
 }
 
 /*
