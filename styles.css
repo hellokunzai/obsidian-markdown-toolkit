@@ -2695,10 +2695,20 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 }
 /* Only the table's own rows get a bold number. A real row is one you can put
    something in; the filler numbers below keep the plain weight so the table's
-   bottom edge is readable at a glance. Weight only -- `is-hl` still owns the
-   active row's colour, and a `:not()` here would outrank it. */
+   bottom edge is readable at a glance.
+
+   Weight alone does nothing a human can see here: at 11px in `--text-faint`,
+   600 and 400 land within antialiasing noise of each other (measured in
+   mtk-smoke/gutter-weight). The column letters read bold because they are
+   13px and dark, so a valid row number also steps its colour up to
+   `--text-muted`. `is-hl` keeps the active row's `--text-normal`: both rules
+   weigh (0,3,0), so the `is-hl` one is written second and wins by order. */
 .mtk-tbl-sheet .mtk-sheet-gutter:not(.is-filler) {
   font-weight: 600;
+  color: var(--text-muted);
+}
+.mtk-tbl-sheet .mtk-sheet-gutter.is-hl {
+  color: var(--text-normal);
 }
 
 .mtk-sheet-cell.is-num {
