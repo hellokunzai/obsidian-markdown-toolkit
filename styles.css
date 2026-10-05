@@ -2439,11 +2439,13 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   /* The frame is the table's box now. A border and a radius of its own would
      draw a second box inside the first, which is the same white space as before
      with a line through it. */
+  margin: 0;
   overflow: hidden;
 }
 .mtk-embed .mtk-embed-table table.mtk-tbl {
   border-collapse: collapse;
   width: 100%;
+  margin: 0;
   font-size: 13.5px;
   line-height: 1.5;
   /* The table is a surface in its own right. Without this the cells are
@@ -2549,6 +2551,16 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 }
 .mtk-embed .mtk-cell-native .mtk-cell-error {
   color: var(--text-error);
+}
+
+/*
+ * Native mode adopts the renderer's own table, and some themes give tables a
+ * margin that would leave the frame's background showing as a gutter. The frame
+ * is the table's box, so the table has to fill it edge to edge.
+ */
+.mtk-embed .mtk-embed-table .mtk-cell-native {
+  width: 100%;
+  margin: 0;
 }
 
 /*
