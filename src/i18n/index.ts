@@ -79,6 +79,7 @@ const en: Dict = {
   "editor.menu.delete": "Delete node",
 
   "notice.saved": "Diagram written back to the block.",
+  "notice.tableSaved": "Table saved.",
   "notice.blockMissing": "Could not find that block any more. Nothing was changed.",
   "notice.noActiveFile": "Open a note first.",
   "notice.noBlockAtCursor": "Put the cursor inside a mind map or flowchart block first.",
@@ -716,6 +717,7 @@ const zhCn: Dict = {
   "editor.menu.delete": "删除节点",
 
   "notice.saved": "已写回代码块。",
+  "notice.tableSaved": "表格已保存。",
   "notice.blockMissing": "已经找不到那个代码块了，未做任何修改。",
   "notice.noActiveFile": "请先打开一篇笔记。",
   "notice.noBlockAtCursor": "请先把光标放进思维导图或流程图的代码块里。",

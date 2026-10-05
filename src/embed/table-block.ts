@@ -150,7 +150,9 @@ export class TableBlock extends MarkdownRenderChild {
       app: this.host.app,
       model: this.model,
       fillMode: this.host.settings.tableFillMode,
-      onSave: (next) => void this.applyEdit(next),
+      /* Returned, not swallowed: the panel acknowledges the save only after the
+         write has landed, so "已保存" cannot be shown for an edit that failed. */
+      onSave: (next) => this.applyEdit(next),
     });
   }
 

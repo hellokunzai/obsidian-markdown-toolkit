@@ -22,8 +22,10 @@
  * up on, so the interaction layer is deliberately spreadsheet-shaped: drag or
  * Shift to select a range, arrows and Tab to move, double-click to type in the
  * cell, drag the fill handle to continue a series, Del to clear, Ctrl+C/V to
- * move blocks through the clipboard, and — the one that makes the empty cells
- * honest — clicking past the table's edge grows it rather than doing nothing.
+ * move blocks through the clipboard, and the empty cells past the edge, which
+ * the table grows to reach the moment one of them is *edited*. Growth is tied
+ * to editing and not to clicking, on purpose: a grid that adds a row because
+ * someone clicked near it is a grid you cannot look at without changing it.
  *
  * The headers carry the other half of the bargain. A column letter's right edge
  * and a row number's bottom edge are draggable, because a grid whose column is
@@ -39,7 +41,7 @@
  * the one place the two can be told apart, and it is why typing in the bar is
  * never ambiguous.
  */
-import { Menu, Modal, setIcon, type App } from "obsidian";
+import { Menu, Modal, Notice, setIcon, type App } from "obsidian";
 import { t } from "../i18n";
 import { h } from "../utils/dom";
 import { tagModalCloseButton } from "../utils/modal-fullscreen";
@@ -67,8 +69,10 @@ export interface TableEditorRequest {
   app: App;
   model: TableModel;
   fillMode: TableFillMode;
-  /** Called with the edited model when the user saves. */
-  onSave: (model: TableModel) => void;
+  /** Called with the edited model when the user saves. A caller that has to
+      write to disk returns a promise, so the panel can acknowledge the save
+      only once the write has landed. */
+  onSave: (model: TableModel) => void | Promise<void>;
 }
 
 export function openTableEditor(request: TableEditorRequest): void {
@@ -319,9 +323,7 @@ class TablePanel extends Modal {
 
     this.toolbarEl.appendChild(
       this.button("mtk-save", "save", t("editor.save"), () => {
-        this.commitInput();
-        this.request.onSave(this.model);
-        this.close();
+        void this.saveModel();
       })
     );
     this.toolbarEl.appendChild(this.divider());
@@ -377,6 +379,26 @@ class TablePanel extends Modal {
 
   private divider(): HTMLElement {
     return h("div", { cls: "mtk-divider" });
+  }
+
+  /**
+   * Writes the table back and **keeps the dialog open**.
+   *
+   * Closing on save is what a "commit and leave" dialog does, and it is not what
+   * this panel is: the mind-map and chart panels have always stayed open on
+   * save, and this panel grew out of the same shell. A table is also the one
+   * place where saving is a checkpoint rather than the end of the task — you
+   * save a formula, then keep typing rows. The notice is what the close used to
+   * say, minus the part that threw away the grid the user was working in.
+   *
+   * The write is awaited before the notice so it reports what happened rather
+   * than what was requested; a caller that writes nothing (the live-preview
+   * path returns synchronously) still gets an immediate acknowledgement.
+   */
+  private async saveModel(): Promise<void> {
+    this.commitInput();
+    await this.request.onSave(this.model);
+    new Notice(t("notice.tableSaved"));
   }
 
   private addRow(): void {
@@ -752,10 +774,9 @@ class TablePanel extends Modal {
   private buildRow(row: number, columns: number): HTMLElement {
     const tr = h("div", { cls: "mtk-sheet-row" });
     /* A row number is filler under exactly the boundary its data cells use, so
-       "the number below the table" and "the cell below the table" are one
-       gesture rather than two that almost agree. Which of them a click grew the
-       table was, for a while, a difference the code could not tell apart: the
-       number never carried the class, so the branch that adds a row was dead. */
+       "the number below the table" and "the cell below the table" agree on where
+       the table ends. Getting this wrong is invisible: the number once never
+       carried the class, so the two boundaries sat a row apart. */
     const gutter = h("div", {
       cls:
         "mtk-sheet-cell mtk-sheet-gutter" +
@@ -778,9 +799,9 @@ class TablePanel extends Modal {
       this.applyRowHeight(cell, row);
 
       /* Past the table's own columns the grid keeps going. Those cells exist to
-         fill the canvas — but they are not inert any more: clicking one grows
-         the table to include it (see `extendTo`), which is what makes the empty
-         space an invitation rather than a dead zone. */
+         fill the canvas: they say "you can put more here" without being
+         coordinates the table already claims. Clicking one does nothing;
+         editing one (`onDoubleClick`) is what grows the table to include it. */
       const beyondColumns = col >= this.model.header.length;
       if (beyondColumns || (row >= 1 && values === undefined)) {
         cell.classList.add("is-filler");
@@ -1014,13 +1035,15 @@ class TablePanel extends Modal {
     }
 
     if (hit.filler) {
-      /* An empty cell is a cell you can use: grow the table to reach it. */
-      this.commitInput();
-      this.extendTo(hit.row, hit.col);
-      this.anchor = { row: hit.row, col: hit.col };
-      this.active = { row: hit.row, col: hit.col };
-      this.setBox(this.anchor, this.active);
-      this.recompute();
+      /* Nothing here, on purpose.
+       *
+       * This used to grow the table to reach the cell that was clicked, which
+       * meant a plain click past the edge quietly added a row or a column —
+       * looking at the grid changed it. Growing now belongs to *entering edit
+       * mode* (see `onDoubleClick`), so a click out here does nothing at all.
+       * Nothing is also the honest answer: there is no cell to select yet, and
+       * selecting one that does not exist would put an address in the formula
+       * bar that the table cannot write back to. */
       event.preventDefault();
       return;
     }
@@ -1079,7 +1102,17 @@ class TablePanel extends Modal {
     }
 
     const hit = this.hit(target);
-    if (!hit || hit.head || hit.filler) return;
+    if (!hit || hit.head) return;
+    /* Editing an empty cell is what grows the table: the cell has to exist
+       before there is anything to type into, and this is now the only click in
+       the grid that adds a row or a column. `extendTo` reaches the pressed cell
+       exactly, so a double-click just below the last row adds one row and one
+       just right of the last column adds one column — the gesture stays as
+       small as the click was. */
+    if (hit.filler) {
+      this.extendTo(hit.row, hit.col);
+      this.recompute();
+    }
     this.startEdit(hit.row, hit.col);
   }
 
@@ -1436,8 +1469,9 @@ class TablePanel extends Modal {
 
     const startRow = this.active.row;
     const startCol = this.active.col;
-    /* Pasting past the edge grows the table, the same courtesy clicking an
-       empty cell gets. */
+    /* Pasting past the edge grows the table, the same way editing an empty cell
+       does: the clipboard is already a deliberate act on those coordinates, so
+       it does not need a second gesture to say where it is going. */
     this.extendTo(startRow + rows.length - 1, startCol + width - 1);
     rows.forEach((line, i) => {
       line.split("\t").forEach((value, j) => this.writeCell(startRow + i, startCol + j, value));
@@ -1517,7 +1551,11 @@ class TablePanel extends Modal {
 
   /* ----------------------------------------------------------- 扩表 */
 
-  /** Grows the table until the cell at `row`/`col` is a real cell. */
+  /** Grows the table until the cell at `row`/`col` is a real cell.
+   *
+   *  Called when an empty cell is *edited*, and never merely because one was
+   *  clicked: the address the user is typing into has to exist before it can
+   *  hold anything. */
   private extendTo(row: number, col: number): void {
     while (this.model.header.length <= col) {
       this.model.header.push("");
