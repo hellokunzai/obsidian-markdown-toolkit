@@ -25,6 +25,15 @@
  * move blocks through the clipboard, and — the one that makes the empty cells
  * honest — clicking past the table's edge grows it rather than doing nothing.
  *
+ * The headers carry the other half of the bargain. A column letter's right edge
+ * and a row number's bottom edge are draggable, because a grid whose column is
+ * too narrow for its own contents is a grid you stop using; and either header
+ * answers a right-click with the three things you can do to a whole column or
+ * row, because "delete this column" should not require counting columns. Sizes
+ * dragged this way belong to the dialog and are not written back: Markdown has
+ * nowhere to put a column width, and a note that carried one would be a note
+ * nothing else could read.
+ *
  * The formula bar still shows the selected cell's *source* — `=sum(B2:B4)` —
  * while the cell shows its *value*. That split is preserved on purpose: it is
  * the one place the two can be told apart, and it is why typing in the bar is
@@ -67,6 +76,39 @@ const PAD_COLUMN = 132;
 /** Below this, a stretched column stops being readable and the grid scrolls instead. */
 const MIN_COLUMN = 96;
 
+/*
+ * How far a dragged column edge or row edge may travel, in pixels. The floor is
+ * "the content is still legible", the ceiling is only there so a slip of the
+ * hand cannot fling one row off the screen — neither is a spreadsheet rule, and
+ * both are meant to be argued with.
+ */
+const MIN_COL_W = 48;
+const MAX_COL_W = 800;
+const MIN_ROW_H = 20;
+const MAX_ROW_H = 400;
+
+const clamp = (value: number, low: number, high: number): number =>
+  Math.round(Math.max(low, Math.min(high, value)));
+
+/**
+ * How many units of `size(i)`, after a leading `lead`, fit inside `limit`.
+ *
+ * This is the `Math.ceil((limit - lead) / CONSTANT)` it replaced, for the case
+ * where the units are no longer all the same size. With every size equal the
+ * walk below lands on exactly the same count, so an untouched table draws the
+ * same grid it always did; once a column has been dragged, "how many columns to
+ * cover the canvas" is a walk and not a division.
+ */
+function fitAcross(limit: number, lead: number, size: (index: number) => number): number {
+  let count = 0;
+  let used = lead;
+  while (used < limit) {
+    used += size(count);
+    count += 1;
+  }
+  return count;
+}
+
 /** A zero-based grid cell. Row 0 is the header; col 0 is column A. */
 interface Cell {
   row: number;
@@ -86,7 +128,12 @@ type Drag =
   | { mode: "cells" }
   | { mode: "cols"; start: number }
   | { mode: "rows"; start: number }
-  | { mode: "fill"; from: Box };
+  | { mode: "fill"; from: Box }
+  /* A size drag keeps the size the press started from, not the size as it is
+     now: every move re-renders the grid, so measuring "the current width" each
+     time would compound whatever the last render rounded to. */
+  | { mode: "colw"; col: number; startX: number; startW: number }
+  | { mode: "rowh"; row: number; startY: number; startH: number };
 
 /** What a sheet cell is: a data cell, a column letter, or a row number. */
 interface Hit {
@@ -109,6 +156,18 @@ class TablePanel extends Modal {
   private range: Box = { r1: 1, c1: 0, r2: 1, c2: 0 };
   private editing: Cell | null = null;
   private drag: Drag | null = null;
+
+  /*
+   * Sizes the user dragged. Sparse on purpose: anything absent falls back to the
+   * default, so a table nobody has resized renders exactly as it did before
+   * this existed. Both live for the life of the dialog and are never written
+   * back to the note — a table's Markdown has nowhere to put a column width,
+   * and inventing one would make the note unreadable in every other editor.
+   */
+  private readonly colW: Record<number, number | undefined> = {};
+  private readonly rowH: Record<number, number | undefined> = {};
+  /** The width a column gets when it has not been dragged: padded or stretched. */
+  private baseColumnWidth = PAD_COLUMN;
 
   private canvasEl!: HTMLElement;
   private gridHost!: HTMLElement;
@@ -286,6 +345,71 @@ class TablePanel extends Modal {
     this.recompute();
   }
 
+  /*
+   * The six actions the header menu offers.
+   *
+   * Each one leaves the selection on the thing it just made, or on the nearest
+   * surviving neighbour of the thing it just removed. Nothing here is undoable,
+   * so the selection is the only signal of what actually happened — which is
+   * also why these do not share a body with the toolbar's `add*`: the toolbar
+   * buttons were already there and did not move the selection, and quietly
+   * changing that would be a second change wearing the first one's clothes.
+   */
+
+  private insertColumnBefore(col: number): void {
+    this.commitInput();
+    this.model.header.splice(col, 0, "");
+    this.model.body.forEach((cells) => cells.splice(col, 0, ""));
+    this.model.align.splice(col, 0, "default");
+    this.recompute();
+    this.selectCell(1, col);
+  }
+
+  private deleteColumn(col: number): void {
+    if (this.model.header.length <= 1) return;
+    this.commitInput();
+    this.model.header.splice(col, 1);
+    this.model.body.forEach((cells) => cells.splice(col, 1));
+    this.model.align.splice(col, 1);
+    this.recompute();
+    this.selectCell(this.active.row, Math.min(col, this.model.header.length - 1));
+  }
+
+  private appendColumn(): void {
+    this.commitInput();
+    this.model.header.push("");
+    this.model.body.forEach((cells) => cells.push(""));
+    this.model.align.push("default");
+    this.recompute();
+    this.selectCell(1, this.model.header.length - 1);
+  }
+
+  private insertRowBefore(row: number): void {
+    this.commitInput();
+    /* Row 1 is the header row and has nothing above it, so "above row 1" lands
+       at the top of the data area — which is still immediately under the
+       header, and the only reading that can actually be carried out. */
+    const at = row === 0 ? 0 : row - 1;
+    this.model.body.splice(at, 0, this.model.header.map(() => ""));
+    this.recompute();
+    this.selectCell(at + 1, this.active.col);
+  }
+
+  private deleteRow(row: number): void {
+    if (row === 0) return;
+    this.commitInput();
+    this.model.body.splice(row - 1, 1);
+    this.recompute();
+    this.selectCell(Math.max(1, Math.min(row, this.model.body.length)), this.active.col);
+  }
+
+  private appendRow(): void {
+    this.commitInput();
+    this.model.body.push(this.model.header.map(() => ""));
+    this.recompute();
+    this.selectCell(this.model.body.length, this.active.col);
+  }
+
   /* --------------------------------------------------------------- 网格 */
 
   /**
@@ -295,26 +419,81 @@ class TablePanel extends Modal {
    * shared out among the ones that exist. Both have to end up covering the
    * canvas, because a grid that stops short leaves a grey band that reads as a
    * rendering fault.
+   *
+   * Both axes count against the sizes actually in force, not against the
+   * defaults: widening a column means fewer of them fit, and a row pulled tall
+   * means fewer rows are visible. Counting the defaults would leave the grid
+   * short of the canvas on one side of the drag and overflowing it on the other.
    */
-  private gridPlan(): { columnWidth: number; columns: number; rows: number } {
+  private gridPlan(): { columns: number; rows: number } {
     const width = this.gridHost.clientWidth;
     const height = this.gridHost.clientHeight;
     const own = this.model.header.length;
-    const stretch = this.request.fillMode === "stretch";
 
     // `ceil`, not `floor`: rounding down leaves the grid a few pixels short of
     // the canvas, which is precisely the band this is trying to avoid.
-    const columnWidth = stretch
-      ? Math.max(MIN_COLUMN, Math.ceil((width - GUTTER_WIDTH) / Math.max(1, own)))
-      : PAD_COLUMN;
-    const columns = stretch
-      ? Math.max(1, own)
-      : Math.max(own, Math.ceil((width - GUTTER_WIDTH) / PAD_COLUMN));
-    const rows = Math.max(
-      this.model.body.length + 1,
-      Math.ceil((height - HEAD_HEIGHT) / ROW_HEIGHT)
-    );
-    return { columnWidth, columns, rows };
+    this.baseColumnWidth =
+      this.request.fillMode === "stretch"
+        ? Math.max(MIN_COLUMN, Math.ceil((width - GUTTER_WIDTH) / Math.max(1, own)))
+        : PAD_COLUMN;
+
+    return {
+      columns: Math.max(own, fitAcross(width, GUTTER_WIDTH, (col) => this.colWidth(col))),
+      rows: Math.max(
+        this.model.body.length + 1,
+        fitAcross(height, HEAD_HEIGHT, (row) => this.rowHeight(row))
+      ),
+    };
+  }
+
+  /** The width a column gets when it has not been dragged. */
+  private colWidth(col: number): number {
+    return this.colW[col] ?? this.baseColumnWidth;
+  }
+
+  /** The height a row gets when it has not been dragged. */
+  private rowHeight(row: number): number {
+    return this.rowH[row] ?? ROW_HEIGHT;
+  }
+
+  private setColWidth(col: number, width: number): void {
+    this.colW[col] = clamp(width, MIN_COL_W, MAX_COL_W);
+    this.renderGrid();
+  }
+
+  private setRowHeight(row: number, height: number): void {
+    this.rowH[row] = clamp(height, MIN_ROW_H, MAX_ROW_H);
+    this.renderGrid();
+  }
+
+  /**
+   * The draggable edge of a column or a row.
+   *
+   * It sits *inside* the header cell or row number rather than straddling the
+   * border, because those cells clip: a hotspot hanging half outside would be
+   * sliced in half, and the missing half is invisible on screen — it shows up
+   * only as "sometimes the edge will not grab".
+   */
+  private resizer(kind: "col" | "row", index: number): HTMLElement {
+    return h("div", {
+      cls: kind === "col" ? "mtk-col-resizer" : "mtk-row-resizer",
+      attr:
+        kind === "col"
+          ? { "data-resize": "col", "data-c": String(index) }
+          : { "data-resize": "row", "data-r": String(index) },
+    });
+  }
+
+  /**
+   * Row height goes on each cell, not on the row: the cells carry a fixed
+   * height of their own, so a row-level rule loses to them — and writing it per
+   * cell also means the size still applies against a stylesheet that has not
+   * caught up yet.
+   */
+  private applyRowHeight(el: HTMLElement, row: number): void {
+    const height = `${this.rowHeight(row)}px`;
+    el.style.height = height;
+    el.style.lineHeight = height;
   }
 
   private renderGrid(): void {
@@ -333,13 +512,19 @@ class TablePanel extends Modal {
         text: columnLetter(col),
         attr: { "data-head": "col", "data-hcol": String(col) },
       });
-      cell.style.width = `${plan.columnWidth}px`;
+      cell.style.width = `${this.colWidth(col)}px`;
+      /* Every column edge is draggable, the filler ones included: a size is a
+         thing that lives in this dialog and nowhere else, so a column added to
+         cover the canvas can carry one just as honestly as a real column. It is
+         the difference between "the grid keeps going" and "why won't this edge
+         grab", which is the kind of gap you only find by trying it. */
+      cell.appendChild(this.resizer("col", col));
       headRow.appendChild(cell);
     }
     sheet.appendChild(headRow);
 
     for (let row = 0; row < plan.rows; row += 1) {
-      sheet.appendChild(this.buildRow(row, plan.columnWidth, plan.columns));
+      sheet.appendChild(this.buildRow(row, plan.columns));
     }
 
     /* The selection rectangle and the cell editor are drawn inside the sheet so
@@ -361,22 +546,23 @@ class TablePanel extends Modal {
     this.refreshSelection();
   }
 
-  private buildRow(row: number, columnWidth: number, columns: number): HTMLElement {
+  private buildRow(row: number, columns: number): HTMLElement {
     const tr = h("div", { cls: "mtk-sheet-row" });
     /* A row number is filler under exactly the boundary its data cells use, so
        "the number below the table" and "the cell below the table" are one
        gesture rather than two that almost agree. Which of them a click grew the
        table was, for a while, a difference the code could not tell apart: the
        number never carried the class, so the branch that adds a row was dead. */
-    tr.appendChild(
-      h("div", {
-        cls:
-          "mtk-sheet-cell mtk-sheet-gutter" +
-          (row > this.model.body.length ? " is-filler" : ""),
-        text: String(row + 1),
-        attr: { "data-head": "row", "data-hrow": String(row) },
-      })
-    );
+    const gutter = h("div", {
+      cls:
+        "mtk-sheet-cell mtk-sheet-gutter" +
+        (row > this.model.body.length ? " is-filler" : ""),
+      text: String(row + 1),
+      attr: { "data-head": "row", "data-hrow": String(row) },
+    });
+    this.applyRowHeight(gutter, row);
+    gutter.appendChild(this.resizer("row", row));
+    tr.appendChild(gutter);
 
     const values = row === 0 ? this.model.header : this.model.body[row - 1];
 
@@ -385,7 +571,8 @@ class TablePanel extends Modal {
         cls: "mtk-sheet-cell",
         attr: { "data-row": String(row), "data-col": String(col) },
       });
-      cell.style.width = `${columnWidth}px`;
+      cell.style.width = `${this.colWidth(col)}px`;
+      this.applyRowHeight(cell, row);
 
       /* Past the table's own columns the grid keeps going. Those cells exist to
          fill the canvas — but they are not inert any more: clicking one grows
@@ -510,10 +697,20 @@ class TablePanel extends Modal {
   private wirePointer(): void {
     this.listen<MouseEvent>(this.gridHost, "mousedown", (event) => this.onPointerDown(event));
     this.listen<MouseEvent>(this.gridHost, "dblclick", (event) => this.onDoubleClick(event));
+    this.listen<MouseEvent>(this.gridHost, "contextmenu", (event) => this.onContextMenu(event));
     this.listen<MouseEvent>(document, "mousemove", (event) => this.onPointerMove(event));
-    this.listen<MouseEvent>(document, "mouseup", () => {
-      this.drag = null;
-    });
+    this.listen<MouseEvent>(document, "mouseup", () => this.endDrag());
+  }
+
+  private endDrag(): void {
+    if (this.drag?.mode === "colw") this.canvasEl.classList.remove("is-resizing-x");
+    if (this.drag?.mode === "rowh") this.canvasEl.classList.remove("is-resizing-y");
+    this.drag = null;
+  }
+
+  /** The grab target of a top-level `mousedown`, resizer included. */
+  private resizerFrom(target: HTMLElement): HTMLElement | null {
+    return target.closest<HTMLElement>(".mtk-col-resizer, .mtk-row-resizer");
   }
 
   private hit(target: HTMLElement): Hit | null {
@@ -551,6 +748,17 @@ class TablePanel extends Modal {
       event.preventDefault();
       return;
     }
+
+    /* The resize edge lives *inside* a header cell, so the hit test below would
+       cheerfully read it as a header click and select the whole column before
+       the handle had moved a pixel. It is claimed here, ahead of everything
+       else that looks at this event. */
+    const edge = this.resizerFrom(target);
+    if (edge) {
+      this.startResize(edge, event);
+      return;
+    }
+
     if (!hit) return;
 
     if (hit.head === "col") {
@@ -608,21 +816,76 @@ class TablePanel extends Modal {
     event.preventDefault();
   }
 
+  /**
+   * Begins a size drag.
+   *
+   * The size the press started from is recorded now and never re-read: the grid
+   * is rebuilt on every move, so measuring against "the current width" would
+   * compound whatever the last render rounded to and the edge would drift away
+   * from the pointer.
+   */
+  private startResize(edge: HTMLElement, event: MouseEvent): void {
+    this.commitInput();
+    event.preventDefault();
+    if (edge.getAttribute("data-resize") === "col") {
+      const col = Number(edge.getAttribute("data-c"));
+      this.drag = { mode: "colw", col, startX: event.clientX, startW: this.colWidth(col) };
+      this.canvasEl.classList.add("is-resizing-x");
+    } else {
+      const row = Number(edge.getAttribute("data-r"));
+      this.drag = { mode: "rowh", row, startY: event.clientY, startH: this.rowHeight(row) };
+      this.canvasEl.classList.add("is-resizing-y");
+    }
+  }
+
   private onDoubleClick(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
     if (!target) return;
+
+    /* Double-clicking an edge puts that one column or row back to its default.
+       A drag has to have a way back that does not consist of guessing the
+       original size by hand. */
+    const edge = this.resizerFrom(target);
+    if (edge) {
+      event.preventDefault();
+      if (edge.getAttribute("data-resize") === "col") {
+        this.colW[Number(edge.getAttribute("data-c"))] = undefined;
+      } else {
+        this.rowH[Number(edge.getAttribute("data-r"))] = undefined;
+      }
+      this.renderGrid();
+      return;
+    }
+
     const hit = this.hit(target);
     if (!hit || hit.head || hit.filler) return;
     this.startEdit(hit.row, hit.col);
   }
 
   private onPointerMove(event: MouseEvent): void {
-    if (!this.drag) return;
+    const drag = this.drag;
+    if (!drag) return;
+
+    /* A size drag is the one gesture that does not need a cell under the
+       pointer: pulling an edge out past the canvas is allowed, and letting go
+       the moment the pointer left the grid would read as the handle being
+       dropped. So both of these come before the hit test. */
+    if (drag.mode === "colw") {
+      const width = clamp(drag.startW + (event.clientX - drag.startX), MIN_COL_W, MAX_COL_W);
+      if (width !== this.colWidth(drag.col)) this.setColWidth(drag.col, width);
+      return;
+    }
+    if (drag.mode === "rowh") {
+      const height = clamp(drag.startH + (event.clientY - drag.startY), MIN_ROW_H, MAX_ROW_H);
+      if (height !== this.rowHeight(drag.row)) this.setRowHeight(drag.row, height);
+      return;
+    }
+
     const target = event.target as HTMLElement | null;
     const hit = target ? this.hit(target) : null;
     if (!hit) return;
 
-    switch (this.drag.mode) {
+    switch (drag.mode) {
       case "cells": {
         if (hit.head || hit.filler) return;
         if (hit.row === this.active.row && hit.col === this.active.col) return;
@@ -633,23 +896,23 @@ class TablePanel extends Modal {
       }
       case "cols": {
         if (hit.col < 0) return;
-        const c1 = Math.min(this.drag.start, hit.col);
-        const c2 = Math.max(this.drag.start, hit.col);
+        const c1 = Math.min(drag.start, hit.col);
+        const c2 = Math.max(drag.start, hit.col);
         this.range = { r1: 0, c1, r2: this.model.body.length, c2 };
         this.refreshSelection();
         return;
       }
       case "rows": {
         if (hit.row < 0) return;
-        const r1 = Math.min(this.drag.start, hit.row);
-        const r2 = Math.max(this.drag.start, hit.row);
+        const r1 = Math.min(drag.start, hit.row);
+        const r2 = Math.max(drag.start, hit.row);
         this.range = { r1, c1: 0, r2, c2: this.model.header.length - 1 };
         this.refreshSelection();
         return;
       }
       case "fill": {
         if (hit.row < 0 || hit.col < 0) return;
-        const from = this.drag.from;
+        const from = drag.from;
         const inside =
           hit.row >= from.r1 && hit.row <= from.r2 && hit.col >= from.c1 && hit.col <= from.c2;
         if (inside) {
@@ -663,6 +926,99 @@ class TablePanel extends Modal {
       default:
         return;
     }
+  }
+
+  /* --------------------------------------------------------- 行列右键菜单 */
+
+  /**
+   * A right-click on a column letter or a row number offers the three things
+   * you can do to a whole column or row.
+   *
+   * The menu is Obsidian's own `Menu`, the same one the ƒ button opens: it is a
+   * list of commands, so keyboard handling, placement and the theme's layering
+   * are already its business. A hand-drawn menu would have to re-derive all
+   * three, and the layering one in particular is not something a prototype can
+   * check.
+   */
+  private onContextMenu(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    const hit = this.hit(target);
+    /* A data cell keeps the browser's own menu: it has the copy and spelling
+       items people expect there, and none of these three would apply to one
+       cell anyway. */
+    if (!hit || !hit.head) return;
+    /* Past the table there is no column or row behind the header, so all three
+       items would do nothing. Better to show nothing at all. */
+    if (hit.filler) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    const head = hit.head;
+    const index = head === "col" ? hit.col : hit.row;
+    this.commitInput();
+
+    /* Excel's manners: take the whole column or row first, so which one the
+       menu is about is visible before anything in it is clicked. */
+    if (head === "col") {
+      this.anchor = { row: 1, col: index };
+      this.active = { row: 1, col: index };
+      this.range = { r1: 0, c1: index, r2: this.model.body.length, c2: index };
+    } else {
+      this.anchor = { row: index, col: 0 };
+      this.active = { row: index, col: 0 };
+      this.range = { r1: index, c1: 0, r2: index, c2: this.model.header.length - 1 };
+    }
+    this.refreshSelection();
+
+    const menu = new Menu();
+    if (head === "col") {
+      menu.addItem((item) =>
+        item
+          .setTitle(t("table.col.insertBefore"))
+          .setIcon("plus")
+          .onClick(() => this.insertColumnBefore(index))
+      );
+      menu.addItem((item) => {
+        item
+          .setTitle(t("table.col.delete"))
+          .setIcon("trash-2")
+          .onClick(() => this.deleteColumn(index));
+        /* A table with no columns is not a table. */
+        if (this.model.header.length <= 1) item.setDisabled(true);
+      });
+      menu.addItem((item) =>
+        item
+          .setTitle(t("table.col.append"))
+          .setIcon("plus")
+          .onClick(() => this.appendColumn())
+      );
+    } else {
+      menu.addItem((item) =>
+        item
+          .setTitle(t("table.row.insertBefore"))
+          .setIcon("plus")
+          .onClick(() => this.insertRowBefore(index))
+      );
+      menu.addItem((item) => {
+        item
+          .setTitle(t("table.row.delete"))
+          .setIcon("trash-2")
+          .onClick(() => this.deleteRow(index));
+        /* Row 1 is the Markdown header row, and the table does not survive
+           without it. */
+        if (index === 0) item.setDisabled(true);
+      });
+      menu.addItem((item) =>
+        item
+          .setTitle(t("table.row.append"))
+          .setIcon("plus")
+          .onClick(() => this.appendRow())
+      );
+    }
+    menu.showAtMouseEvent(event);
   }
 
   /* ------------------------------------------------------------- 键盘 */

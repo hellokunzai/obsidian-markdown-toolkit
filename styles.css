@@ -2693,6 +2693,13 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-tbl-sheet .mtk-sheet-row.is-head .mtk-sheet-gutter {
   z-index: 4;
 }
+/* Only the table's own rows get a bold number. A real row is one you can put
+   something in; the filler numbers below keep the plain weight so the table's
+   bottom edge is readable at a glance. Weight only -- `is-hl` still owns the
+   active row's colour, and a `:not()` here would outrank it. */
+.mtk-tbl-sheet .mtk-sheet-gutter:not(.is-filler) {
+  font-weight: 600;
+}
 
 .mtk-sheet-cell.is-num {
   text-align: right;
@@ -2738,6 +2745,85 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-sheet-cell.is-hl {
   color: var(--text-normal);
   background-color: var(--background-modifier-hover);
+}
+
+/*
+ * Dragging a column edge or a row edge.
+ *
+ * The hotspot is a real element sitting *inside* the header cell, flush against
+ * the edge it resizes, and the accent line that says "you are on the edge" is
+ * drawn on its `::after`. Keeping the two apart is the point: a pseudo-element
+ * takes no hits, so the highlight can be as thin as it likes without the grab
+ * area shrinking with it — and a hotspot straddling the border would be half
+ * clipped away by the cell, a loss you would only ever notice as "it sometimes
+ * will not grab".
+ *
+ * The column letter needs a containing block of its own; the row number does
+ * not, because `position: sticky` already made it one.
+ */
+.mtk-sheet-row.is-head .mtk-sheet-cell[data-head="col"] {
+  position: relative;
+}
+.mtk-col-resizer,
+.mtk-row-resizer {
+  position: absolute;
+  z-index: 5;
+  touch-action: none;
+}
+.mtk-col-resizer {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+}
+.mtk-row-resizer {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: row-resize;
+}
+.mtk-col-resizer::after,
+.mtk-row-resizer::after {
+  content: "";
+  position: absolute;
+  background-color: var(--interactive-accent);
+  opacity: 0;
+}
+.mtk-col-resizer::after {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+}
+.mtk-row-resizer::after {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+}
+.mtk-col-resizer:hover::after,
+.mtk-row-resizer:hover::after,
+.mtk-canvas.is-resizing-x .mtk-col-resizer::after,
+.mtk-canvas.is-resizing-y .mtk-row-resizer::after {
+  opacity: 0.55;
+}
+
+/* While an edge is held, the whole grid wears that edge's cursor. Without this
+   a quick drag slips the pointer off the 6px hotspot and the cursor flips back
+   to a cell pointer, which reads as the drag having ended. */
+.mtk-editor .mtk-canvas.is-resizing-x .mtk-sheet-cell,
+.mtk-editor .mtk-canvas.is-resizing-x .mtk-sheet-gutter,
+.mtk-editor .mtk-canvas.is-resizing-x .mtk-col-resizer,
+.mtk-editor .mtk-canvas.is-resizing-x .mtk-row-resizer {
+  cursor: col-resize;
+}
+.mtk-editor .mtk-canvas.is-resizing-y .mtk-sheet-cell,
+.mtk-editor .mtk-canvas.is-resizing-y .mtk-sheet-gutter,
+.mtk-editor .mtk-canvas.is-resizing-y .mtk-col-resizer,
+.mtk-editor .mtk-canvas.is-resizing-y .mtk-row-resizer {
+  cursor: row-resize;
 }
 
 /*
