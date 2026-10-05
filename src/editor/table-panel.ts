@@ -48,9 +48,20 @@ import {
   columnLetter,
   evaluateTable,
   type CellResult,
+  type TableAlign,
   type TableModel,
 } from "../core/table-formula";
 import type { TableFillMode } from "../settings";
+import { THEME_ROWS, STANDARD_COLORS, FONT_COLOR_ICON } from "../core/font-color";
+import { TRANSLUCENT_COLORS, HIGHLIGHTER_COLORS, BACKGROUND_COLOR_ICON } from "../core/background-color";
+import {
+  readColorSpan,
+  writeColorProp,
+  normalizeHex,
+  normalizeColor,
+  type ColorProp,
+} from "../core/color-span";
+import { ColorPickerPanel, closeColorPicker, type ColorBand } from "../ui/color-picker";
 
 export interface TableEditorRequest {
   app: App;
@@ -180,6 +191,10 @@ class TablePanel extends Modal {
   private cellInput!: HTMLInputElement;
   private rangeBox!: HTMLElement;
   private fillHandle!: HTMLElement;
+  /** 格式刷装填后的缓冲区；为 `null` 表示未装填。 */
+  private brushBuffer: { align: TableAlign; color: string | null; bg: string | null } | null = null;
+  /** 格式刷工具栏按钮，用于装填 / 刷出时切换高亮。 */
+  private brushBtn: HTMLButtonElement | null = null;
 
   /** Unsubscribe callbacks for the document-level listeners, run on close. */
   private readonly teardown: Array<() => void> = [];
@@ -282,6 +297,8 @@ class TablePanel extends Modal {
   }
 
   onClose(): void {
+    closeColorPicker();
+    this.brushBuffer = null;
     for (const off of this.teardown) off();
     this.teardown.length = 0;
     this.contentEl.empty();
@@ -312,6 +329,32 @@ class TablePanel extends Modal {
     this.toolbarEl.appendChild(this.button("", "rows", t("table.row.add"), () => this.addRow()));
     this.toolbarEl.appendChild(this.button("", "columns", t("table.col.add"), () => this.addColumn()));
     this.toolbarEl.appendChild(this.divider());
+
+    /* 格式组：格式刷 / 左·中·右对齐 / 背景色 / 字体色。
+       对齐是表格原生语法（写进分隔行，随保存持久化）；颜色按用户拍板写回
+       笔记内联 <span>（公式单元格 `=` 跳过，否则会埋掉公式）。 */
+    const brushBtn = this.button("", "paintbrush", t("table.formatBrush"), () => this.formatBrush());
+    this.brushBtn = brushBtn;
+    this.toolbarEl.appendChild(brushBtn);
+    this.toolbarEl.appendChild(
+      this.button("", "align-left", t("table.align.left"), () => this.applyAlign("left"))
+    );
+    this.toolbarEl.appendChild(
+      this.button("", "align-center", t("table.align.center"), () => this.applyAlign("center"))
+    );
+    this.toolbarEl.appendChild(
+      this.button("", "align-right", t("table.align.right"), () => this.applyAlign("right"))
+    );
+    this.toolbarEl.appendChild(
+      this.button("", BACKGROUND_COLOR_ICON, t("table.color.background"), (event) =>
+        this.openColorPicker("bg", event.currentTarget as HTMLElement)
+      )
+    );
+    this.toolbarEl.appendChild(
+      this.button("", FONT_COLOR_ICON, t("table.color.font"), (event) =>
+        this.openColorPicker("font", event.currentTarget as HTMLElement)
+      )
+    );
   }
 
   private button(
@@ -348,6 +391,161 @@ class TablePanel extends Modal {
     this.model.body.forEach((row) => row.push(""));
     this.model.align.push("default");
     this.recompute();
+  }
+
+  /* ----------------------------------------------------- 格式组（阶段二） */
+
+  /**
+   * 把选区覆盖的每一列，整体切换成 `kind` 对齐；若这些列已经**全部**是
+   * `kind`，则整体退回默认（再按一次即取消）。
+   *
+   * 对齐写进 `model.align`，随保存落进分隔行（`:---` / `:---:` / `---:`），
+   * 是表格原生语法、可永久持久化，别的编辑器也认。Markdown 表格无
+   * `justify`，所以只给左 / 中 / 右三档。
+   */
+  private applyAlign(kind: "left" | "center" | "right"): void {
+    this.commitInput();
+    const last = this.model.align.length - 1;
+    const c1 = Math.min(this.range.c1, last);
+    const c2 = Math.min(this.range.c2, last);
+    if (c1 < 0 || c2 < 0 || c1 > last) return;
+
+    let already = true;
+    for (let c = c1; c <= c2; c += 1) {
+      if (this.model.align[c] !== kind) {
+        already = false;
+        break;
+      }
+    }
+    for (let c = c1; c <= c2; c += 1) this.model.align[c] = already ? "default" : kind;
+    this.recompute();
+  }
+
+  /**
+   * 格式刷：两击式（与 Excel 单击模式一致）。
+   *
+   * 第一击「装填」：把**当前活动单元格**的列对齐 + 单元格颜色读进缓冲区，
+   * 按钮点亮；第二击「刷出」：把缓冲区套用到**当前选区**，然后熄灯。这样
+   * 用户可以先点源格、再框选目标、再点刷子，源格不会因移动选区而丢。
+   * 公式单元格（`=` 开头）跳过颜色（上色会埋掉 `=` 让公式失效）。
+   */
+  private formatBrush(): void {
+    if (!this.brushBuffer) {
+      const raw = this.rawAt(this.active.row, this.active.col);
+      const span = readColorSpan(raw);
+      this.brushBuffer = {
+        align: this.model.align[this.active.col] ?? "default",
+        color: span?.props.color ?? null,
+        bg: span?.props["background-color"] ?? null,
+      };
+      this.refreshBrushButton(true);
+      return;
+    }
+
+    const buf = this.brushBuffer;
+    this.brushBuffer = null;
+    this.refreshBrushButton(false);
+
+    const last = this.model.align.length - 1;
+    const { r1, r2 } = this.range;
+    const c1 = Math.min(this.range.c1, last);
+    const c2 = Math.min(this.range.c2, last);
+
+    for (let c = c1; c <= c2; c += 1) this.model.align[c] = buf.align;
+
+    let changed = false;
+    for (let r = r1; r <= r2; r += 1) {
+      for (let c = c1; c <= c2; c += 1) {
+        const raw = this.rawAt(r, c);
+        if (raw.startsWith("=")) continue;
+        let next = writeColorProp(raw, "color", buf.color);
+        next = writeColorProp(next, "background-color", buf.bg);
+        if (next !== raw) {
+          this.writeCell(r, c, next);
+          changed = true;
+        }
+      }
+    }
+    this.recompute();
+  }
+
+  /** 格式刷装填时点亮按钮，刷出后熄灯。 */
+  private refreshBrushButton(on: boolean): void {
+    this.brushBtn?.classList.toggle("is-on", on);
+  }
+
+  /**
+   * 打开调色板，锚定到工具栏的颜色按钮。字体色走方块十列（hex 语法），
+   * 背景色走圆形五列（含 `rgb()` / `rgba()` 透明语法）。选中的颜色统一
+   * 应用到当前选区（公式单元格跳过）。
+   */
+  private openColorPicker(kind: "font" | "bg", anchor: HTMLElement): void {
+    const isFont = kind === "font";
+    const bands: ColorBand[] = isFont
+      ? [
+          { caption: t("fontColor.colors.theme"), colors: THEME_ROWS.flat() },
+          { caption: t("fontColor.colors.standard"), colors: STANDARD_COLORS },
+        ]
+      : [
+          { caption: t("backgroundColor.colors.translucent"), colors: TRANSLUCENT_COLORS },
+          { caption: t("backgroundColor.colors.highlighter"), colors: HIGHLIGHTER_COLORS },
+        ];
+
+    const activeSpan = readColorSpan(this.rawAt(this.active.row, this.active.col));
+    const current = activeSpan?.props[isFont ? "color" : "background-color"];
+    const seed = current ?? (isFont ? "#ff0000" : "rgb(255,248,143)");
+
+    new ColorPickerPanel({
+      title: isFont ? t("table.color.font") : t("table.color.background"),
+      bands,
+      round: !isFont,
+      anchor,
+      accepts: isFont ? normalizeHex : normalizeColor,
+      seed,
+      current,
+      onPick: (picked) => this.applyColorToSelection(kind, picked),
+    }).open();
+  }
+
+  /**
+   * 把 `color` 应用到当前选区（字体色 → `color`，背景色 → `background-color`）。
+   *
+   * 整段选区**统一**决定「上色 / 撤色」：若选区内每个非公式单元格已是该色，
+   * 则统一撤下，否则统一套上——避免逐格翻转（一半保留一半上色）。公式单元格
+   * 跳过，因其 raw 以 `=` 开头，上色会破坏公式。
+   */
+  private applyColorToSelection(kind: "font" | "bg", color: string): void {
+    this.commitInput();
+    const prop: ColorProp = kind === "font" ? "color" : "background-color";
+    const normalize = kind === "font" ? normalizeHex : normalizeColor;
+    const target = normalize(color);
+    if (!target) return;
+
+    const last = this.model.align.length - 1;
+    const { r1, r2 } = this.range;
+    const c1 = Math.min(this.range.c1, last);
+    const c2 = Math.min(this.range.c2, last);
+
+    const cells: Array<{ r: number; c: number; raw: string }> = [];
+    for (let r = r1; r <= r2; r += 1) {
+      for (let c = c1; c <= c2; c += 1) {
+        const raw = this.rawAt(r, c);
+        if (raw.startsWith("=")) continue;
+        cells.push({ r, c, raw });
+      }
+    }
+    if (cells.length === 0) return;
+
+    const remove = cells.every(({ raw }) => readColorSpan(raw)?.props[prop] === target);
+    let changed = false;
+    for (const { r, c, raw } of cells) {
+      const next = writeColorProp(raw, prop, remove ? null : target);
+      if (next !== raw) {
+        this.writeCell(r, c, next);
+        changed = true;
+      }
+    }
+    if (changed) this.recompute();
   }
 
   /*
@@ -592,7 +790,25 @@ class TablePanel extends Modal {
 
       const result = this.results[row]?.[col];
       if (result) {
-        cell.textContent = result.text;
+        /* 列级对齐：原生语法（写进分隔行），内联覆盖 CSS 默认（表头居中 /
+           数字右对齐）。仅非 default 时覆盖，保留默认外观。 */
+        const align = this.model.align[col];
+        if (align && align !== "default") cell.style.textAlign = align;
+
+        /* 单元格颜色：从 raw 文本里的 <span style> 读回，直接上样式；
+           显示文本用 span.inner，否则会把标签当字面量显示出来。
+           公式单元格（`=` 开头）不是颜色 span，落到 else 显示计算值。 */
+        const raw = this.rawAt(row, col);
+        const span = readColorSpan(raw);
+        if (span) {
+          cell.textContent = span.inner;
+          if (span.props.color) cell.style.color = span.props.color;
+          const bg = span.props["background-color"];
+          if (bg) cell.style.backgroundColor = bg;
+        } else {
+          cell.textContent = result.text;
+        }
+
         if (row > 0 && this.numericColumn(col)) cell.classList.add("is-num");
         if (result.error) cell.classList.add("is-err");
         if (result.formula) cell.classList.add("is-fx");
