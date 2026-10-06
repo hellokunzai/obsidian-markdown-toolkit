@@ -14,12 +14,13 @@
  * below it. Adopting the native element is not a detail of one render mode; it
  * is what makes the other modes possible at all.
  */
-import { setIcon } from "obsidian";
+import { Menu, Notice, normalizePath, setIcon, type App, type TFile, type Vault } from "obsidian";
 import { t } from "../i18n";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
 import {
   countFormulas,
+  serializeCsv,
   serializeTable,
   type CellResult,
   type TableAlign,
@@ -237,7 +238,10 @@ export interface TableFrameOptions {
   mode: TableRenderMode;
   /** The element the renderer produced, adopted so the other modes can hide it. */
   native: HTMLElement;
-  onEdit: () => void;
+  /** The app, so the download entry can write a file beside the note. */
+  app: App;
+  /** The note the table came from; the export lands in its folder. */
+  file: TFile | null;
 }
 
 export interface TableFrame {
@@ -289,7 +293,6 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
   let model = options.model;
   let results = options.results;
   let mode = options.mode;
-  let showingSource = false;
 
   const box = h("div", { cls: "mtk-embed" });
   const body = h("div", { cls: "mtk-embed-table" });
@@ -300,24 +303,28 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
   badge.appendChild(badgeText);
   box.appendChild(badge);
 
-  const edit = h("button", { cls: "mtk-embed-action mtk-embed-edit", attr: { type: "button" } });
-  setIcon(edit, "square-pen");
-  applyTooltip(edit, t("table.edit"));
-  edit.addEventListener("click", (event: MouseEvent) => {
+  /* The two corner entries, as the same family of 26px squares the diagram
+     block wears: "download the table" and "show it bigger". The reading view's
+     frame used to carry "edit" and "source" entries; those are gone — editing
+     still happens through the table panel, and the preview now reads like the
+     diagram's, where the only entries are view and export. */
+  const download = h("button", { cls: "mtk-embed-action mtk-embed-export", attr: { type: "button" } });
+  setIcon(download, "download");
+  applyTooltip(download, t("table.download"));
+  download.addEventListener("click", (event: MouseEvent) => {
     event.stopPropagation();
-    options.onEdit();
+    openTableExportMenu(download, options.app, options.file, model);
   });
-  box.appendChild(edit);
+  box.appendChild(download);
 
-  const source = h("button", { cls: "mtk-embed-action mtk-embed-code", attr: { type: "button" } });
-  setIcon(source, "code");
-  applyTooltip(source, t("table.source"));
-  source.addEventListener("click", (event: MouseEvent) => {
+  const view = h("button", { cls: "mtk-embed-action mtk-embed-view", attr: { type: "button" } });
+  setIcon(view, "maximize-2");
+  applyTooltip(view, t("table.view"));
+  view.addEventListener("click", (event: MouseEvent) => {
     event.stopPropagation();
-    showingSource = !showingSource;
-    render();
+    openTableLightbox(model, results, options.native, options.app, options.file);
   });
-  box.appendChild(source);
+  box.appendChild(view);
 
   /** Writes the computed text into the cells the renderer already drew. */
   const writeValuesInto = (table: HTMLElement): void => {
@@ -339,9 +346,7 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
 
   const render = (): void => {
     body.empty();
-    if (showingSource) {
-      body.appendChild(h("pre", { cls: "mtk-tbl-source", text: serializeTable(model) }));
-    } else if (mode === "native") {
+    if (mode === "native") {
       writeValuesInto(options.native);
       options.native.classList.add("mtk-cell-native");
       body.appendChild(options.native);
@@ -371,4 +376,186 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
       restoreNativeText(options.native);
     },
   };
+}
+
+/**
+ * The formats the download entry offers, as a menu under the button — the same
+ * shape as the diagram's export entry.
+ *
+ * One button rather than two squares for "CSV" and "Markdown": the corner is a
+ * row of 26px squares, and two glyphs that both mean "download" are not two
+ * things a reader can tell apart. The menu itself is Obsidian's own `Menu`, so
+ * it inherits the theme, the flip-up placement near the window's bottom, Escape
+ * to close and keyboard navigation for free — the toolbar's submenus already go
+ * through `Menu` for exactly that reason.
+ */
+export function openTableExportMenu(anchor: HTMLElement, app: App, file: TFile | null, model: TableModel): void {
+  const menu = new Menu();
+  menu.addItem((item) =>
+    item
+      .setTitle(t("table.exportCsv"))
+      .setIcon("file-spreadsheet")
+      .onClick(() => void writeTableFile(app, file, "csv", model))
+  );
+  menu.addItem((item) =>
+    item
+      .setTitle(t("table.exportMd"))
+      .setIcon("file-text")
+      .onClick(() => void writeTableFile(app, file, "md", model))
+  );
+  const rect = anchor.getBoundingClientRect();
+  menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
+}
+
+/**
+ * Writes the table out beside the note it came from.
+ *
+ * Mirrors the diagram export's landing rule: a sibling of the note, never a
+ * fixed folder, so the file keeps the one piece of context that says which note
+ * it belongs to. Failures are reported rather than thrown — this runs from a
+ * click handler on a button in a note, and a rejected promise there is an
+ * unhandled rejection the user cannot act on.
+ */
+async function writeTableFile(app: App, file: TFile | null, kind: "csv" | "md", model: TableModel): Promise<void> {
+  const path = freeTablePath(app.vault, file, kind);
+  const content = kind === "csv" ? serializeCsv(model) : serializeTable(model);
+  try {
+    await app.vault.create(path, content);
+    new Notice(t("notice.exported", { name: path }));
+  } catch (error) {
+    console.error("MarkdownEditorPlus: table export failed", error);
+    new Notice(t("notice.exportFailed"));
+  }
+}
+
+/**
+ * `file`'s folder plus its basename, never taken twice.
+ *
+ * A note at the vault root has `parent.path === ""` (not `/`), so the two are
+ * joined through `normalizePath` — otherwise a root note exports to `//note.csv`
+ * and the confirmation reads like a typo. Exporting twice is a normal thing to
+ * do, so a taken name is stepped past rather than overwritten: silently
+ * replacing the previous file is data loss the user never asked for.
+ */
+function freeTablePath(vault: Vault, file: TFile | null, kind: "csv" | "md"): string {
+  const folder = file?.parent?.path ?? "";
+  const base = file?.basename ?? "table";
+  const stem = normalizePath(`${folder}/${base}`);
+
+  let path = `${stem}.${kind}`;
+  let counter = 2;
+  while (vault.getAbstractFileByPath(path)) {
+    path = `${stem} ${counter}.${kind}`;
+    counter += 1;
+  }
+  return path;
+}
+
+/**
+ * A full-screen, read-only copy of the table — the reading view's "view" entry.
+ *
+ * Built the same way the diagram's preview is: a fixed `role="dialog"` overlay
+ * with the table painted fresh at the frame's size (not a clone of the block's
+ * small canvas), so closing the note does not tear the preview down and the
+ * theme palette is resolved against the overlay. The overlay already covers the
+ * app, so "full screen" here means letting the *frame* fill it — keeping the
+ * feature inside the preview instead of stealing the browser window from
+ * Obsidian's own full-screen command. The download entry is the same one the
+ * block wears, so a table exported from the preview matches one exported inline.
+ */
+export function openTableLightbox(
+  model: TableModel,
+  results: CellResult[][],
+  native: HTMLElement,
+  app: App,
+  file: TFile | null
+): void {
+  if (document.querySelector(".mtk-lightbox")) return;
+
+  const overlay = h("div", { cls: "mtk-lightbox" });
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+
+  const sheet = h("div", { cls: "mtk-lightbox-sheet" });
+  overlay.appendChild(sheet);
+
+  /* The table scrolls inside the sheet; the corner buttons are siblings of the
+     scroller, not children of it, so they stay pinned at the sheet's top-right
+     while a long table moves underneath — the same "buttons float over the
+     content" arrangement the diagram preview uses. */
+  const scroller = h("div", { cls: "mtk-lightbox-scroll" });
+  const body = h("div", { cls: "mtk-tbl-wrap" });
+  body.appendChild(paintTable(model, results, colorsFromTable(native)));
+  scroller.appendChild(body);
+  sheet.appendChild(scroller);
+
+  /**
+   * The two corner buttons. "Full screen" here means the frame filling the
+   * viewport (see the `.is-fullscreen` rules) — the overlay is already
+   * `fixed; inset: 0`, so that is the only reading available, and it keeps the
+   * feature inside the preview instead of taking the browser window away from
+   * Obsidian's own full-screen command.
+   */
+  let showingFull = false;
+  const fullButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-full" });
+  fullButton.type = "button";
+  setIcon(fullButton, "maximize");
+  applyTooltip(fullButton, t("embed.lightboxFull"));
+
+  const setFullscreen = (on: boolean): void => {
+    if (on === showingFull) return;
+    showingFull = on;
+    overlay.classList.toggle("is-fullscreen", on);
+    setIcon(fullButton, on ? "minimize" : "maximize");
+    applyTooltip(fullButton, on ? t("embed.lightboxRestore") : t("embed.lightboxFull"));
+  };
+
+  const close = (): void => {
+    document.removeEventListener("keydown", onKey);
+    overlay.remove();
+  };
+  const onKey = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape") return;
+    /* Escape peels one layer at a time: out of full screen first, then out of
+       the preview. Closing in one step would make re-entering full screen the
+       only way back out of it. */
+    if (showingFull) setFullscreen(false);
+    else close();
+  };
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKey);
+
+  /* The download entry, in the preview's own family of round buttons — the
+     table is the same one, so the action around it is the same. Added first so
+     the corner stacks left to right in the order the buttons were added. */
+  const downloadButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-export" });
+  downloadButton.type = "button";
+  setIcon(downloadButton, "download");
+  applyTooltip(downloadButton, t("table.download"));
+  downloadButton.addEventListener("click", (event: MouseEvent) => {
+    event.stopPropagation();
+    openTableExportMenu(downloadButton, app, file, model);
+  });
+  sheet.appendChild(downloadButton);
+
+  fullButton.addEventListener("click", (event: MouseEvent) => {
+    event.stopPropagation();
+    setFullscreen(!showingFull);
+  });
+  sheet.appendChild(fullButton);
+
+  const closeButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-close" });
+  closeButton.type = "button";
+  setIcon(closeButton, "x");
+  applyTooltip(closeButton, t("embed.lightboxClose"));
+  closeButton.addEventListener("click", (event: MouseEvent) => {
+    event.stopPropagation();
+    close();
+  });
+  sheet.appendChild(closeButton);
+
+  document.body.appendChild(overlay);
 }

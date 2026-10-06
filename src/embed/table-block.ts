@@ -39,7 +39,6 @@ import {
   type TableModel,
 } from "../core/table-formula";
 import { buildTableFrame, modelFromTable, shouldFrame, type TableFrame } from "./table-render";
-import { openTableEditor } from "../editor/table-panel";
 import type { MarkdownEditorPlusSettings } from "../settings";
 
 /** The slice of the plugin a table frame draws with. */
@@ -190,25 +189,17 @@ export class TableBlock extends MarkdownRenderChild {
        else. That is fine and intentional: the frame re-adopts it in the one mode
        that shows it, and the reference stays valid across the detach. */
     this.containerEl.empty();
+    const source = this.host.app.vault.getAbstractFileByPath(this.ctx.sourcePath);
+    const file = source instanceof TFile ? source : null;
     this.frame = buildTableFrame({
       model: this.model,
       results: this.results,
       mode: this.host.settings.tableRenderMode,
       native: this.native,
-      onEdit: () => this.openEditor(),
+      app: this.host.app,
+      file,
     });
     this.containerEl.appendChild(this.frame.el);
-  }
-
-  private openEditor(): void {
-    openTableEditor({
-      app: this.host.app,
-      model: this.model,
-      fillMode: this.host.settings.tableFillMode,
-      /* Returned, not swallowed: the panel acknowledges the save only after the
-         write has landed, so "已保存" cannot be shown for an edit that failed. */
-      onSave: (next) => this.applyEdit(next),
-    });
   }
 
   /**

@@ -261,6 +261,26 @@ export function serializeTable(model: TableModel): string {
   return [padded(model.header), rule, ...model.body.map(padded)].join("\n");
 }
 
+/**
+ * The table as comma-separated values, for export alongside the note.
+ *
+ * A cell holding a comma, quote or newline is wrapped and its own quotes doubled
+ * — the only escaping RFC 4180 asks for, and the one a spreadsheet opens without
+ * mangling a row. The order mirrors `serializeTable` exactly (header first, then
+ * the body), so the CSV and the note's Markdown describe the same table. CRLF
+ * line ends are used because that is what Excel reads as "new row" on every
+ * platform; a bare LF makes it treat the whole file as one line on Windows.
+ */
+export function serializeCsv(model: TableModel): string {
+  const escape = (cell: string): string => {
+    if (/[",\n\r]/.test(cell)) return `"${cell.replace(/"/g, '""')}"`;
+    return cell;
+  };
+  return [model.header, ...model.body]
+    .map((row) => model.header.map((_unused, i) => escape(row[i] ?? "")).join(","))
+    .join("\r\n");
+}
+
 /** Terminal columns a string occupies: a CJK glyph is two, everything else one. */
 export function displayWidth(text: string): number {
   let width = 0;
