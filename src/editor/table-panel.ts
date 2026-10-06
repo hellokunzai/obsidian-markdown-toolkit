@@ -102,6 +102,14 @@ const MAX_COL_W = 800;
 const MIN_ROW_H = 20;
 const MAX_ROW_H = 400;
 
+/** How far past the table's own size the filler grid may grow before it stops.
+ *  A finite cap keeps the DOM bounded while still feeling endless in practice. */
+const GROW_CAP = 60;
+/** Filler columns/rows kept rendered beyond the visible edge, so a scroll lands
+ *  on grid rather than blank space — and the next grow has somewhere to start. */
+const H_BUFFER = 12;
+const V_BUFFER = 9;
+
 const clamp = (value: number, low: number, high: number): number =>
   Math.round(Math.max(low, Math.min(high, value)));
 
@@ -208,6 +216,11 @@ class TablePanel extends Modal {
   private cellInput!: HTMLInputElement;
   private rangeBox!: HTMLElement;
   private fillHandle!: HTMLElement;
+  /** Columns/rows drawn so far (real plus filler). Cumulative: once grown it
+   *  stays, so scrolling back keeps what you already reached. `ensureBuffer`
+   *  raises it as the user scrolls toward an edge. */
+  private renderedCols = 0;
+  private renderedRows = 0;
   /** 格式刷装填后的缓冲区；为 `null` 表示未装填。 */
   private brushBuffer: { align: TableAlign; color: string | null; bg: string | null } | null = null;
   /** 格式刷工具栏按钮，用于装填 / 刷出时切换高亮。 */
@@ -311,6 +324,12 @@ class TablePanel extends Modal {
     /* The first render happens before layout, so the canvas has no width and the
        grid cannot know how much to fill. One frame later it does. */
     window.requestAnimationFrame(() => this.renderGrid());
+
+    /* Grow filler cells as the user scrolls toward an edge, so the grid feels
+       endless rather than being capped at the viewport. */
+    const onGridScroll = (): void => this.ensureBuffer();
+    this.gridHost.addEventListener("scroll", onGridScroll, { passive: true });
+    this.teardown.push(() => this.gridHost.removeEventListener("scroll", onGridScroll));
   }
 
   onClose(): void {
@@ -652,22 +671,25 @@ class TablePanel extends Modal {
   /* --------------------------------------------------------------- 网格 */
 
   /**
-   * How much grid to draw, given the room there is.
+   * How many columns/rows to draw.
    *
-   * The two modes differ only in where the spare width goes — extra columns, or
-   * shared out among the ones that exist. Both have to end up covering the
-   * canvas, because a grid that stops short leaves a grey band that reads as a
-   * rendering fault.
+   * The grid is no longer hard-capped at the visible canvas. It always covers
+   * the viewport plus a fixed buffer past the visible edge, so a scroll reveals
+   * grid rather than void and the buffer keeps growing as the user goes — the
+   * grid feels endless. A finite `GROW_CAP` past the table's own size bounds the
+   * DOM.
    *
-   * Both axes count against the sizes actually in force, not against the
-   * defaults: widening a column means fewer of them fit, and a row pulled tall
-   * means fewer rows are visible. Counting the defaults would leave the grid
-   * short of the canvas on one side of the drag and overflowing it on the other.
+   * The buffer is drawn at rest too, not just after the first scroll. A table
+   * that fits the viewport has no overflow when covered exactly, so the scroll
+   * container never scrolls and growth never starts — leaving the "endless grid"
+   * dead for the common small table. Keeping the buffer always on guarantees
+   * there is always something past the edge to scroll into.
    */
   private gridPlan(): { columns: number; rows: number } {
     const width = this.gridHost.clientWidth;
     const height = this.gridHost.clientHeight;
     const own = this.model.header.length;
+    const real = this.model.body.length + 1;
 
     // `ceil`, not `floor`: rounding down leaves the grid a few pixels short of
     // the canvas, which is precisely the band this is trying to avoid.
@@ -676,13 +698,40 @@ class TablePanel extends Modal {
         ? Math.max(MIN_COLUMN, Math.ceil((width - GUTTER_WIDTH) / Math.max(1, own)))
         : PAD_COLUMN;
 
-    return {
-      columns: Math.max(own, fitAcross(width, GUTTER_WIDTH, (col) => this.colWidth(col))),
-      rows: Math.max(
-        this.model.body.length + 1,
-        fitAcross(height, HEAD_HEIGHT, (row) => this.rowHeight(row))
-      ),
-    };
+    const scrollLeft = this.gridHost.scrollLeft;
+    const scrollTop = this.gridHost.scrollTop;
+    const coverCols = fitAcross(scrollLeft + width, GUTTER_WIDTH, (col) => this.colWidth(col));
+    const coverRows = fitAcross(scrollTop + height, HEAD_HEIGHT, (row) => this.rowHeight(row));
+    const columns = Math.min(own + GROW_CAP, Math.max(own, coverCols) + H_BUFFER);
+    const rows = Math.min(real + GROW_CAP, Math.max(real, coverRows) + V_BUFFER);
+    this.renderedCols = columns;
+    this.renderedRows = rows;
+    return { columns, rows };
+  }
+
+  /**
+   * Called on scroll: when the viewport nears the rendered edge, grow the grid
+   * so there is always more to scroll into. Only re-renders on growth — sliding
+   * back up keeps the cells already drawn instead of rebuilding the DOM on every
+   * tick — and the growth is capped at `GROW_CAP` past the table so the DOM
+   * cannot grow without bound.
+   */
+  private ensureBuffer(): void {
+    const width = this.gridHost.clientWidth;
+    const height = this.gridHost.clientHeight;
+    if (width === 0 || height === 0) return;
+
+    const own = this.model.header.length;
+    const real = this.model.body.length + 1;
+    const scrollLeft = this.gridHost.scrollLeft;
+    const scrollTop = this.gridHost.scrollTop;
+    const coverCols = fitAcross(scrollLeft + width, GUTTER_WIDTH, (col) => this.colWidth(col));
+    const coverRows = fitAcross(scrollTop + height, HEAD_HEIGHT, (row) => this.rowHeight(row));
+    const columns = Math.min(own + GROW_CAP, Math.max(own, coverCols) + H_BUFFER);
+    const rows = Math.min(real + GROW_CAP, Math.max(real, coverRows) + V_BUFFER);
+    if (columns > this.renderedCols || rows > this.renderedRows) {
+      this.renderGrid();
+    }
   }
 
   /** The width a column gets when it has not been dragged. */
@@ -736,6 +785,11 @@ class TablePanel extends Modal {
   }
 
   private renderGrid(): void {
+    /* Keep the scroll position across the rebuild: `empty()` drops the sheet,
+       and if the new content is momentarily shorter the browser would snap the
+       viewport back to the top, which reads as "scroll resets on edit". */
+    const prevTop = this.gridHost.scrollTop;
+    const prevLeft = this.gridHost.scrollLeft;
     this.gridHost.empty();
     const plan = this.gridPlan();
 
@@ -782,6 +836,8 @@ class TablePanel extends Modal {
     sheet.appendChild(this.cellInput);
 
     this.gridHost.appendChild(sheet);
+    this.gridHost.scrollTop = prevTop;
+    this.gridHost.scrollLeft = prevLeft;
     this.refreshSelection();
   }
 
