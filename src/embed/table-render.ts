@@ -19,6 +19,7 @@ import { t } from "../i18n";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
 import {
+  columnLetter,
   countFormulas,
   serializeCsv,
   serializeTable,
@@ -226,6 +227,105 @@ export function paintTable(
     body.appendChild(tr);
   });
   table.appendChild(body);
+
+  wrap.appendChild(table);
+  return wrap;
+}
+
+/**
+ * A read-only spreadsheet-style preview of the table.
+ *
+ * Used inside the lightbox, this draws the same data as `paintTable` but with
+ * the visual language of the table editor: column-letter headers, row-number
+ * gutters, grid lines, and a clean white data surface. Filler columns and rows
+ * are drawn past the table's own data so the sheet keeps the editor's grid
+ * footprint instead of stopping at the last populated cell.
+ */
+export function paintTableSheet(
+  model: TableModel,
+  results: CellResult[][],
+  colors: CellColor[][]
+): HTMLElement {
+  const MIN_COLS = 8;
+  const MIN_ROWS = 16;
+  const totalCols = Math.max(model.header.length, MIN_COLS);
+  const totalRows = Math.max(results.length, MIN_ROWS);
+
+  const wrap = h("div", { cls: "mtk-tbl-wrap mtk-tbl-wrap-preview" });
+  const table = h("table", { cls: "mtk-tbl-preview" });
+
+  const colHeads: HTMLTableCellElement[] = [];
+  const gutters: HTMLTableCellElement[] = [];
+
+  const head = h("thead");
+  const headRow = h("tr", { cls: "mtk-preview-head-row" });
+  headRow.appendChild(h("th", { cls: "mtk-preview-corner" }));
+  for (let col = 0; col < totalCols; col += 1) {
+    const th = h("th", { cls: "mtk-preview-col-head", text: columnLetter(col) });
+    colHeads.push(th);
+    headRow.appendChild(th);
+  }
+  head.appendChild(headRow);
+  table.appendChild(head);
+
+  const body = h("tbody");
+  for (let rowIndex = 0; rowIndex < totalRows; rowIndex += 1) {
+    const tr = h("tr");
+    const gutter = h("td", { cls: "mtk-preview-gutter", text: String(rowIndex + 1) });
+    gutters.push(gutter);
+    tr.appendChild(gutter);
+
+    const isFillerRow = rowIndex >= results.length;
+    const sourceRow = isFillerRow ? null : results[rowIndex];
+    const colorRow = isFillerRow ? [] : (colors[rowIndex] ?? []);
+
+    for (let col = 0; col < totalCols; col += 1) {
+      const isFillerCol = col >= model.header.length;
+      const cell = sourceRow?.[col];
+      const td = h("td");
+      if (isFillerRow || isFillerCol) td.classList.add("is-filler");
+      if (cell) {
+        if (numericColumn(results, col)) td.classList.add("is-num");
+        if (cell.error) td.classList.add("is-err");
+        if (cell.formula) {
+          td.classList.add("mtk-fx");
+          td.appendChild(h("span", { cls: "mtk-fx-mark", text: "ƒ" }));
+          applyTooltip(td, cell.raw);
+        }
+        td.appendChild(document.createTextNode(cell.text));
+        const align = model.align[col];
+        if (align && align !== "default") td.style.textAlign = align;
+        applyCellColor(td, colorRow[col] ?? {});
+      }
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+  table.appendChild(body);
+
+  /* Click a cell to mimic the editor's selection outline. */
+  let selected: { cell: HTMLTableCellElement; col: number; row: number } | null = null;
+  const clearSelection = (): void => {
+    if (!selected) return;
+    selected.cell.classList.remove("is-selected");
+    colHeads[selected.col]?.classList.remove("is-hl");
+    gutters[selected.row]?.classList.remove("is-hl");
+    selected = null;
+  };
+  table.addEventListener("click", (event) => {
+    const td = (event.target as HTMLElement).closest<HTMLTableCellElement>("td");
+    if (!td || td.classList.contains("mtk-preview-gutter")) return;
+    const tr = td.parentElement as HTMLTableRowElement | null;
+    if (!tr) return;
+    const row = tr.rowIndex - 1;
+    const col = td.cellIndex - 1;
+    if (row < 0 || col < 0 || col >= totalCols) return;
+    clearSelection();
+    selected = { cell: td, col, row };
+    td.classList.add("is-selected");
+    colHeads[col]?.classList.add("is-hl");
+    gutters[row]?.classList.add("is-hl");
+  });
 
   wrap.appendChild(table);
   return wrap;
@@ -522,7 +622,7 @@ export function openTableLightbox(
      content" arrangement the diagram preview uses. */
   const scroller = h("div", { cls: "mtk-lightbox-scroll" });
   const body = h("div", { cls: "mtk-tbl-wrap" });
-  body.appendChild(paintTable(model, results, colorsFromTable(native)));
+  body.appendChild(paintTableSheet(model, results, colorsFromTable(native)));
   scroller.appendChild(body);
   sheet.appendChild(scroller);
 
