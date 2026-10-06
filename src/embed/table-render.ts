@@ -254,11 +254,25 @@ export function paintTableSheet(
   const wrap = h("div", { cls: "mtk-tbl-wrap mtk-tbl-wrap-preview" });
   const table = h("table", { cls: "mtk-tbl-preview" });
 
+  /* Fill the whole lightbox: fixed gutter width, equal data columns. */
+  const colgroup = h("colgroup");
+  const gutterCol = h("col");
+  gutterCol.style.width = "42px";
+  colgroup.appendChild(gutterCol);
+  const dataColWidth = `calc((100% - 42px) / ${totalCols})`;
+  for (let col = 0; col < totalCols; col += 1) {
+    const c = h("col");
+    c.style.width = dataColWidth;
+    colgroup.appendChild(c);
+  }
+  table.appendChild(colgroup);
+
   const colHeads: HTMLTableCellElement[] = [];
   const gutters: HTMLTableCellElement[] = [];
 
   const head = h("thead");
   const headRow = h("tr", { cls: "mtk-preview-head-row" });
+  headRow.style.height = "34px";
   headRow.appendChild(h("th", { cls: "mtk-preview-corner" }));
   for (let col = 0; col < totalCols; col += 1) {
     const th = h("th", { cls: "mtk-preview-col-head", text: columnLetter(col) });
@@ -269,8 +283,10 @@ export function paintTableSheet(
   table.appendChild(head);
 
   const body = h("tbody");
+  const rowHeight = `calc((100% - 34px) / ${totalRows})`;
   for (let rowIndex = 0; rowIndex < totalRows; rowIndex += 1) {
     const tr = h("tr");
+    tr.style.height = rowHeight;
     const gutter = h("td", { cls: "mtk-preview-gutter", text: String(rowIndex + 1) });
     gutters.push(gutter);
     tr.appendChild(gutter);
