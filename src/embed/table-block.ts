@@ -177,6 +177,11 @@ export class TableBlock extends MarkdownRenderChild {
     if (parsed.align.length !== this.model.align.length) return;
 
     this.model = { ...this.model, align: parsed.align };
+    /* Re-render now that the model holds the authoritative alignment. Without
+       this the frame keeps the constructor's DOM-read alignment (where `---`
+       and `:---` collapsed into "left"), so a default text column would still
+       read as left and the editor's left/default toggle would misfire on it. */
+    this.rebuild();
   }
 
   /** Draws the frame from the current model. Safe to call at any time. */
