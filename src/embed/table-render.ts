@@ -242,6 +242,15 @@ export interface TableFrameOptions {
   app: App;
   /** The note the table came from; the export lands in its folder. */
   file: TFile | null;
+  /**
+   * Whether this frame is shown in the editor (Live Preview). The two contexts
+   * wear different corner entries: the editor pairs "edit" and "show source"
+   * because that is where the table is being worked on, while the reading view
+   * pairs "download" and "view" because there it is being read.
+   */
+  editable: boolean;
+  /** Called when the edit entry is clicked. Only required when `editable`. */
+  onEdit?: () => void;
 }
 
 export interface TableFrame {
@@ -293,6 +302,7 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
   let model = options.model;
   let results = options.results;
   let mode = options.mode;
+  let showingSource = false;
 
   const box = h("div", { cls: "mtk-embed" });
   const body = h("div", { cls: "mtk-embed-table" });
@@ -303,28 +313,49 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
   badge.appendChild(badgeText);
   box.appendChild(badge);
 
-  /* The two corner entries, as the same family of 26px squares the diagram
-     block wears: "download the table" and "show it bigger". The reading view's
-     frame used to carry "edit" and "source" entries; those are gone — editing
-     still happens through the table panel, and the preview now reads like the
-     diagram's, where the only entries are view and export. */
-  const download = h("button", { cls: "mtk-embed-action mtk-embed-export", attr: { type: "button" } });
-  setIcon(download, "download");
-  applyTooltip(download, t("table.download"));
-  download.addEventListener("click", (event: MouseEvent) => {
-    event.stopPropagation();
-    openTableExportMenu(download, options.app, options.file, model);
-  });
-  box.appendChild(download);
+  /* The corner entries differ by context. In the editor (Live Preview) the
+     table is being worked on, so the entries are "edit" and "show source" — the
+     pair the frame wore before the reading view got the diagram's download/view
+     pair. In the reading view the table is being read, so the entries are
+     "download" and "view", matching the diagram's corner. */
+  if (options.editable) {
+    const edit = h("button", { cls: "mtk-embed-action mtk-embed-edit", attr: { type: "button" } });
+    setIcon(edit, "square-pen");
+    applyTooltip(edit, t("table.edit"));
+    edit.addEventListener("click", (event: MouseEvent) => {
+      event.stopPropagation();
+      options.onEdit?.();
+    });
+    box.appendChild(edit);
 
-  const view = h("button", { cls: "mtk-embed-action mtk-embed-view", attr: { type: "button" } });
-  setIcon(view, "maximize-2");
-  applyTooltip(view, t("table.view"));
-  view.addEventListener("click", (event: MouseEvent) => {
-    event.stopPropagation();
-    openTableLightbox(model, results, options.native, options.app, options.file);
-  });
-  box.appendChild(view);
+    const source = h("button", { cls: "mtk-embed-action mtk-embed-code", attr: { type: "button" } });
+    setIcon(source, "code");
+    applyTooltip(source, t("table.source"));
+    source.addEventListener("click", (event: MouseEvent) => {
+      event.stopPropagation();
+      showingSource = !showingSource;
+      render();
+    });
+    box.appendChild(source);
+  } else {
+    const download = h("button", { cls: "mtk-embed-action mtk-embed-export", attr: { type: "button" } });
+    setIcon(download, "download");
+    applyTooltip(download, t("table.download"));
+    download.addEventListener("click", (event: MouseEvent) => {
+      event.stopPropagation();
+      openTableExportMenu(download, options.app, options.file, model);
+    });
+    box.appendChild(download);
+
+    const view = h("button", { cls: "mtk-embed-action mtk-embed-view", attr: { type: "button" } });
+    setIcon(view, "maximize-2");
+    applyTooltip(view, t("table.view"));
+    view.addEventListener("click", (event: MouseEvent) => {
+      event.stopPropagation();
+      openTableLightbox(model, results, options.native, options.app, options.file);
+    });
+    box.appendChild(view);
+  }
 
   /** Writes the computed text into the cells the renderer already drew. */
   const writeValuesInto = (table: HTMLElement): void => {
@@ -346,7 +377,13 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
 
   const render = (): void => {
     body.empty();
-    if (mode === "native") {
+    if (showingSource) {
+      /* The note's Markdown for the table, shown when the source entry is
+         toggled on in the editor. Rebuilt by `paintTable`'s sibling renderer,
+         not a clone of the live DOM, so it stays Markdown even when the cells
+         themselves hold computed answers. */
+      body.appendChild(h("pre", { cls: "mtk-tbl-source", text: serializeTable(model) }));
+    } else if (mode === "native") {
       writeValuesInto(options.native);
       options.native.classList.add("mtk-cell-native");
       body.appendChild(options.native);

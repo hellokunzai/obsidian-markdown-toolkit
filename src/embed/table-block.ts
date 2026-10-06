@@ -198,6 +198,7 @@ export class TableBlock extends MarkdownRenderChild {
       native: this.native,
       app: this.host.app,
       file,
+      editable: false,
     });
     this.containerEl.appendChild(this.frame.el);
   }

@@ -2475,15 +2475,21 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
  * `.mtk-embed` alone. That is not decoration — inside the editor Obsidian's own
  * `.cm-content table` rules are in the cascade as well, and the extra class is
  * what keeps the surface and the header band from being flattened.
+ *
+ * The same rules are also given to `.mtk-lightbox-scroll` so the preview's
+ * full-screen table uses the same surface, without making the selector so
+ * broad that CodeMirror's table rules can flatten it in Live Preview.
  */
-.mtk-embed .mtk-embed-table .mtk-tbl-wrap {
+.mtk-embed .mtk-embed-table .mtk-tbl-wrap,
+.mtk-lightbox-scroll .mtk-tbl-wrap {
   /* The frame is the table's box now. A border and a radius of its own would
      draw a second box inside the first, which is the same white space as before
      with a line through it. */
   margin: 0;
   overflow: hidden;
 }
-.mtk-embed .mtk-embed-table table.mtk-tbl {
+.mtk-embed .mtk-embed-table table.mtk-tbl,
+.mtk-lightbox-scroll table.mtk-tbl {
   border-collapse: collapse;
   width: 100%;
   margin: 0;
@@ -2495,7 +2501,9 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   background-color: var(--background-primary);
 }
 .mtk-embed .mtk-embed-table table.mtk-tbl th,
-.mtk-embed .mtk-embed-table table.mtk-tbl td {
+.mtk-embed .mtk-embed-table table.mtk-tbl td,
+.mtk-lightbox-scroll table.mtk-tbl th,
+.mtk-lightbox-scroll table.mtk-tbl td {
   padding: 8px 12px;
   text-align: left;
   border: 0;
@@ -2505,7 +2513,9 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 /* Separated columns and banded rows, which together are what let the eye run
    down a column of figures — the whole reason this table exists. */
 .mtk-embed .mtk-embed-table table.mtk-tbl th:not(:last-child),
-.mtk-embed .mtk-embed-table table.mtk-tbl td:not(:last-child) {
+.mtk-embed .mtk-embed-table table.mtk-tbl td:not(:last-child),
+.mtk-lightbox-scroll table.mtk-tbl th:not(:last-child),
+.mtk-lightbox-scroll table.mtk-tbl td:not(:last-child) {
   border-right: 1px solid var(--background-modifier-border);
 }
 /*
@@ -2517,32 +2527,39 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
  * is what makes it a band on any theme — it shifts the colour by a fixed
  * amount instead of reaching for a variable that has already been spent.
  */
-.mtk-embed .mtk-embed-table table.mtk-tbl thead th {
+.mtk-embed .mtk-embed-table table.mtk-tbl thead th,
+.mtk-lightbox-scroll table.mtk-tbl thead th {
   background-color: var(--background-secondary);
   background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05));
   font-weight: 600;
   white-space: nowrap;
 }
 /* Banded rows, by the same fixed-shift approach and for the same reason. */
-.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:nth-child(even) td {
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:nth-child(even) td,
+.mtk-lightbox-scroll table.mtk-tbl tbody tr:nth-child(even) td {
   background-image: linear-gradient(rgba(0, 0, 0, 0.022), rgba(0, 0, 0, 0.022));
 }
 /* The row that computes, and the cells in it — tinted with the accent rather
    than with a second grey, so it cannot be mistaken for the header. */
-.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr.mtk-calc td {
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr.mtk-calc td,
+.mtk-lightbox-scroll table.mtk-tbl tbody tr.mtk-calc td {
   background-color: rgba(123, 92, 214, 0.1);
   background-image: none;
   font-weight: 500;
 }
-.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:last-child td {
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:last-child td,
+.mtk-lightbox-scroll table.mtk-tbl tbody tr:last-child td {
   border-bottom: 0;
 }
 .mtk-embed .mtk-embed-table table.mtk-tbl td.is-num,
-.mtk-embed .mtk-embed-table table.mtk-tbl th.is-num {
+.mtk-embed .mtk-embed-table table.mtk-tbl th.is-num,
+.mtk-lightbox-scroll table.mtk-tbl td.is-num,
+.mtk-lightbox-scroll table.mtk-tbl th.is-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.mtk-embed .mtk-embed-table table.mtk-tbl td.is-err {
+.mtk-embed .mtk-embed-table table.mtk-tbl td.is-err,
+.mtk-lightbox-scroll table.mtk-tbl td.is-err {
   color: var(--text-error);
 }
 

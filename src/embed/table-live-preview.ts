@@ -53,6 +53,7 @@ import {
   type TableModel,
 } from "../core/table-formula";
 import { buildTableFrame, modelFromTable, shouldFrame, type TableFrame } from "./table-render";
+import { openTableEditor } from "../editor/table-panel";
 import type { TableBlockHost } from "./table-block";
 
 /** Where a table's own Markdown lives in the document. */
@@ -260,6 +261,19 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
           native: table,
           app: host.app,
           file: host.app.workspace.getActiveFile(),
+          editable: true,
+          onEdit: () => {
+            openTableEditor({
+              app: host.app,
+              model,
+              fillMode: host.settings.tableFillMode,
+              onSave: (next) => {
+                this.view.dispatch({
+                  changes: { from: range.from, to: range.to, insert: serializeTable(next) },
+                });
+              },
+            });
+          },
         });
         holder.appendChild(frame.el);
 
