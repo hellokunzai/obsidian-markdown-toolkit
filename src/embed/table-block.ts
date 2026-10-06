@@ -32,6 +32,7 @@ import {
 import { h } from "../utils/dom";
 import {
   evaluateTable,
+  parseTable,
   replaceTableInText,
   serializeTable,
   type CellResult,
@@ -100,6 +101,11 @@ export class TableBlock extends MarkdownRenderChild {
   private frame: TableFrame | null = null;
   private model: TableModel;
   private results: CellResult[][];
+  /**
+   * Set the moment the user starts an edit, so the one-shot alignment
+   * correction below never clobbers an in-progress change.
+   */
+  private alignLocked = false;
 
   constructor(
     frameEl: HTMLElement,
@@ -123,10 +129,54 @@ export class TableBlock extends MarkdownRenderChild {
   onload(): void {
     live.add(this);
     this.rebuild();
+    /* Correct the column alignment once, from the note's Markdown separator.
+       The model built in the constructor is read out of the rendered DOM, where
+       `---` (default) and `:---` (left) have already collapsed into the same
+       `text-align: left`, so a default text column is misread as left. That
+       makes the editor's left/default toggle misfire. The separator row is the
+       authoritative source; re-derive from it before the user can open the
+       editor. Guarded so an in-progress edit is never clobbered. */
+    void this.correctAlignFromSource();
   }
 
   onunload(): void {
     live.delete(this);
+  }
+
+  /**
+   * Re-derives column alignment from the note's Markdown separator.
+   *
+   * The constructor reads the model out of the rendered DOM, where `---`
+   * (default) and `:---` (left) have already collapsed into the same
+   * `text-align: left` — so a default column is misread as left. The separator
+   * row in the source is the only place the alignment still lives distinctly,
+   * so read it there and patch the model. This is what lets the editor's align
+   * toggle treat left and default as the separate states they are, instead of
+   * flipping a default column to default when the user asks for left.
+   *
+   * Runs once at load only; `alignLocked` stops it from overwriting an edit the
+   * user has already started.
+   */
+  private async correctAlignFromSource(): Promise<void> {
+    if (this.alignLocked) return;
+    const info = this.ctx.getSectionInfo(this.containerEl);
+    const file = this.host.app.vault.getAbstractFileByPath(this.ctx.sourcePath);
+    if (!info || !(file instanceof TFile)) return;
+
+    let text: string;
+    try {
+      text = await this.host.app.vault.cachedRead(file);
+    } catch {
+      return;
+    }
+    if (this.alignLocked) return;
+
+    const section = text.split("\n").slice(info.lineStart, info.lineEnd + 1).join("\n");
+    const parsed = parseTable(section);
+    if (!parsed) return;
+    if (parsed.align.length !== this.model.align.length) return;
+
+    this.model = { ...this.model, align: parsed.align };
   }
 
   /** Draws the frame from the current model. Safe to call at any time. */
@@ -164,6 +214,7 @@ export class TableBlock extends MarkdownRenderChild {
    * file from what this block happens to know would delete all of it.
    */
   private async applyEdit(next: TableModel): Promise<void> {
+    this.alignLocked = true;
     const markdown = serializeTable(next);
     const info = this.ctx.getSectionInfo(this.containerEl);
     const file = this.host.app.vault.getAbstractFileByPath(this.ctx.sourcePath);

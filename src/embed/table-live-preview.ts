@@ -47,6 +47,7 @@ import { editorLivePreviewField } from "obsidian";
 import { h } from "../utils/dom";
 import {
   evaluateTable,
+  parseTable,
   serializeTable,
   type CellResult,
   type TableModel,
@@ -69,6 +70,18 @@ interface Framed {
   host: HTMLElement;
   frame: TableFrame;
   range: TableRange;
+  /**
+   * The renderer's widget block around this table, if there was one.
+   *
+   * Obsidian hangs its own add-row / add-col buttons inside the block's
+   * `.table-wrapper`, right beside the table. While the table is framed they
+   * would keep floating around a table that is no longer the editor's — the
+   * strip below and the "+" column on the right of a framed table. The block
+   * is marked for as long as the frame stands so the stylesheet can hide them,
+   * and the element is kept here because in drawn mode the table itself is
+   * detached and `closest()` can no longer find its way back to the block.
+   */
+  widget: HTMLElement | null;
 }
 
 export function tableLivePreviewExtension(host: TableBlockHost): Extension {
@@ -215,8 +228,23 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
 
         // Read before moving anything: both the model and the range are
         // answered by position, and position is the first thing a move destroys.
-        const model = modelFromTable(table);
+        /* The alignment row is the only place the separator survives once the
+           table is rendered: the DOM resolves `:---` / `:---:` / `---:` into a
+           per-cell `text-align`, where `---` (default) and `:---` (left) both
+           compute to `left` and can no longer be told apart. Read the alignment
+           back from the Markdown source so an explicit left stays left and a
+           default stays default — otherwise the editor's align toggle, which
+           flips left <-> default, misfires on text columns. */
+        const source = this.view.state.doc.sliceString(range.from, range.to);
+        const sourceAlign = parseTable(source)?.align;
+        const model = modelFromTable(table, sourceAlign);
         const results: CellResult[][] = evaluateTable(model);
+
+        /* The renderer's widget block, marked before the table is adopted so
+           the stylesheet can retire the block's own add-row / add-col buttons
+           for as long as the frame stands. */
+        const widget = table.closest(".cm-table-widget");
+        if (widget) widget.classList.add("mtk-table-framed");
 
         const holder = h("div", { cls: "mtk-embed-host" });
         parent.insertBefore(holder, table);
@@ -237,7 +265,7 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
 
         const width = this.columnWidth();
         if (width > 0) holder.style.width = `${width}px`;
-        this.framed.set(table, { table, host: holder, frame, range });
+        this.framed.set(table, { table, host: holder, frame, range, widget: widget as HTMLElement | null });
       }
 
       private unframe(entry: Framed): void {
@@ -247,6 +275,9 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
         const parent = entry.host.parentElement;
         if (parent) parent.insertBefore(entry.table, entry.host);
         entry.host.remove();
+        /* The block's own buttons come back with its table — the native
+           interactions belong to a table the user is about to type into. */
+        if (entry.widget) entry.widget.classList.remove("mtk-table-framed");
         this.framed.delete(entry.table);
       }
 

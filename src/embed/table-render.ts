@@ -55,8 +55,15 @@ export function shouldFrame(table: HTMLElement, target: TableTarget): boolean {
  * The header is the first row whether or not it is marked up with `th`: a table
  * Markdown would not render is not a table, so the first row is always the
  * header and everything below it is data.
+ *
+ * Alignment is taken from `alignOverride` when the caller can supply the
+ * Markdown separator it came from. The rendered DOM resolves `---` (default)
+ * and `:---` (left) into the same `text-align: left`, so reading it off the
+ * cells cannot tell them apart — which makes the editor's left/default toggle
+ * misfire on text columns (it reads a default column as already-left and flips
+ * it to default). When no override is given, the cells are used as a fallback.
  */
-export function modelFromTable(table: HTMLElement): TableModel {
+export function modelFromTable(table: HTMLElement, alignOverride?: TableAlign[]): TableModel {
   const rows: string[][] = [];
   for (const tr of Array.from(table.querySelectorAll("tr"))) {
     const cells = Array.from(tr.querySelectorAll("th, td")).map((cell) =>
@@ -67,8 +74,69 @@ export function modelFromTable(table: HTMLElement): TableModel {
 
   const header = rows[0] ?? [];
   const body = rows.slice(1);
-  const align = header.map((_unused, i) => alignFromCell(table, i, body.length > 0 ? 1 : 0));
+  const align =
+    alignOverride && alignOverride.length === header.length
+      ? alignOverride
+      : header.map((_unused, i) => alignFromCell(table, i, body.length > 0 ? 1 : 0));
   return { header, body, align };
+}
+
+/**
+ * The font and background colour a cell was given, read back off the span the
+ * colour buttons wrote into the note.
+ *
+ * The styled cell renders as `<span style="color:…;background-color:…">` around
+ * its text, and that is the only place the colour survives once the table is
+ * framed: `modelFromTable` keeps the cell's *text* only (it must — keeping the
+ * span would corrupt links and formula detection on the round trip), so the
+ * colour has to be lifted off the renderer's own table here, one cell at a time,
+ * and handed to `paintTable` on a parallel track. Reading the declarations off
+ * the span's inline `style` (not the computed one) keeps the value in whatever
+ * spelling the browser parsed it to, which is a valid CSS value to re-apply as
+ * is — so `paintTable` does not have to know hex from `rgb()`.
+ */
+export interface CellColor {
+  /** A `color` declaration, or absent when the cell is uncoloured. */
+  readonly color?: string;
+  /** A `background-color` declaration, or absent when the cell is uncoloured. */
+  readonly background?: string;
+}
+
+function readCellColor(cell: HTMLElement): CellColor {
+  /* The colour span is the one `<span>` carrying an inline `color` or
+     `background` declaration. Obsidian renders nothing of its own with such a
+     style on a table cell, so a match is always our wrapper — and a cell that
+     holds a link or code, which carry no colour declaration, is left alone. */
+  const span = Array.from(cell.querySelectorAll("span")).find((el) => {
+    const style = el.getAttribute("style") ?? "";
+    return /\bcolor\s*:/.test(style) || /\bbackground\s*:/.test(style);
+  });
+  if (!span) return {};
+  const color = span.style.color || undefined;
+  const background = span.style.backgroundColor || undefined;
+  if (!color && !background) return {};
+  return { color, background };
+}
+
+/**
+ * Per-cell colours, in the same `header`/`body` shape as `modelFromTable`, so a
+ * caller can index `colors[row][col]` against the model it paints from.
+ */
+export function colorsFromTable(table: HTMLElement): CellColor[][] {
+  const rows: CellColor[][] = [];
+  for (const tr of Array.from(table.querySelectorAll("tr"))) {
+    const cells = Array.from(tr.querySelectorAll("th, td")).map(
+      (cell) => readCellColor(cell as HTMLElement)
+    );
+    if (cells.length > 0) rows.push(cells);
+  }
+  return rows;
+}
+
+/** Applies a cell's font/background colour declarations, if it has any. */
+function applyCellColor(el: HTMLElement, color: CellColor): void {
+  if (color.color) el.style.color = color.color;
+  if (color.background) el.style.backgroundColor = color.background;
 }
 
 /**
@@ -102,7 +170,11 @@ function numericColumn(results: CellResult[][], col: number): boolean {
  * against the frame's own background, which is what made the first version look
  * like a spreadsheet screenshot pasted into the note.
  */
-export function paintTable(model: TableModel, results: CellResult[][]): HTMLElement {
+export function paintTable(
+  model: TableModel,
+  results: CellResult[][],
+  colors: CellColor[][]
+): HTMLElement {
   const wrap = h("div", { cls: "mtk-tbl-wrap" });
   const table = h("table", { cls: "mtk-tbl" });
 
@@ -111,15 +183,23 @@ export function paintTable(model: TableModel, results: CellResult[][]): HTMLElem
   model.header.forEach((text, col) => {
     const th = h("th", { text });
     if (numericColumn(results, col)) th.classList.add("is-num");
+    /* Column alignment, taken from the separator row the align buttons wrote
+       back. Applied to the header too, and as an inline style so a user's
+       explicit left/centre/right overrides the `is-num` right-align class. */
+    const align = model.align[col];
+    if (align && align !== "default") th.style.textAlign = align;
+    /* A header cell can carry a colour just like any other. */
+    applyCellColor(th, colors[0]?.[col] ?? {});
     headRow.appendChild(th);
   });
   head.appendChild(headRow);
   table.appendChild(head);
 
   const body = h("tbody");
-  results.slice(1).forEach((row) => {
+  results.slice(1).forEach((row, i) => {
     const tr = h("tr");
     if (row.some((cell) => cell.formula)) tr.classList.add("mtk-calc");
+    const colorRow = colors[i + 1] ?? [];
     row.forEach((cell, col) => {
       const td = h("td");
       if (numericColumn(results, col)) td.classList.add("is-num");
@@ -134,6 +214,12 @@ export function paintTable(model: TableModel, results: CellResult[][]): HTMLElem
         applyTooltip(td, cell.raw);
       }
       td.appendChild(document.createTextNode(cell.text));
+      /* Column alignment, applied inline so it wins over `is-num`. */
+      const align = model.align[col];
+      if (align && align !== "default") td.style.textAlign = align;
+      /* Cell colour, painted on the whole cell to match the editor panel and to
+         keep a highlight behind the full cell rather than just the text. */
+      applyCellColor(td, colorRow[col] ?? {});
       tr.appendChild(td);
     });
     body.appendChild(tr);
@@ -260,7 +346,7 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
       options.native.classList.add("mtk-cell-native");
       body.appendChild(options.native);
     } else {
-      body.appendChild(paintTable(model, results));
+      body.appendChild(paintTable(model, results, colorsFromTable(options.native)));
     }
 
     /* The formula count is dropped rather than shown as zero: the badge is

@@ -2583,6 +2583,20 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   margin: 0.5em 0;
 }
 
+/*
+ * The renderer's widget block hangs its own add-row / add-col buttons inside
+ * `.table-wrapper`, right beside the table. While a frame is standing the
+ * table is this plugin's, not the editor's, so those buttons would keep
+ * floating around it — the strip below and the "+" column on the right of a
+ * framed table. The block is marked by `table-live-preview.ts` for exactly as
+ * long as the frame stands; `unframe` removes the mark and the native
+ * interactions come back with the native table.
+ */
+.markdown-source-view.mod-cm6 .cm-table-widget.mtk-table-framed .table-row-btn,
+.markdown-source-view.mod-cm6 .cm-table-widget.mtk-table-framed .table-col-btn {
+  display: none;
+}
+
 /* The `</>` view: the note's own Markdown, as it is written in the file.
    This is the one place the reserved band is kept — see the note on
    `.mtk-embed-table` above. */

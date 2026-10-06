@@ -141,8 +141,13 @@ interface Box {
 /** What a pointer gesture is doing, held for the life of one press. */
 type Drag =
   | { mode: "cells" }
-  | { mode: "cols"; start: number }
-  | { mode: "rows"; start: number }
+  /* Row and column drags keep the rectangle the press started from and grow
+     it along their own axis only. The other axis is settled at press time —
+     a column letter covers the whole height, and a Shift-press may have
+     pulled rows in from the anchor — so it must not move as the pointer
+     wanders. */
+  | { mode: "cols"; from: Box }
+  | { mode: "rows"; from: Box }
   | { mode: "fill"; from: Box }
   /* A size drag keeps the size the press started from, not the size as it is
      now: every move re-renders the grid, so measuring "the current width" each
@@ -158,6 +163,12 @@ interface Hit {
   filler: boolean;
 }
 
+/** What the anchor covers. A Shift-extended selection is the union of the
+    anchor's rectangle and the one under the pointer, and a column letter
+    covers every row while a cell covers one square — so the anchor has to
+    remember which of the three it was, not only where it was clicked. */
+type AnchorKind = "cell" | "col" | "row";
+
 class TablePanel extends Modal {
   private readonly request: TableEditorRequest;
   /** A copy: cancelling must leave the note's table exactly as it was. */
@@ -166,6 +177,8 @@ class TablePanel extends Modal {
 
   /** The fixed corner a Shift-extended selection grows from. */
   private anchor: Cell = { row: 1, col: 0 };
+  /** Whether that anchor is a cell, a whole column, or a whole row. */
+  private anchorKind: AnchorKind = "cell";
   /** The moving cell: what the formula bar, headers and keyboard act on. */
   private active: Cell = { row: 1, col: 0 };
   private range: Box = { r1: 1, c1: 0, r2: 1, c2: 0 };
@@ -328,9 +341,10 @@ class TablePanel extends Modal {
     );
     this.toolbarEl.appendChild(this.divider());
 
-    this.toolbarEl.appendChild(this.button("", "rows", t("table.row.add"), () => this.addRow()));
-    this.toolbarEl.appendChild(this.button("", "columns", t("table.col.add"), () => this.addColumn()));
-    this.toolbarEl.appendChild(this.divider());
+    /* 顶栏现在只有 保存 · 分隔线 · 六个格式按钮 —— 「加一行 / 加一列」两个
+       按钮已按用户要求移除。增删行列本来就有格子上的手势在管（点表外的行号 /
+       列标加一行 / 一列，双击占位格进入编辑即扩表），顶栏再摆两个同义按钮只会
+       让人以为「加行只能从这儿来」。 */
 
     /* 格式组：格式刷 / 左·中·右对齐 / 背景色 / 字体色。
        对齐是表格原生语法（写进分隔行，随保存持久化）；颜色按用户拍板写回
@@ -852,6 +866,40 @@ class TablePanel extends Modal {
     return row >= this.range.r1 && row <= this.range.r2 && col >= this.range.c1 && col <= this.range.c2;
   }
 
+  /** The rectangle "a whole column", "a whole row" or "a single cell" covers.
+      A column covers every row and a row covers every column, which is the
+      whole reason a Shift-extended selection cannot be derived from two
+      corner cells alone. */
+  private extentBox(row: number, col: number, kind: AnchorKind): Box {
+    if (kind === "col") return { r1: 0, c1: col, r2: this.model.body.length, c2: col };
+    if (kind === "row") return { r1: row, c1: 0, r2: row, c2: this.model.header.length - 1 };
+    return { r1: row, c1: col, r2: row, c2: col };
+  }
+
+  /** What the cell, letter or number under the pointer covers. */
+  private hitBox(hit: Hit): Box {
+    const kind: AnchorKind = hit.head ?? "cell";
+    return this.extentBox(hit.row, hit.col, kind);
+  }
+
+  /** What the anchor covers — the fixed end a Shift-extended selection grows
+      from, left exactly where the first press put it. */
+  private anchorBox(): Box {
+    return this.extentBox(this.anchor.row, this.anchor.col, this.anchorKind);
+  }
+
+  /** The smallest rectangle holding both. Shift says "from there to here",
+      and once whole rows and columns are in play that is a union rather than
+      a pair of corners. */
+  private unionBox(a: Box, b: Box): Box {
+    return {
+      r1: Math.min(a.r1, b.r1),
+      c1: Math.min(a.c1, b.c1),
+      r2: Math.max(a.r2, b.r2),
+      c2: Math.max(a.c2, b.c2),
+    };
+  }
+
   /** Repaints selection-dependent classes and re-places the overlay. Cheap:
       selection never changes the grid's shape, only how it is drawn. */
   private refreshSelection(): void {
@@ -861,11 +909,26 @@ class TablePanel extends Modal {
       cell.classList.toggle("in-range", this.inRange(row, col));
       cell.classList.toggle("is-selected", row === this.active.row && col === this.active.col);
     });
+    /* Every letter and number the selection reaches lights up, not only the
+       active one: after selecting four rows, one lit number answers a
+       different question than the one being asked.
+
+       The exception is Excel's, and it is read off the anchor rather than
+       off the range: a selection started *from a column letter* covers
+       every row by construction, and lighting the whole row-number strip
+       beside it would say the opposite of what was clicked. Reading it off
+       the range instead would misfire on an ordinary block drag that
+       happens to reach the last row — a block selection, which Excel lights
+       on both strips. */
+    const quietNumbers = this.anchorKind === "col";
+    const quietLetters = this.anchorKind === "row";
     this.sheetEl.querySelectorAll<HTMLElement>('[data-head="col"]').forEach((cell) => {
-      cell.classList.toggle("is-hl", Number(cell.getAttribute("data-hcol")) === this.active.col);
+      const col = Number(cell.getAttribute("data-hcol"));
+      cell.classList.toggle("is-hl", !quietLetters && col >= this.range.c1 && col <= this.range.c2);
     });
     this.sheetEl.querySelectorAll<HTMLElement>('[data-head="row"]').forEach((cell) => {
-      cell.classList.toggle("is-hl", Number(cell.getAttribute("data-hrow")) === this.active.row);
+      const row = Number(cell.getAttribute("data-hrow"));
+      cell.classList.toggle("is-hl", !quietNumbers && row >= this.range.r1 && row <= this.range.r2);
     });
     this.positionOverlay();
     this.syncBar();
@@ -917,9 +980,10 @@ class TablePanel extends Modal {
     const next = this.clampCell(row, col);
     if (extend) {
       this.active = next;
-      this.setBox(this.anchor, next);
+      this.range = this.unionBox(this.anchorBox(), this.extentBox(next.row, next.col, "cell"));
     } else {
       this.anchor = next;
+      this.anchorKind = "cell";
       this.active = next;
       this.setBox(next, next);
     }
@@ -929,6 +993,7 @@ class TablePanel extends Modal {
   private selectCell(row: number, col: number): void {
     const next = this.clampCell(row, col);
     this.anchor = next;
+    this.anchorKind = "cell";
     this.active = next;
     this.setBox(next, next);
     this.refreshSelection();
@@ -1010,10 +1075,24 @@ class TablePanel extends Modal {
         return;
       }
       this.commitInput();
-      this.anchor = { row: 1, col: hit.col };
-      this.active = { row: 1, col: hit.col };
-      this.range = { r1: 0, c1: hit.col, r2: this.model.body.length, c2: hit.col };
-      this.drag = { mode: "cols", start: hit.col };
+      /* Shift keeps the anchor where it was and grows the selection to the
+         letter just clicked; without it the letter *becomes* the anchor.
+         That is the whole of Excel's column multi-select: press A,
+         Shift-press C, then Shift-press B walks the far edge back while A
+         stays put. */
+      if (shift) {
+        this.active = { row: this.active.row, col: hit.col };
+        this.range = this.unionBox(this.anchorBox(), this.hitBox(hit));
+      } else {
+        this.anchor = { row: 1, col: hit.col };
+        this.anchorKind = "col";
+        this.active = { row: 1, col: hit.col };
+        this.range = this.hitBox(hit);
+      }
+      /* Either way the press starts a drag, from the rectangle just settled
+         on: pulling away from a Shift-press must keep growing that
+         selection rather than replacing it. */
+      this.drag = { mode: "cols", from: { ...this.range } };
       this.refreshSelection();
       event.preventDefault();
       return;
@@ -1025,10 +1104,18 @@ class TablePanel extends Modal {
         return;
       }
       this.commitInput();
-      this.anchor = { row: hit.row, col: 0 };
-      this.active = { row: hit.row, col: 0 };
-      this.range = { r1: hit.row, c1: 0, r2: hit.row, c2: this.model.header.length - 1 };
-      this.drag = { mode: "rows", start: hit.row };
+      /* See the column branch: Shift grows from the anchor, a plain press
+         moves the anchor to the number just clicked. */
+      if (shift) {
+        this.active = { row: hit.row, col: this.active.col };
+        this.range = this.unionBox(this.anchorBox(), this.hitBox(hit));
+      } else {
+        this.anchor = { row: hit.row, col: 0 };
+        this.anchorKind = "row";
+        this.active = { row: hit.row, col: 0 };
+        this.range = this.hitBox(hit);
+      }
+      this.drag = { mode: "rows", from: { ...this.range } };
       this.refreshSelection();
       event.preventDefault();
       return;
@@ -1051,12 +1138,16 @@ class TablePanel extends Modal {
     this.commitInput();
     if (shift) {
       this.active = this.clampCell(hit.row, hit.col);
-      this.setBox(this.anchor, this.active);
+      this.range = this.unionBox(this.anchorBox(), this.hitBox(hit));
       this.refreshSelection();
     } else {
       this.selectCell(hit.row, hit.col);
-      this.drag = { mode: "cells" };
     }
+    /* Both roads end in a drag. With Shift the anchor was deliberately left
+       where it was, so pulling away from the click grows the selection from
+       *it* rather than from the cell under the finger — which is what a
+       Shift-drag does in a spreadsheet. */
+    this.drag = { mode: "cells" };
     event.preventDefault();
   }
 
@@ -1144,23 +1235,33 @@ class TablePanel extends Modal {
         if (hit.head || hit.filler) return;
         if (hit.row === this.active.row && hit.col === this.active.col) return;
         this.active = { row: hit.row, col: hit.col };
-        this.setBox(this.anchor, this.active);
+        this.range = this.unionBox(this.anchorBox(), this.hitBox(hit));
         this.refreshSelection();
         return;
       }
+      /* Only the dragged axis moves: the other one was settled at press time
+         (a column letter covers the whole height, and a Shift-press may have
+         brought rows in from the anchor), so letting the pointer widen it
+         would silently re-answer a question already answered. */
       case "cols": {
         if (hit.col < 0) return;
-        const c1 = Math.min(drag.start, hit.col);
-        const c2 = Math.max(drag.start, hit.col);
-        this.range = { r1: 0, c1, r2: this.model.body.length, c2 };
+        this.range = {
+          r1: drag.from.r1,
+          c1: Math.min(drag.from.c1, hit.col),
+          r2: drag.from.r2,
+          c2: Math.max(drag.from.c2, hit.col),
+        };
         this.refreshSelection();
         return;
       }
       case "rows": {
         if (hit.row < 0) return;
-        const r1 = Math.min(drag.start, hit.row);
-        const r2 = Math.max(drag.start, hit.row);
-        this.range = { r1, c1: 0, r2, c2: this.model.header.length - 1 };
+        this.range = {
+          r1: Math.min(drag.from.r1, hit.row),
+          c1: drag.from.c1,
+          r2: Math.max(drag.from.r2, hit.row),
+          c2: drag.from.c2,
+        };
         this.refreshSelection();
         return;
       }
@@ -1218,10 +1319,12 @@ class TablePanel extends Modal {
        menu is about is visible before anything in it is clicked. */
     if (head === "col") {
       this.anchor = { row: 1, col: index };
+      this.anchorKind = "col";
       this.active = { row: 1, col: index };
       this.range = { r1: 0, c1: index, r2: this.model.body.length, c2: index };
     } else {
       this.anchor = { row: index, col: 0 };
+      this.anchorKind = "row";
       this.active = { row: index, col: 0 };
       this.range = { r1: index, c1: 0, r2: index, c2: this.model.header.length - 1 };
     }
@@ -1393,6 +1496,7 @@ class TablePanel extends Modal {
     this.commitInput();
     this.editing = { row, col };
     this.anchor = { row, col };
+    this.anchorKind = "cell";
     this.active = { row, col };
     this.setBox({ row, col }, { row, col });
     this.refreshSelection();
@@ -1478,6 +1582,7 @@ class TablePanel extends Modal {
     });
 
     this.anchor = { row: startRow, col: startCol };
+    this.anchorKind = "cell";
     this.active = { row: startRow + rows.length - 1, col: startCol + width - 1 };
     this.setBox(this.anchor, this.active);
     this.recompute();
@@ -1544,6 +1649,7 @@ class TablePanel extends Modal {
     }
 
     this.anchor = { row: from.r1, col: from.c1 };
+    this.anchorKind = "cell";
     this.active = { row: from.r2, col: from.c2 };
     this.range = { ...from };
     this.recompute();
