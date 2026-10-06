@@ -730,8 +730,74 @@ class TablePanel extends Modal {
     const columns = Math.min(own + GROW_CAP, Math.max(own, coverCols) + H_BUFFER);
     const rows = Math.min(real + GROW_CAP, Math.max(real, coverRows) + V_BUFFER);
     if (columns > this.renderedCols || rows > this.renderedRows) {
-      this.renderGrid();
+      this.growGrid(columns, rows);
     }
+  }
+
+  /**
+   * Grows the grid without rebuilding it. Called from `ensureBuffer` on scroll:
+   * appending rows/columns (rather than `empty()`-ing and redrawing) keeps the
+   * scroll position and, crucially, leaves the native scrollbar drag intact. A
+   * full `renderGrid` would drop the sheet mid-drag, which snaps `scrollTop` to
+   * 0 and makes the scrollbar thumb fight the pointer — the bar becomes
+   * un-draggable. Growth only ever reaches past the table's own bounds, and
+   * `gridPlan` caps how far, so every cell added here is filler.
+   *
+   * New rows are inserted before the overlay box so the selection rectangle and
+   * cell editor stay stacked on top of the grid.
+   */
+  private growGrid(columns: number, rows: number): void {
+    const sheet = this.sheetEl;
+    if (!sheet) return;
+    const headRow = sheet.querySelector<HTMLElement>(".mtk-sheet-row.is-head");
+    const widenBy = columns - this.renderedCols;
+    const lengthenBy = rows - this.renderedRows;
+    if (widenBy <= 0 && lengthenBy <= 0) return;
+
+    /* Extend the sticky header with the new column letters. They are filler,
+       but a size is a thing that lives only in this dialog, so a column added
+       to cover the canvas carries a resizer just as honestly as a real one. */
+    if (headRow && widenBy > 0) {
+      for (let col = this.renderedCols; col < columns; col += 1) {
+        const filler = col >= this.model.header.length;
+        const cell = h("div", {
+          cls: "mtk-sheet-cell" + (filler ? " is-filler" : ""),
+          text: columnLetter(col),
+          attr: { "data-head": "col", "data-hcol": String(col) },
+        });
+        cell.style.width = `${this.colWidth(col)}px`;
+        cell.appendChild(this.resizer("col", col));
+        headRow.appendChild(cell);
+      }
+    }
+
+    /* Widening: append filler cells to every row already drawn. The data rows
+       are in document order, so the loop index is the row number. */
+    if (widenBy > 0) {
+      const dataRows = sheet.querySelectorAll<HTMLElement>(".mtk-sheet-row:not(.is-head)");
+      dataRows.forEach((tr, rowIndex) => {
+        for (let col = this.renderedCols; col < columns; col += 1) {
+          const cell = h("div", {
+            cls: "mtk-sheet-cell is-filler",
+            attr: { "data-row": String(rowIndex), "data-col": String(col) },
+          });
+          cell.style.width = `${this.colWidth(col)}px`;
+          this.applyRowHeight(cell, rowIndex);
+          tr.appendChild(cell);
+        }
+      });
+    }
+
+    /* Lengthening: append whole filler rows below the table. */
+    if (lengthenBy > 0) {
+      for (let row = this.renderedRows; row < rows; row += 1) {
+        sheet.insertBefore(this.buildRow(row, columns), this.rangeBox ?? null);
+      }
+    }
+
+    this.renderedCols = columns;
+    this.renderedRows = rows;
+    this.refreshSelection();
   }
 
   /** The width a column gets when it has not been dragged. */
