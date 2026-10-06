@@ -321,6 +321,29 @@
   color: var(--text-muted);
 }
 
+/* 表格弹窗工具条缩放组（与 chart-panel 的 zoomOut / zoomLabel / zoomIn 对齐） */
+.mtk-editor .mtk-zoom-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.mtk-editor .mtk-zoom-pct {
+  min-width: 52px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.mtk-editor .mtk-zoom-pct:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
 /* ------------------------------------------------------------------ canvas */
 
 .mtk-editor .mtk-canvas {
@@ -2825,6 +2848,11 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   user-select: none;
 }
 
+/* 缩放不走 transform：列宽 / 行高在 TS 里直接按「未缩放尺寸 × zoom」落成 px，
+   字号 / 边框 / 行号宽 / 内边距这些归样式表管的值统一乘 `--mtk-zoom`。
+   这样整张网格（含列标、行号、边框、字体）等比缩放且文字始终清晰，
+   贴近 Excel 的 Ctrl+滚轮效果，也避开了 transform 让 sticky 表头/行号失效的坑。
+   变量由 table-panel.ts 的 renderGrid 写在 .mtk-tbl-sheet 上。 */
 .mtk-sheet-row {
   display: flex;
 }
@@ -2836,12 +2864,12 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 
 .mtk-sheet-cell {
   flex: 0 0 auto;
-  height: 34px;
-  line-height: 34px;
-  padding: 0 10px;
-  border-right: 1px solid var(--background-modifier-border);
-  border-bottom: 1px solid var(--background-modifier-border);
-  font-size: 13px;
+  height: calc(34px * var(--mtk-zoom, 1));
+  line-height: calc(34px * var(--mtk-zoom, 1));
+  padding: 0 calc(10px * var(--mtk-zoom, 1));
+  border-right: calc(1px * var(--mtk-zoom, 1)) solid var(--background-modifier-border);
+  border-bottom: calc(1px * var(--mtk-zoom, 1)) solid var(--background-modifier-border);
+  font-size: calc(13px * var(--mtk-zoom, 1));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
@@ -2863,11 +2891,11 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   position: sticky;
   left: 0;
   z-index: 2;
-  width: 42px;
-  flex: 0 0 42px;
+  width: calc(42px * var(--mtk-zoom, 1));
+  flex: 0 0 calc(42px * var(--mtk-zoom, 1));
   padding: 0;
   text-align: center;
-  font-size: 11px;
+  font-size: calc(11px * var(--mtk-zoom, 1));
   font-weight: 400;
   color: var(--text-faint);
   background-color: var(--background-secondary);
@@ -3029,8 +3057,8 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   z-index: 2;
   display: none;
   pointer-events: none;
-  border: 2px solid var(--interactive-accent);
-  border-radius: 1px;
+  border: calc(2px * var(--mtk-zoom, 1)) solid var(--interactive-accent);
+  border-radius: calc(1px * var(--mtk-zoom, 1));
 }
 .mtk-range-box.is-on {
   display: block;
@@ -3040,13 +3068,13 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
    the overlay that takes the pointer. */
 .mtk-fill-handle {
   position: absolute;
-  right: -5px;
-  bottom: -5px;
-  width: 9px;
-  height: 9px;
+  right: calc(-5px * var(--mtk-zoom, 1));
+  bottom: calc(-5px * var(--mtk-zoom, 1));
+  width: calc(9px * var(--mtk-zoom, 1));
+  height: calc(9px * var(--mtk-zoom, 1));
   background: var(--background-primary);
-  border: 2px solid var(--interactive-accent);
-  border-radius: 2px;
+  border: calc(2px * var(--mtk-zoom, 1)) solid var(--interactive-accent);
+  border-radius: calc(2px * var(--mtk-zoom, 1));
   pointer-events: auto;
   cursor: crosshair;
   z-index: 4;
@@ -3059,13 +3087,13 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   z-index: 3;
   display: none;
   box-sizing: border-box;
-  border: 2px solid var(--interactive-accent);
+  border: calc(2px * var(--mtk-zoom, 1)) solid var(--interactive-accent);
   background: var(--background-primary);
   color: var(--text-normal);
-  font-size: 13px;
+  font-size: calc(13px * var(--mtk-zoom, 1));
   font-variant-numeric: tabular-nums;
   font-family: inherit;
-  padding: 0 8px;
+  padding: 0 calc(8px * var(--mtk-zoom, 1));
   margin: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
   outline: none;

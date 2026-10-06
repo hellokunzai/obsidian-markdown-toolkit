@@ -110,6 +110,17 @@ const GROW_CAP = 60;
 const H_BUFFER = 12;
 const V_BUFFER = 9;
 
+/**
+ * Ctrl+滚轮缩放的档位表（50%–300%，与 chart-panel 同一量级）。
+ *
+ * 走固定档位而不是「乘以 1.1」有两个原因：读数是整的（不会出现 121%、133%
+ * 这种没人报得出的比例），以及不会有浮点累积——连按十几次之后 1 已经是
+ * 0.9999999999999998，`zoom === 1` 的判定就再也命中不了。
+ */
+const ZOOM_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+/** 100% 在档位表里的下标，也是 `zoomReset` 的目标。 */
+const ZOOM_DEFAULT_INDEX = ZOOM_STEPS.indexOf(1);
+
 const clamp = (value: number, low: number, high: number): number =>
   Math.round(Math.max(low, Math.min(high, value)));
 
@@ -226,6 +237,20 @@ class TablePanel extends Modal {
   /** 格式刷工具栏按钮，用于装填 / 刷出时切换高亮。 */
   private brushBtn: HTMLButtonElement | null = null;
 
+  /**
+   * 表格弹窗视图缩放，1 = 100%，仅视图状态、不写回笔记。
+   *
+   * 实现方式是「按真实尺寸重排」而不是 `transform: scale()`：网格的每一格都
+   * 直接按 `未缩放尺寸 × zoom` 落成 px，字号与边框经 `--mtk-zoom` 一起走
+   * `calc()`。这与 Excel 的缩放是同一件事——放大是真的把格子放大，不是把一张
+   * 画好的图拉伸。三个后果都是白拿的：文字按新字号重新栅格化（不糊）、
+   * `position: sticky` 的表头和行号不受影响（transform 会让它们失效）、滚动范围
+   * 由布局自己算出来（不必再拿一个撑尺寸的层去假装）。
+   */
+  private zoom = 1;
+  /** 工具条上的百分比标签，点击复位 100%。 */
+  private zoomPctEl: HTMLElement | null = null;
+
   /** Unsubscribe callbacks for the document-level listeners, run on close. */
   private readonly teardown: Array<() => void> = [];
 
@@ -327,9 +352,23 @@ class TablePanel extends Modal {
 
     /* Grow filler cells as the user scrolls toward an edge, so the grid feels
        endless rather than being capped at the viewport. */
-    const onGridScroll = (): void => this.ensureBuffer();
+    const onGridScroll = (): void => {
+      this.ensureBuffer();
+    };
     this.gridHost.addEventListener("scroll", onGridScroll, { passive: true });
     this.teardown.push(() => this.gridHost.removeEventListener("scroll", onGridScroll));
+
+    /* Ctrl + 滚轮缩放表格，与 chart-panel 同一手势。
+       `passive: false` 才能 preventDefault —— 不然 Ctrl+滚轮会先被浏览器当成
+       「页面缩放」吃掉，网格再跟着跳一次。
+       触控板的双指捏合在 Chromium 里也走 wheel + ctrlKey，所以捏合顺带就能用。 */
+    const onWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      this.zoomStep(event.deltaY < 0 ? 1 : -1);
+    };
+    this.gridHost.addEventListener("wheel", onWheel, { passive: false });
+    this.teardown.push(() => this.gridHost.removeEventListener("wheel", onWheel));
   }
 
   onClose(): void {
@@ -390,6 +429,21 @@ class TablePanel extends Modal {
         this.openColorPicker("font", event.currentTarget as HTMLElement)
       )
     );
+
+    /* 缩放组：与 chart-panel 对齐的 zoomOut / zoomLabel / zoomIn。
+       Ctrl+滚轮已能缩放，按钮给没有滚轮 / 触板的场景一个入口，
+       百分比标签点击复位 100%。两条路都走 `zoomStep`，不会各缩各的。 */
+    const zoomGroup = h("span", { cls: "mtk-zoom-group" });
+    const zOut = this.button("", "zoom-out", t("table.zoom.out"), () => this.zoomStep(-1));
+    const zPct = h("span", { cls: "mtk-zoom-pct", text: "100%" });
+    applyTooltip(zPct, t("table.zoom.reset"));
+    zPct.addEventListener("click", () => this.zoomReset());
+    const zIn = this.button("", "zoom-in", t("table.zoom.in"), () => this.zoomStep(1));
+    zoomGroup.appendChild(zOut);
+    zoomGroup.appendChild(zPct);
+    zoomGroup.appendChild(zIn);
+    this.toolbarEl.appendChild(zoomGroup);
+    this.zoomPctEl = zPct;
   }
 
   private button(
@@ -412,6 +466,69 @@ class TablePanel extends Modal {
 
   private divider(): HTMLElement {
     return h("div", { cls: "mtk-divider" });
+  }
+
+  /* ------------------------------------------------------------- 视图缩放 */
+
+  /** 沿档位表走一格：`direction` 为 +1 放大、-1 缩小（滚轮与工具条共用）。 */
+  private zoomStep(direction: 1 | -1): void {
+    const at = ZOOM_STEPS.indexOf(this.zoom);
+    /* indexOf 落空（理论上不会）时从最近的一档重新出发，而不是把缩放顶到 100% */
+    const from = at >= 0 ? at : ZOOM_DEFAULT_INDEX;
+    const to = Math.min(ZOOM_STEPS.length - 1, Math.max(0, from + direction));
+    if (to === from) return;
+    this.zoomTo(ZOOM_STEPS[to]);
+  }
+
+  /** 点击百分比标签：回到 100%。 */
+  private zoomReset(): void {
+    this.zoomTo(1);
+  }
+
+  /**
+   * 把缩放设到 `next`（只接受档位表里的值）。
+   *
+   * 锚点是**视口左上角**，这是 Excel 的做法：左上角那个格子缩放后还落在左上角
+   * （用户给的三张参考图里 A1 在三个比例下都钉在左上角，正是这条规则）。滚动量
+   * 是「显示像素」，除以旧 zoom 还原成内容坐标，再乘新 zoom 落回同一格。
+   *
+   * 缩放改了每个格子的真实尺寸，所以整棵树要重排——这也是为什么滚轮不做动画、
+   * 一格一跳：每一跳都要重建网格，中间态没有意义。
+   */
+  private zoomTo(next: number): void {
+    if (next === this.zoom) return;
+    const host = this.gridHost;
+    const ux = host.scrollLeft / this.zoom;
+    const uy = host.scrollTop / this.zoom;
+    this.zoom = next;
+    this.renderGrid();
+    /* 要在重排之后写：`renderGrid` 会把重建前的滚动位置按旧尺度还原回去，
+       这两行才是按新尺度落位的那一次。 */
+    host.scrollLeft = ux * next;
+    host.scrollTop = uy * next;
+    this.updateZoomLabel();
+  }
+
+  private updateZoomLabel(): void {
+    if (this.zoomPctEl) this.zoomPctEl.textContent = `${Math.round(this.zoom * 100)}%`;
+  }
+
+  /* 缩放后的真实像素。字号与边框不经这里，它们走 CSS 的 `--mtk-zoom`
+     （见 styles.css），因为那些值本来就归样式表管。 */
+  private colPx(col: number): number {
+    return this.colWidth(col) * this.zoom;
+  }
+
+  private rowPx(row: number): number {
+    return this.rowHeight(row) * this.zoom;
+  }
+
+  private gutterPx(): number {
+    return GUTTER_WIDTH * this.zoom;
+  }
+
+  private headPx(): number {
+    return HEAD_HEIGHT * this.zoom;
   }
 
   /**
@@ -693,15 +810,18 @@ class TablePanel extends Modal {
 
     // `ceil`, not `floor`: rounding down leaves the grid a few pixels short of
     // the canvas, which is precisely the band this is trying to avoid.
+    /* 视口与行号列都不随缩放改，所以这里解的是「未缩放的列宽取多少，own 列加上
+       行号列正好铺满视口」——两边都先除以 zoom 换算回未缩放坐标再解。 */
     this.baseColumnWidth =
       this.request.fillMode === "stretch"
-        ? Math.max(MIN_COLUMN, Math.ceil((width - GUTTER_WIDTH) / Math.max(1, own)))
+        ? Math.max(MIN_COLUMN, Math.ceil((width / this.zoom - GUTTER_WIDTH) / Math.max(1, own)))
         : PAD_COLUMN;
 
-    const scrollLeft = this.gridHost.scrollLeft;
-    const scrollTop = this.gridHost.scrollTop;
-    const coverCols = fitAcross(scrollLeft + width, GUTTER_WIDTH, (col) => this.colWidth(col));
-    const coverRows = fitAcross(scrollTop + height, HEAD_HEIGHT, (row) => this.rowHeight(row));
+    /* 网格按真实尺寸布局，滚动量与格子尺寸是同一套单位，不需要再校正。 */
+    const farX = this.gridHost.scrollLeft + width;
+    const farY = this.gridHost.scrollTop + height;
+    const coverCols = fitAcross(farX, this.gutterPx(), (col) => this.colPx(col));
+    const coverRows = fitAcross(farY, this.headPx(), (row) => this.rowPx(row));
     const columns = Math.min(own + GROW_CAP, Math.max(own, coverCols) + H_BUFFER);
     const rows = Math.min(real + GROW_CAP, Math.max(real, coverRows) + V_BUFFER);
     this.renderedCols = columns;
@@ -723,10 +843,10 @@ class TablePanel extends Modal {
 
     const own = this.model.header.length;
     const real = this.model.body.length + 1;
-    const scrollLeft = this.gridHost.scrollLeft;
-    const scrollTop = this.gridHost.scrollTop;
-    const coverCols = fitAcross(scrollLeft + width, GUTTER_WIDTH, (col) => this.colWidth(col));
-    const coverRows = fitAcross(scrollTop + height, HEAD_HEIGHT, (row) => this.rowHeight(row));
+    const farX = this.gridHost.scrollLeft + width;
+    const farY = this.gridHost.scrollTop + height;
+    const coverCols = fitAcross(farX, this.gutterPx(), (col) => this.colPx(col));
+    const coverRows = fitAcross(farY, this.headPx(), (row) => this.rowPx(row));
     const columns = Math.min(own + GROW_CAP, Math.max(own, coverCols) + H_BUFFER);
     const rows = Math.min(real + GROW_CAP, Math.max(real, coverRows) + V_BUFFER);
     if (columns > this.renderedCols || rows > this.renderedRows) {
@@ -760,12 +880,12 @@ class TablePanel extends Modal {
     if (headRow && widenBy > 0) {
       for (let col = this.renderedCols; col < columns; col += 1) {
         const filler = col >= this.model.header.length;
-        const cell = h("div", {
-          cls: "mtk-sheet-cell" + (filler ? " is-filler" : ""),
-          text: columnLetter(col),
-          attr: { "data-head": "col", "data-hcol": String(col) },
-        });
-        cell.style.width = `${this.colWidth(col)}px`;
+        const cell = this.headCell(
+          "mtk-sheet-cell" + (filler ? " is-filler" : ""),
+          columnLetter(col),
+          { "data-head": "col", "data-hcol": String(col) }
+        );
+        cell.style.width = `${this.colPx(col)}px`;
         cell.appendChild(this.resizer("col", col));
         headRow.appendChild(cell);
       }
@@ -781,7 +901,7 @@ class TablePanel extends Modal {
             cls: "mtk-sheet-cell is-filler",
             attr: { "data-row": String(rowIndex), "data-col": String(col) },
           });
-          cell.style.width = `${this.colWidth(col)}px`;
+          cell.style.width = `${this.colPx(col)}px`;
           this.applyRowHeight(cell, rowIndex);
           tr.appendChild(cell);
         }
@@ -845,7 +965,7 @@ class TablePanel extends Modal {
    * caught up yet.
    */
   private applyRowHeight(el: HTMLElement, row: number): void {
-    const height = `${this.rowHeight(row)}px`;
+    const height = `${this.rowPx(row)}px`;
     el.style.height = height;
     el.style.lineHeight = height;
   }
@@ -861,17 +981,22 @@ class TablePanel extends Modal {
 
     const sheet = h("div", { cls: "mtk-tbl-sheet" });
     this.sheetEl = sheet;
+    /* 字号、内边距、边框这些归样式表管的值，靠这个变量一起缩放——见
+       styles.css 里表格那一段的 `calc(... * var(--mtk-zoom, 1))`。 */
+    sheet.style.setProperty("--mtk-zoom", String(this.zoom));
 
     const headRow = h("div", { cls: "mtk-sheet-row is-head" });
-    headRow.appendChild(h("div", { cls: "mtk-sheet-cell mtk-sheet-gutter" }));
+    const corner = this.headCell("mtk-sheet-cell mtk-sheet-gutter");
+    this.applyGutterSize(corner);
+    headRow.appendChild(corner);
     for (let col = 0; col < plan.columns; col += 1) {
       const filler = col >= this.model.header.length;
-      const cell = h("div", {
-        cls: "mtk-sheet-cell" + (filler ? " is-filler" : ""),
-        text: columnLetter(col),
-        attr: { "data-head": "col", "data-hcol": String(col) },
-      });
-      cell.style.width = `${this.colWidth(col)}px`;
+      const cell = this.headCell(
+        "mtk-sheet-cell" + (filler ? " is-filler" : ""),
+        columnLetter(col),
+        { "data-head": "col", "data-hcol": String(col) }
+      );
+      cell.style.width = `${this.colPx(col)}px`;
       /* Every column edge is draggable, the filler ones included: a size is a
          thing that lives in this dialog and nowhere else, so a column added to
          cover the canvas can carry one just as honestly as a real column. It is
@@ -904,7 +1029,35 @@ class TablePanel extends Modal {
     this.gridHost.appendChild(sheet);
     this.gridHost.scrollTop = prevTop;
     this.gridHost.scrollLeft = prevLeft;
+    this.updateZoomLabel();
     this.refreshSelection();
+  }
+
+  /**
+   * 表头上的一个格子（列标或角上的空行号位）。
+   *
+   * 高度在 JS 里落值而不是交给 CSS：表头高只有 `HEAD_HEIGHT` 一个出处，若让
+   * 样式表再写一遍同样的数字，改常量时两处就会悄悄走散。宽度不在这里给——
+   * 列标按列宽走，行号列按 `gutterPx()` 走。
+   */
+  private headCell(cls: string, text?: string, attr?: Record<string, string>): HTMLElement {
+    const cell = h("div", { cls, text, attr });
+    const height = `${this.headPx()}px`;
+    cell.style.height = height;
+    cell.style.lineHeight = height;
+    return cell;
+  }
+
+  /**
+   * 行号列的实际宽度。
+   *
+   * `flex` 要一起写：样式表里那条 `flex: 0 0 42px` 决定的是 flex 主轴尺寸，
+   * 只改 `width` 在 flex 行里根本不参与布局——这正是那种"值写对了但没生效"的坑。
+   */
+  private applyGutterSize(el: HTMLElement): void {
+    const px = this.gutterPx();
+    el.style.width = `${px}px`;
+    el.style.flex = `0 0 ${px}px`;
   }
 
   private buildRow(row: number, columns: number): HTMLElement {
@@ -921,6 +1074,7 @@ class TablePanel extends Modal {
       attr: { "data-head": "row", "data-hrow": String(row) },
     });
     this.applyRowHeight(gutter, row);
+    this.applyGutterSize(gutter);
     gutter.appendChild(this.resizer("row", row));
     tr.appendChild(gutter);
 
@@ -931,7 +1085,7 @@ class TablePanel extends Modal {
         cls: "mtk-sheet-cell",
         attr: { "data-row": String(row), "data-col": String(col) },
       });
-      cell.style.width = `${this.colWidth(col)}px`;
+      cell.style.width = `${this.colPx(col)}px`;
       this.applyRowHeight(cell, row);
 
       /* Past the table's own columns the grid keeps going. Those cells exist to
@@ -1338,12 +1492,16 @@ class TablePanel extends Modal {
        the moment the pointer left the grid would read as the handle being
        dropped. So both of these come before the hit test. */
     if (drag.mode === "colw") {
-      const width = clamp(drag.startW + (event.clientX - drag.startX), MIN_COL_W, MAX_COL_W);
+      /* 指针走的是屏幕像素，而列宽是未缩放的：放大到 200% 时拖 100px 只该得到
+         50px 的新宽度，所以位移先除以 zoom 再累加。 */
+      const moved = (event.clientX - drag.startX) / this.zoom;
+      const width = clamp(drag.startW + moved, MIN_COL_W, MAX_COL_W);
       if (width !== this.colWidth(drag.col)) this.setColWidth(drag.col, width);
       return;
     }
     if (drag.mode === "rowh") {
-      const height = clamp(drag.startH + (event.clientY - drag.startY), MIN_ROW_H, MAX_ROW_H);
+      const moved = (event.clientY - drag.startY) / this.zoom;
+      const height = clamp(drag.startH + moved, MIN_ROW_H, MAX_ROW_H);
       if (height !== this.rowHeight(drag.row)) this.setRowHeight(drag.row, height);
       return;
     }
