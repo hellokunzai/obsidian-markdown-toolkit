@@ -52,7 +52,7 @@ import {
   type CellResult,
   type TableModel,
 } from "../core/table-formula";
-import { buildTableFrame, modelFromTable, shouldFrame, type TableFrame } from "./table-render";
+import { buildTableFrame, modelFromTable, type TableFrame } from "./table-render";
 import { openTableEditor } from "../editor/table-panel";
 import type { TableBlockHost } from "./table-block";
 
@@ -165,7 +165,6 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
              from recursive frames. */
           if (table.closest(".mtk-embed") !== null) continue;
           if (this.framed.has(table)) continue;
-          if (!shouldFrame(table, host.settings.tableTarget)) continue;
 
           const range = this.locate(table);
           if (!range || this.selectionTouches(range)) continue;
@@ -257,7 +256,6 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
         const frame = buildTableFrame({
           model,
           results,
-          mode: host.settings.tableRenderMode,
           native: table,
           app: host.app,
           file: host.app.workspace.getActiveFile(),
@@ -267,7 +265,6 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
             openTableEditor({
               app: host.app,
               model,
-              fillMode: host.settings.tableFillMode,
               autoSave: host.settings.tableAutoSave,
               autoSaveInterval: host.settings.tableAutoSaveInterval,
               highlightFormulas: host.settings.tableHighlightFormulas,
@@ -287,9 +284,6 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
       }
 
       private unframe(entry: Framed): void {
-        // Undo first: in native mode the cells hold answers, and the renderer's
-        // table is about to become the editor again.
-        entry.frame.restore();
         const parent = entry.host.parentElement;
         if (parent) parent.insertBefore(entry.table, entry.host);
         entry.host.remove();

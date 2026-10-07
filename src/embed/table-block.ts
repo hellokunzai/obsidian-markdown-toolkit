@@ -38,7 +38,7 @@ import {
   type CellResult,
   type TableModel,
 } from "../core/table-formula";
-import { buildTableFrame, modelFromTable, shouldFrame, type TableFrame } from "./table-render";
+import { buildTableFrame, modelFromTable, type TableFrame } from "./table-render";
 import type { MarkdownEditorPlusSettings } from "../settings";
 
 /** The slice of the plugin a table frame draws with. */
@@ -72,8 +72,7 @@ export function refreshTableBlocks(): void {
  */
 export function registerTableBlocks(plugin: Plugin, host: TableBlockHost): void {
   plugin.registerMarkdownPostProcessor((el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-    const target = host.settings.tableTarget;
-    for (const table of Array.from(el.querySelectorAll("table")).filter((node) => shouldFrame(node, target))) {
+    for (const table of Array.from(el.querySelectorAll("table"))) {
       const parent = table.parentElement;
       if (!parent) continue;
 
@@ -194,7 +193,6 @@ export class TableBlock extends MarkdownRenderChild {
     this.frame = buildTableFrame({
       model: this.model,
       results: this.results,
-      mode: this.host.settings.tableRenderMode,
       native: this.native,
       app: this.host.app,
       file,

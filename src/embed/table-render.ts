@@ -27,29 +27,7 @@ import {
   type TableAlign,
   type TableModel,
 } from "../core/table-formula";
-import type { TableRenderMode, TableTarget } from "../settings";
 
-/** True when any cell in a rendered table holds a formula. */
-export function looksComputed(table: HTMLElement): boolean {
-  for (const cell of Array.from(table.querySelectorAll("td"))) {
-    if ((cell.textContent ?? "").trim().startsWith("=")) return true;
-  }
-  return false;
-}
-
-/**
- * Whether this table is one the plugin should frame.
- *
- * `"computed"` leaves every table without a formula exactly as the renderer
- * drew it, which keeps the plugin invisible in a vault that does not use
- * formulas at all. `"all"` frames every table, which is what "render the table"
- * means when the table is the thing being styled rather than the formulas in
- * it — and it is the default, because a table with no formulas in it is still a
- * table worth framing.
- */
-export function shouldFrame(table: HTMLElement, target: TableTarget): boolean {
-  return target === "all" || looksComputed(table);
-}
 
 /**
  * A rendered table read back into a model.
@@ -351,8 +329,6 @@ export function paintTableSheet(
 export interface TableFrameOptions {
   model: TableModel;
   results: CellResult[][];
-  /** How the framed table is drawn. */
-  mode: TableRenderMode;
   /** The element the renderer produced, adopted so the other modes can hide it. */
   native: HTMLElement;
   /** The app, so the download entry can write a file beside the note. */
@@ -376,35 +352,6 @@ export interface TableFrame {
   readonly el: HTMLElement;
   /** Re-renders in place with a fresh model; used when the note changes underneath. */
   update(model: TableModel, results: CellResult[][]): void;
-  /**
-   * Puts every cell this frame overwrote back the way the renderer wrote it.
-   *
-   * Only the Live Preview needs this, and it needs it badly: there the cells
-   * are the editor, so a cell left holding `15` when the note says `=B2*C2` is
-   * a cell that lies about what you are about to edit.
-   */
-  restore(): void;
-}
-
-/**
- * Cell text as the renderer wrote it, before this plugin replaced it.
- *
- * Keyed by the cell element and held at module scope rather than inside a
- * frame, because frames get rebuilt: a per-frame cache would be repopulated
- * from cells that had *already* been overwritten, and the second cache would
- * record `15` as the original text.
- */
-const originalText = new WeakMap<HTMLElement, string>();
-
-/** Undoes `writeValuesInto` for a table, and forgets what it had cached. */
-export function restoreNativeText(table: HTMLElement): void {
-  for (const cell of Array.from(table.querySelectorAll<HTMLElement>("th, td"))) {
-    const raw = originalText.get(cell);
-    if (raw === undefined) continue;
-    cell.textContent = raw;
-    cell.classList.remove("mtk-cell-computed", "mtk-cell-error");
-    originalText.delete(cell);
-  }
 }
 
 /**
@@ -420,7 +367,6 @@ export function restoreNativeText(table: HTMLElement): void {
 export function buildTableFrame(options: TableFrameOptions): TableFrame {
   let model = options.model;
   let results = options.results;
-  let mode = options.mode;
   let showingSource = false;
 
   const box = h("div", { cls: "mtk-embed" });
@@ -483,24 +429,6 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
     box.appendChild(view);
   }
 
-  /** Writes the computed text into the cells the renderer already drew. */
-  const writeValuesInto = (table: HTMLElement): void => {
-    const rows = Array.from(table.querySelectorAll("tr"));
-    rows.forEach((tr, r) => {
-      Array.from(tr.querySelectorAll<HTMLElement>("th, td")).forEach((cell, col) => {
-        const result = results[r]?.[col];
-        if (!result || !result.formula) return;
-        // Cached before the first overwrite, and only then: `restore()` clears
-        // the entry, so coming back to this table re-reads what is there now.
-        if (!originalText.has(cell)) originalText.set(cell, cell.textContent ?? "");
-        if (cell.textContent !== result.text) cell.textContent = result.text;
-        cell.classList.add("mtk-cell-computed");
-        if (result.error) cell.classList.add("mtk-cell-error");
-        applyTooltip(cell, result.raw);
-      });
-    });
-  };
-
   const render = (): void => {
     body.empty();
     if (showingSource) {
@@ -509,10 +437,6 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
          not a clone of the live DOM, so it stays Markdown even when the cells
          themselves hold computed answers. */
       body.appendChild(h("pre", { cls: "mtk-tbl-source", text: serializeTable(model) }));
-    } else if (mode === "native") {
-      writeValuesInto(options.native);
-      options.native.classList.add("mtk-cell-native");
-      body.appendChild(options.native);
     } else {
       body.appendChild(
         paintTable(model, results, colorsFromTable(options.native), options.highlightFormulas)
@@ -536,9 +460,6 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
       model = nextModel;
       results = nextResults;
       render();
-    },
-    restore(): void {
-      restoreNativeText(options.native);
     },
   };
 }

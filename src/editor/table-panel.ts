@@ -54,7 +54,6 @@ import {
   type TableAlign,
   type TableModel,
 } from "../core/table-formula";
-import type { TableFillMode } from "../settings";
 import { THEME_ROWS, STANDARD_COLORS, FONT_COLOR_ICON } from "../core/font-color";
 import { TRANSLUCENT_COLORS, HIGHLIGHTER_COLORS, BACKGROUND_COLOR_ICON } from "../core/background-color";
 import {
@@ -69,7 +68,6 @@ import { ColorPickerPanel, closeColorPicker, type ColorBand } from "../ui/color-
 export interface TableEditorRequest {
   app: App;
   model: TableModel;
-  fillMode: TableFillMode;
   /** Whether the panel writes the table back on a timer. */
   autoSave: boolean;
   /** Seconds between auto-saves, counted from the moment the table went dirty. */
@@ -947,10 +945,7 @@ class TablePanel extends Modal {
     // the canvas, which is precisely the band this is trying to avoid.
     /* 视口与行号列都不随缩放改，所以这里解的是「未缩放的列宽取多少，own 列加上
        行号列正好铺满视口」——两边都先除以 zoom 换算回未缩放坐标再解。 */
-    this.baseColumnWidth =
-      this.request.fillMode === "stretch"
-        ? Math.max(MIN_COLUMN, Math.ceil((width / this.zoom - GUTTER_WIDTH) / Math.max(1, own)))
-        : PAD_COLUMN;
+    this.baseColumnWidth = PAD_COLUMN;
 
     /* 网格按真实尺寸布局，滚动量与格子尺寸是同一套单位，不需要再校正。 */
     const farX = this.gridHost.scrollLeft + width;

@@ -495,22 +495,6 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.deleteOrphanedOnNoteDelete === "boolean"
           ? saved!.deleteOrphanedOnNoteDelete
           : DEFAULT_SETTINGS.deleteOrphanedOnNoteDelete,
-      /* Both are closed sets rather than free text, and both are read back out
-         of a `data.json` a user can edit: a value the dropdowns cannot express
-         falls back to the default here rather than reaching a renderer that
-         would have to guess what it meant. */
-      tableTarget:
-        saved?.tableTarget === "all" || saved?.tableTarget === "computed"
-          ? saved.tableTarget
-          : DEFAULT_SETTINGS.tableTarget,
-      tableRenderMode:
-        saved?.tableRenderMode === "native" || saved?.tableRenderMode === "drawn"
-          ? saved.tableRenderMode
-          : DEFAULT_SETTINGS.tableRenderMode,
-      tableFillMode:
-        saved?.tableFillMode === "pad" || saved?.tableFillMode === "stretch"
-          ? saved.tableFillMode
-          : DEFAULT_SETTINGS.tableFillMode,
       tableAutoSave:
         typeof saved?.tableAutoSave === "boolean"
           ? saved.tableAutoSave

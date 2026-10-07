@@ -203,24 +203,6 @@ const en: Dict = {
   "settings.tab.attachment": "Attachment settings",
   "settings.tab.table": "Table settings",
 
-  "settings.table.target.name": "Which tables to take over",
-  "settings.table.target.desc":
-    "Which tables are framed, given a corner edit button and a count.",
-  "settings.table.target.all": "Every table",
-  "settings.table.target.computed": "Only tables with formulas",
-
-  "settings.table.mode.name": "How a computed table is drawn",
-  "settings.table.mode.desc":
-    "A table whose cells hold formulas is framed like a diagram, with an edit button in its corner. This decides who draws what goes inside that frame.",
-  "settings.table.mode.native": "Keep Obsidian's table",
-  "settings.table.mode.drawn": "Draw it with this plugin",
-
-  "settings.table.fill.name": "How the table editor fills its canvas",
-  "settings.table.fill.desc":
-    "Both fill the window; they differ in where the spare room goes.",
-  "settings.table.fill.pad": "Add empty rows and columns",
-  "settings.table.fill.stretch": "Stretch the columns",
-
   "settings.table.note":
     "Either way the table stays a plain Markdown table: a formula is written in the cell as =sum(B2:B4), and its result is only ever shown — never written back into the note.",
 
@@ -847,22 +829,6 @@ const zhCn: Dict = {
   "settings.tab.order": "文件排序",
   "settings.tab.attachment": "附件设置",
   "settings.tab.table": "表格设置",
-
-  "settings.table.target.name": "哪些表格需要接管",
-  "settings.table.target.desc": "哪些表格会被装进外框、带上编辑按钮与行列统计。",
-  "settings.table.target.all": "所有表格",
-  "settings.table.target.computed": "仅含公式的表格",
-
-  "settings.table.mode.name": "含公式表格的渲染方式",
-  "settings.table.mode.desc":
-    "单元格里写了公式的表格，会像图表一样被装进一个框，右上角带编辑按钮。这里决定框里那张表由谁来画。",
-  "settings.table.mode.native": "原生外观（保留 Obsidian 的表格）",
-  "settings.table.mode.drawn": "插件自绘",
-
-  "settings.table.fill.name": "表格编辑器的铺满方式",
-  "settings.table.fill.desc": "两种都铺满窗口，区别是多出来的空间放在哪里。",
-  "settings.table.fill.pad": "补空行列（电子表格式）",
-  "settings.table.fill.stretch": "列宽拉伸",
 
   "settings.table.note":
     "两种方式下表格都仍是原生 Markdown 表格：公式就写在单元格里（如 =sum(B2:B4)），算出的结果只用于显示，不会写回笔记。",
