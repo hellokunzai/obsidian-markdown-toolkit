@@ -180,6 +180,8 @@ interface Hit {
   row: number;
   col: number;
   filler: boolean;
+  /** Set on the top-left corner cell: clicking it selects the whole table. */
+  corner?: boolean;
 }
 
 /** What the anchor covers. A Shift-extended selection is the union of the
@@ -203,6 +205,12 @@ class TablePanel extends Modal {
   private range: Box = { r1: 1, c1: 0, r2: 1, c2: 0 };
   private editing: Cell | null = null;
   private drag: Drag | null = null;
+  /**
+   * True only while the corner-cell "select the whole table" is in effect.
+   * The anchor is kept a plain `"cell"` (never `"col"`/`"row"`) so both header
+   * strips light up — which is exactly what "the whole sheet" should say.
+   */
+  private selectAll = false;
 
   /*
    * Sizes the user dragged. Sparse on purpose: anything absent falls back to the
@@ -987,6 +995,8 @@ class TablePanel extends Modal {
 
     const headRow = h("div", { cls: "mtk-sheet-row is-head" });
     const corner = this.headCell("mtk-sheet-cell mtk-sheet-gutter");
+    corner.setAttribute("data-corner", "1");
+    corner.title = "点击全选整张表";
     this.applyGutterSize(corner);
     headRow.appendChild(corner);
     for (let col = 0; col < plan.columns; col += 1) {
@@ -1179,11 +1189,17 @@ class TablePanel extends Modal {
   /** Repaints selection-dependent classes and re-places the overlay. Cheap:
       selection never changes the grid's shape, only how it is drawn. */
   private refreshSelection(): void {
+    /* The corner handle reads as "all selected" while that state is on; it is
+       the one cell that is not part of the data selection itself. */
+    const cornerEl = this.sheetEl.querySelector<HTMLElement>(".mtk-sheet-cell.mtk-sheet-gutter[data-corner]");
+    if (cornerEl) cornerEl.classList.toggle("is-all", this.selectAll);
     this.sheetEl.querySelectorAll<HTMLElement>(".mtk-sheet-cell[data-row]").forEach((cell) => {
       const row = Number(cell.getAttribute("data-row"));
       const col = Number(cell.getAttribute("data-col"));
       cell.classList.toggle("in-range", this.inRange(row, col));
-      cell.classList.toggle("is-selected", row === this.active.row && col === this.active.col);
+      /* During whole-table selection there is no single active square, so the
+         accent outline is dropped — the lit headers already say "everything". */
+      cell.classList.toggle("is-selected", !this.selectAll && row === this.active.row && col === this.active.col);
     });
     /* Every letter and number the selection reaches lights up, not only the
        active one: after selecting four rows, one lit number answers a
@@ -1254,6 +1270,7 @@ class TablePanel extends Modal {
       selection grows from it — which is what Shift means in a spreadsheet. */
   private moveTo(row: number, col: number, extend: boolean): void {
     const next = this.clampCell(row, col);
+    this.selectAll = false;
     if (extend) {
       this.active = next;
       this.range = this.unionBox(this.anchorBox(), this.extentBox(next.row, next.col, "cell"));
@@ -1268,10 +1285,29 @@ class TablePanel extends Modal {
 
   private selectCell(row: number, col: number): void {
     const next = this.clampCell(row, col);
+    this.selectAll = false;
     this.anchor = next;
     this.anchorKind = "cell";
     this.active = next;
     this.setBox(next, next);
+    this.refreshSelection();
+  }
+
+  /** Excel's "click the corner" whole-table selection: every letter, number
+      and data cell lights up and the single active square is dropped. The
+      anchor stays a plain cell (never "col"/"row") so both header strips are
+      lit — which is exactly what "the whole sheet" should say. */
+  private selectAllTable(): void {
+    this.selectAll = true;
+    this.anchor = { row: 1, col: 0 };
+    this.anchorKind = "cell";
+    this.active = { row: 1, col: 0 };
+    this.range = {
+      r1: 0,
+      c1: 0,
+      r2: this.model.body.length,
+      c2: this.model.header.length - 1,
+    };
     this.refreshSelection();
   }
 
@@ -1301,6 +1337,14 @@ class TablePanel extends Modal {
     if (!cell || !this.sheetEl.contains(cell)) return null;
     const head = cell.getAttribute("data-head");
     const filler = cell.classList.contains("is-filler");
+    /* The corner cell crosses the row-number and column-letter strips and
+       carries no coordinates of its own — it is the "select the whole table"
+       handle, which is a thing apart from a header click. Claim it before the
+       coordinate-based branches below, which would otherwise read it as
+       nothing and return null. */
+    if (cell.hasAttribute("data-corner")) {
+      return { head: null, row: -1, col: -1, filler: false, corner: true };
+    }
     if (head === "col") return { head, row: -1, col: Number(cell.getAttribute("data-hcol")), filler };
     if (head === "row") return { head, row: Number(cell.getAttribute("data-hrow")), col: -1, filler };
     if (!cell.hasAttribute("data-row")) return null; // the corner cell
@@ -1344,12 +1388,23 @@ class TablePanel extends Modal {
 
     if (!hit) return;
 
+    /* The corner cell selects the whole table, ahead of everything else that
+       reads this event — it is not a column letter, a row number or a cell,
+       so it must be claimed first. */
+    if (hit.corner) {
+      this.selectAllTable();
+      this.drag = null;
+      event.preventDefault();
+      return;
+    }
+
     if (hit.head === "col") {
       if (hit.filler) {
         this.addColumn();
         event.preventDefault();
         return;
       }
+      this.selectAll = false;
       this.commitInput();
       /* Shift keeps the anchor where it was and grows the selection to the
          letter just clicked; without it the letter *becomes* the anchor.
@@ -1379,6 +1434,7 @@ class TablePanel extends Modal {
         event.preventDefault();
         return;
       }
+      this.selectAll = false;
       this.commitInput();
       /* See the column branch: Shift grows from the anchor, a plain press
          moves the anchor to the number just clicked. */
@@ -1413,6 +1469,7 @@ class TablePanel extends Modal {
 
     this.commitInput();
     if (shift) {
+      this.selectAll = false;
       this.active = this.clampCell(hit.row, hit.col);
       this.range = this.unionBox(this.anchorBox(), this.hitBox(hit));
       this.refreshSelection();

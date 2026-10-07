@@ -2952,6 +2952,33 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   cursor: pointer;
 }
 
+/* The top-left corner cell crosses the row-number and column-letter strips:
+   clicking it selects the whole table, like Excel's corner handle. It earns a
+   pointer and its own "all selected" state, since it is not a real row or
+   column you can put data in. */
+.mtk-tbl-sheet .mtk-sheet-cell.mtk-sheet-gutter[data-corner] {
+  cursor: pointer;
+  position: relative;
+}
+/* Hover / active (whole-table selected) gives a small accent wash, echoing
+   Excel's "the whole sheet is selected" feedback. */
+.mtk-tbl-sheet .mtk-sheet-cell.mtk-sheet-gutter[data-corner]:hover,
+.mtk-tbl-sheet .mtk-sheet-cell.mtk-sheet-gutter[data-corner].is-all {
+  background-color: rgba(123, 92, 214, .12);
+  color: var(--interactive-accent);
+}
+/* A tiny diagonal arrow on hover hints that this is the whole-table handle. */
+.mtk-tbl-sheet .mtk-sheet-cell.mtk-sheet-gutter[data-corner]:hover::after {
+  content: "";
+  position: absolute;
+  left: calc(4px * var(--mtk-zoom, 1));
+  top: calc(4px * var(--mtk-zoom, 1));
+  width: calc(10px * var(--mtk-zoom, 1));
+  height: calc(10px * var(--mtk-zoom, 1));
+  border-left: calc(2px * var(--mtk-zoom, 1)) solid var(--interactive-accent);
+  border-top: calc(2px * var(--mtk-zoom, 1)) solid var(--interactive-accent);
+}
+
 /* A cell inside the selection wears a wash; the rectangle below draws the edge.
    Written before `is-hl` so the active column's letter keeps its own colour. */
 .mtk-sheet-cell.in-range {
