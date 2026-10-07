@@ -2563,13 +2563,11 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 .mtk-lightbox-scroll table.mtk-tbl tbody tr:nth-child(even) td {
   background-image: linear-gradient(rgba(0, 0, 0, 0.022), rgba(0, 0, 0, 0.022));
 }
-/* The row that computes, and the cells in it — tinted with the accent rather
-   than with a second grey, so it cannot be mistaken for the header. */
-.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr.mtk-calc td,
-.mtk-lightbox-scroll table.mtk-tbl tbody tr.mtk-calc td {
-  background-color: rgba(123, 92, 214, 0.1);
-  background-image: none;
-  font-weight: 500;
+/* The formula cell only — tinted with the accent so it reads as "computed",
+   matching the editor grid and the lightbox preview (which tint the cell rather
+   than the whole formula row). */
+.mtk-embed .mtk-embed-table table.mtk-tbl td.mtk-fx {
+  background-color: rgba(123, 92, 214, 0.07);
 }
 .mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:last-child td,
 .mtk-lightbox-scroll table.mtk-tbl tbody tr:last-child td {
@@ -2927,6 +2925,15 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 }
 .mtk-sheet-cell.is-fx {
   background-color: rgba(123, 92, 214, 0.07);
+}
+/* The formula marker, kept in sync with the reading-view / lightbox `ƒ` glyph:
+   an inline accent-coloured mark in front of the value, not a corner badge. */
+.mtk-tbl-sheet .mtk-sheet-cell .mtk-fx-mark {
+  color: var(--text-accent);
+  font-size: 10px;
+  font-weight: 600;
+  margin-right: 4px;
+  opacity: 0.75;
 }
 .mtk-sheet-cell.is-selected {
   position: relative;

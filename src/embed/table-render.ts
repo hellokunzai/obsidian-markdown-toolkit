@@ -200,7 +200,6 @@ export function paintTable(
   const body = h("tbody");
   results.slice(1).forEach((row, i) => {
     const tr = h("tr");
-    if (row.some((cell) => cell.formula)) tr.classList.add("mtk-calc");
     const colorRow = colors[i + 1] ?? [];
     row.forEach((cell, col) => {
       const td = h("td");

@@ -1170,7 +1170,16 @@ class TablePanel extends Modal {
 
         if (row > 0 && this.numericColumn(col)) cell.classList.add("is-num");
         if (result.error) cell.classList.add("is-err");
-        if (result.formula) cell.classList.add("is-fx");
+        if (result.formula) {
+          cell.classList.add("is-fx");
+          /* Inline `ƒ` marker in front of the value, matching the reading view
+             and the lightbox preview so a computed cell reads as computed in all
+             three contexts. Inserted before the value text node. */
+          cell.insertBefore(
+            h("span", { cls: "mtk-fx-mark", text: "ƒ" }),
+            cell.firstChild,
+          );
+        }
       }
       tr.appendChild(cell);
     }
