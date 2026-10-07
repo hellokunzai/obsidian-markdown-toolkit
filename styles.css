@@ -67,6 +67,60 @@
 }
 
 /*
+ * The table's view chrome — the reading view's "view this table" entry.
+ *
+ * The same panel, the same grid, the same interactions as the editor dialog;
+ * what changes is what surrounds it. There is no toolbar, because there is
+ * nothing to configure here: this is the frame the entry has always opened
+ * (the same 92vw x 86vh pane, the same `×` in the corner), with the editor's
+ * grid running edge to edge inside it.
+ *
+ * `padding: 0` (not just `padding-top`) is the difference from the editor
+ * shell: the editor's grid is inset by the dialog's own padding, while this
+ * one is flush with the frame on three sides — the arrangement the preview
+ * was asked for. `overflow: hidden` keeps the grid's square corners inside the
+ * radius instead of poking out of it.
+ */
+.modal.mtk-modal-view {
+  width: min(92vw, 1100px);
+  height: min(86vh, 820px);
+  max-width: 94vw;
+  max-height: 88vh;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--background-primary);
+}
+
+/* The band the corner buttons float in. The grid starts below it, so a column
+   letter is never hidden under the buttons — the editor's own arrangement, a
+   toolbar row shorter. */
+.mtk-modal-view .mtk-editor {
+  padding-top: 52px;
+}
+
+/* The three things a toolbar would carry here are hidden rather than absent:
+   the panel's own code path stays single. `Save` has no button, so the panel
+   lands the edits itself (see `autoSaveOn` / `onClose`). */
+.mtk-modal-view .mtk-header,
+.mtk-modal-view .mtk-toolbar,
+.mtk-modal-view .mtk-fxbar {
+  display: none;
+}
+
+/* The two corner slots, left of the `×` at 14px — the 32 + 8 rhythm the preview
+   frame and the block's own corner both use. */
+.mtk-modal-view .mtk-view-full {
+  top: 14px;
+  inset-inline-end: 54px;
+}
+
+.mtk-modal-view .mtk-view-export {
+  top: 14px;
+  inset-inline-end: 94px;
+}
+
+/*
  * Dialog title row.
  *
  * The base `Modal` puts an empty `.modal-header > .modal-title` ahead of the
@@ -101,7 +155,9 @@
  * The dialog close `×` wears the round, bordered, shadowed look of the preview
  * lightbox's corner buttons (`.mtk-lightbox-action`): every editor dialog and
  * each of its sub-dialogs tags it with `.mtk-modal-close-btn` via
- * `tagModalCloseButton`.
+ * `tagModalCloseButton`. The table's view chrome puts its own two corner
+ * buttons in the same family (`.mtk-view-action`), so the declaration block
+ * below is shared rather than copied.
  *
  * The `×` is tagged (not gated on `.mtk-modal-shell`) so the rule wins on
  * specificity over both Obsidian's `.clickable-icon` and
@@ -112,7 +168,8 @@
  * the lightbox uses (`top: 14px`, `inset-inline-end: 14px`, see below). Outside
  * the shell (the editor's sub-dialogs) it stays on Obsidian's own slot.
  */
-.modal .modal-close-button.mtk-modal-close-btn {
+.modal .modal-close-button.mtk-modal-close-btn,
+.modal .mtk-view-action {
   position: absolute;
   /* Round, bordered, shadowed — the lightbox `.mtk-lightbox-action` look. */
   display: inline-flex;
@@ -132,13 +189,15 @@
   opacity: 0.92;
 }
 
-.modal .modal-close-button.mtk-modal-close-btn:hover {
+.modal .modal-close-button.mtk-modal-close-btn:hover,
+.modal .mtk-view-action:hover {
   color: var(--text-on-accent);
   background-color: var(--interactive-accent);
   border-color: var(--interactive-accent);
 }
 
-.modal .modal-close-button.mtk-modal-close-btn .svg-icon {
+.modal .modal-close-button.mtk-modal-close-btn .svg-icon,
+.modal .mtk-view-action .svg-icon {
   width: 16px;
   height: 16px;
 }
@@ -1014,48 +1073,6 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 }
 
 .mtk-lightbox.is-fullscreen .mtk-lightbox-canvas {
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-}
-
-/* The table preview's frame: the same glass pane as `.mtk-lightbox-canvas`, but a
-   scrollable sheet rather than a pan-and-zoom surface. A table wants to be read
-   and selected, not dragged, so the `grab` cursor and `touch-action: none` that
-   the drawing preview needs are deliberately left off here.
-
-   The size is written here rather than published by TypeScript for the same
-   reason the canvas does it: nothing the user does changes it. `box-sizing` is
-   stated rather than inherited because the border is meant to be part of the
-   92vw, not added to it. */
-.mtk-lightbox-sheet {
-  position: relative;
-  box-sizing: border-box;
-  width: min(92vw, 1100px);
-  height: min(86vh, 820px);
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-l);
-  overflow: hidden;
-}
-
-/* The table scrolls inside the sheet; the corner buttons are pinned over it
-   (see `openTableLightbox`). The top padding clears the button row so the first
-   row's corner cell is not hidden behind it. */
-.mtk-lightbox-scroll {
-  position: absolute;
-  inset: 0;
-  overflow: auto;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-wrap {
-  margin: 0;
-  padding: 52px 20px 20px;
-  height: 100%;
-}
-
-.mtk-lightbox.is-fullscreen .mtk-lightbox-sheet {
   width: 100%;
   height: 100%;
   border-radius: 0;
@@ -2499,21 +2516,15 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
  * `.mtk-embed` alone. That is not decoration — inside the editor Obsidian's own
  * `.cm-content table` rules are in the cascade as well, and the extra class is
  * what keeps the surface and the header band from being flattened.
- *
- * The same rules are also given to `.mtk-lightbox-scroll` so the preview's
- * full-screen table uses the same surface, without making the selector so
- * broad that CodeMirror's table rules can flatten it in Live Preview.
  */
-.mtk-embed .mtk-embed-table .mtk-tbl-wrap,
-.mtk-lightbox-scroll .mtk-tbl-wrap {
+.mtk-embed .mtk-embed-table .mtk-tbl-wrap {
   /* The frame is the table's box now. A border and a radius of its own would
      draw a second box inside the first, which is the same white space as before
      with a line through it. */
   margin: 0;
   overflow: hidden;
 }
-.mtk-embed .mtk-embed-table table.mtk-tbl,
-.mtk-lightbox-scroll table.mtk-tbl {
+.mtk-embed .mtk-embed-table table.mtk-tbl {
   border-collapse: collapse;
   width: 100%;
   margin: 0;
@@ -2525,9 +2536,7 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   background-color: var(--background-primary);
 }
 .mtk-embed .mtk-embed-table table.mtk-tbl th,
-.mtk-embed .mtk-embed-table table.mtk-tbl td,
-.mtk-lightbox-scroll table.mtk-tbl th,
-.mtk-lightbox-scroll table.mtk-tbl td {
+.mtk-embed .mtk-embed-table table.mtk-tbl td {
   padding: 8px 12px;
   text-align: left;
   border: 0;
@@ -2537,9 +2546,7 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 /* Separated columns and banded rows, which together are what let the eye run
    down a column of figures — the whole reason this table exists. */
 .mtk-embed .mtk-embed-table table.mtk-tbl th:not(:last-child),
-.mtk-embed .mtk-embed-table table.mtk-tbl td:not(:last-child),
-.mtk-lightbox-scroll table.mtk-tbl th:not(:last-child),
-.mtk-lightbox-scroll table.mtk-tbl td:not(:last-child) {
+.mtk-embed .mtk-embed-table table.mtk-tbl td:not(:last-child) {
   border-right: 1px solid var(--background-modifier-border);
 }
 /*
@@ -2551,148 +2558,32 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
  * is what makes it a band on any theme — it shifts the colour by a fixed
  * amount instead of reaching for a variable that has already been spent.
  */
-.mtk-embed .mtk-embed-table table.mtk-tbl thead th,
-.mtk-lightbox-scroll table.mtk-tbl thead th {
+.mtk-embed .mtk-embed-table table.mtk-tbl thead th {
   background-color: var(--background-secondary);
   background-image: linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05));
   font-weight: 600;
   white-space: nowrap;
 }
 /* Banded rows, by the same fixed-shift approach and for the same reason. */
-.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:nth-child(even) td,
-.mtk-lightbox-scroll table.mtk-tbl tbody tr:nth-child(even) td {
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:nth-child(even) td {
   background-image: linear-gradient(rgba(0, 0, 0, 0.022), rgba(0, 0, 0, 0.022));
 }
 /* The formula cell only — tinted with the accent so it reads as "computed",
-   matching the editor grid and the lightbox preview (which tint the cell rather
-   than the whole formula row). */
+   matching the editor grid (which tints the cell rather than the whole
+   formula row). */
 .mtk-embed .mtk-embed-table table.mtk-tbl td.mtk-fx {
   background-color: rgba(123, 92, 214, 0.07);
 }
-.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:last-child td,
-.mtk-lightbox-scroll table.mtk-tbl tbody tr:last-child td {
+.mtk-embed .mtk-embed-table table.mtk-tbl tbody tr:last-child td {
   border-bottom: 0;
 }
 .mtk-embed .mtk-embed-table table.mtk-tbl td.is-num,
-.mtk-embed .mtk-embed-table table.mtk-tbl th.is-num,
-.mtk-lightbox-scroll table.mtk-tbl td.is-num,
-.mtk-lightbox-scroll table.mtk-tbl th.is-num {
+.mtk-embed .mtk-embed-table table.mtk-tbl th.is-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.mtk-embed .mtk-embed-table table.mtk-tbl td.is-err,
-.mtk-lightbox-scroll table.mtk-tbl td.is-err {
+.mtk-embed .mtk-embed-table table.mtk-tbl td.is-err {
   color: var(--text-error);
-}
-
-/*
- * Spreadsheet-style preview inside the lightbox.
- *
- * This mirrors the table editor's grid: column letters, row numbers, and a
- * clean white data surface with grid lines. It is read-only, so the selection
- * overlay and cell editor are left out.
- */
-.mtk-lightbox-scroll .mtk-tbl-wrap-preview {
-  padding: 52px 20px 20px;
-  height: 100%;
-  box-sizing: border-box;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview {
-  border-collapse: collapse;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  background-color: var(--background-primary);
-  table-layout: fixed;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview th,
-.mtk-lightbox-scroll .mtk-tbl-preview td {
-  box-sizing: border-box;
-  padding: 0 10px;
-  height: 34px;
-  line-height: 34px;
-  text-align: left;
-  border: 1px solid var(--background-modifier-border);
-  background-color: var(--background-primary);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview .mtk-preview-head-row th {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  background-color: var(--background-secondary);
-  font-weight: 600;
-  text-align: center;
-  padding: 0;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview .mtk-preview-corner {
-  position: sticky;
-  top: 0;
-  left: 0;
-  z-index: 4;
-  width: 42px;
-  min-width: 42px;
-  padding: 0;
-  background-color: var(--background-secondary);
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview .mtk-preview-gutter {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  width: 42px;
-  min-width: 42px;
-  padding: 0;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  background-color: var(--background-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview td.is-num {
-  text-align: right;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview td.is-err {
-  color: var(--text-error);
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview td.mtk-fx {
-  background-color: rgba(123, 92, 214, 0.07);
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview .mtk-fx-mark {
-  margin-right: 4px;
-  color: var(--text-accent);
-  font-size: 10px;
-  font-weight: 600;
-  opacity: 0.75;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview td.is-filler {
-  cursor: default;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview td.is-selected {
-  position: relative;
-  z-index: 1;
-  outline: 2px solid var(--interactive-accent);
-  outline-offset: -2px;
-}
-
-.mtk-lightbox-scroll .mtk-tbl-preview th.is-hl,
-.mtk-lightbox-scroll .mtk-tbl-preview td.mtk-preview-gutter.is-hl {
-  color: var(--text-normal);
-  background-color: var(--background-modifier-hover);
 }
 
 /*
@@ -2918,6 +2809,15 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
 }
 .mtk-tbl-sheet .mtk-sheet-gutter.is-hl {
   color: var(--text-normal);
+}
+
+/* The column letters answer the same rule the row numbers do: only the table's
+   own columns get the bold letter, and the filler letters past the last column
+   keep the plain weight, so the table's right edge reads at a glance the way its
+   bottom edge already did. Colour was never the asymmetric half — `is-filler`
+   already fades them — weight was. */
+.mtk-tbl-sheet .mtk-sheet-row.is-head .mtk-sheet-cell.is-filler {
+  font-weight: 400;
 }
 
 .mtk-sheet-cell.is-num {

@@ -39,6 +39,7 @@ import {
   type TableModel,
 } from "../core/table-formula";
 import { buildTableFrame, modelFromTable, type TableFrame } from "./table-render";
+import { openTableEditor } from "../editor/table-panel";
 import type { MarkdownEditorPlusSettings } from "../settings";
 
 /** The slice of the plugin a table frame draws with. */
@@ -197,9 +198,36 @@ export class TableBlock extends MarkdownRenderChild {
       app: this.host.app,
       file,
       editable: false,
+      onView: () => this.openEditor(file),
       highlightFormulas: this.host.settings.tableHighlightFormulas,
     });
     this.containerEl.appendChild(this.frame.el);
+  }
+
+  /**
+   * The reading view's "view table" entry: the table editor, over the note.
+   *
+   * It used to open a second, read-only renderer — the same data stretched to
+   * fill a frame, with none of the interactions the editor has (no zoom, no
+   * column resizing, no selection, no typing) and a layout that drifted from
+   * the editor's the moment either side changed. One grid with one
+   * implementation is what the two entries should have been all along, so the
+   * frame hands the click over and the panel does the rest.
+   *
+   * The edits land through `applyEdit`, which rewrites the table's *section* of
+   * the note — the same write the Live Preview editor does, reached the same way.
+   */
+  private openEditor(file: TFile | null): void {
+    openTableEditor({
+      app: this.host.app,
+      model: this.model,
+      chrome: "view",
+      file,
+      autoSave: this.host.settings.tableAutoSave,
+      autoSaveInterval: this.host.settings.tableAutoSaveInterval,
+      highlightFormulas: this.host.settings.tableHighlightFormulas,
+      onSave: (next) => this.applyEdit(next),
+    });
   }
 
   /**

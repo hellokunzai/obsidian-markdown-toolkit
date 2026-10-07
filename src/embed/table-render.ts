@@ -14,14 +14,13 @@
  * below it. Adopting the native element is not a detail of one render mode; it
  * is what makes the other modes possible at all.
  */
-import { Menu, Notice, normalizePath, setIcon, type App, type TFile, type Vault } from "obsidian";
+import { setIcon, type App, type TFile } from "obsidian";
 import { t } from "../i18n";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
+import { openTableExportMenu } from "../ui/table-export";
 import {
-  columnLetter,
   countFormulas,
-  serializeCsv,
   serializeTable,
   type CellResult,
   type TableAlign,
@@ -210,122 +209,6 @@ export function paintTable(
   return wrap;
 }
 
-/**
- * A read-only spreadsheet-style preview of the table.
- *
- * Used inside the lightbox, this draws the same data as `paintTable` but with
- * the visual language of the table editor: column-letter headers, row-number
- * gutters, grid lines, and a clean white data surface. Filler columns and rows
- * are drawn past the table's own data so the sheet keeps the editor's grid
- * footprint instead of stopping at the last populated cell.
- */
-export function paintTableSheet(
-  model: TableModel,
-  results: CellResult[][],
-  colors: CellColor[][],
-  highlightFormulas: boolean
-): HTMLElement {
-  const MIN_COLS = 8;
-  const MIN_ROWS = 16;
-  const totalCols = Math.max(model.header.length, MIN_COLS);
-  const totalRows = Math.max(results.length, MIN_ROWS);
-
-  const wrap = h("div", { cls: "mtk-tbl-wrap mtk-tbl-wrap-preview" });
-  const table = h("table", { cls: "mtk-tbl-preview" });
-
-  /* Fill the whole lightbox: fixed gutter width, equal data columns. */
-  const colgroup = h("colgroup");
-  const gutterCol = h("col");
-  gutterCol.style.width = "42px";
-  colgroup.appendChild(gutterCol);
-  const dataColWidth = `calc((100% - 42px) / ${totalCols})`;
-  for (let col = 0; col < totalCols; col += 1) {
-    const c = h("col");
-    c.style.width = dataColWidth;
-    colgroup.appendChild(c);
-  }
-  table.appendChild(colgroup);
-
-  const colHeads: HTMLTableCellElement[] = [];
-  const gutters: HTMLTableCellElement[] = [];
-
-  const head = h("thead");
-  const headRow = h("tr", { cls: "mtk-preview-head-row" });
-  headRow.style.height = "34px";
-  headRow.appendChild(h("th", { cls: "mtk-preview-corner" }));
-  for (let col = 0; col < totalCols; col += 1) {
-    const th = h("th", { cls: "mtk-preview-col-head", text: columnLetter(col) });
-    colHeads.push(th);
-    headRow.appendChild(th);
-  }
-  head.appendChild(headRow);
-  table.appendChild(head);
-
-  const body = h("tbody");
-  const rowHeight = `calc((100% - 34px) / ${totalRows})`;
-  for (let rowIndex = 0; rowIndex < totalRows; rowIndex += 1) {
-    const tr = h("tr");
-    tr.style.height = rowHeight;
-    const gutter = h("td", { cls: "mtk-preview-gutter", text: String(rowIndex + 1) });
-    gutters.push(gutter);
-    tr.appendChild(gutter);
-
-    const isFillerRow = rowIndex >= results.length;
-    const sourceRow = isFillerRow ? null : results[rowIndex];
-    const colorRow = isFillerRow ? [] : (colors[rowIndex] ?? []);
-
-    for (let col = 0; col < totalCols; col += 1) {
-      const isFillerCol = col >= model.header.length;
-      const cell = sourceRow?.[col];
-      const td = h("td");
-      if (isFillerRow || isFillerCol) td.classList.add("is-filler");
-      if (cell) {
-        if (numericColumn(results, col)) td.classList.add("is-num");
-        if (cell.error) td.classList.add("is-err");
-        if (cell.formula && highlightFormulas) {
-          td.classList.add("mtk-fx");
-          td.appendChild(h("span", { cls: "mtk-fx-mark", text: "ƒ" }));
-          applyTooltip(td, cell.raw);
-        }
-        td.appendChild(document.createTextNode(cell.text));
-        const align = model.align[col];
-        if (align && align !== "default") td.style.textAlign = align;
-        applyCellColor(td, colorRow[col] ?? {});
-      }
-      tr.appendChild(td);
-    }
-    body.appendChild(tr);
-  }
-  table.appendChild(body);
-
-  /* Click a cell to mimic the editor's selection outline. */
-  let selected: { cell: HTMLTableCellElement; col: number; row: number } | null = null;
-  const clearSelection = (): void => {
-    if (!selected) return;
-    selected.cell.classList.remove("is-selected");
-    colHeads[selected.col]?.classList.remove("is-hl");
-    gutters[selected.row]?.classList.remove("is-hl");
-    selected = null;
-  };
-  table.addEventListener("click", (event) => {
-    const td = (event.target as HTMLElement).closest<HTMLTableCellElement>("td");
-    if (!td || td.classList.contains("mtk-preview-gutter")) return;
-    const tr = td.parentElement as HTMLTableRowElement | null;
-    if (!tr) return;
-    const row = tr.rowIndex - 1;
-    const col = td.cellIndex - 1;
-    if (row < 0 || col < 0 || col >= totalCols) return;
-    clearSelection();
-    selected = { cell: td, col, row };
-    td.classList.add("is-selected");
-    colHeads[col]?.classList.add("is-hl");
-    gutters[row]?.classList.add("is-hl");
-  });
-
-  wrap.appendChild(table);
-  return wrap;
-}
-
 export interface TableFrameOptions {
   model: TableModel;
   results: CellResult[][];
@@ -344,6 +227,16 @@ export interface TableFrameOptions {
   editable: boolean;
   /** Called when the edit entry is clicked. Only required when `editable`. */
   onEdit?: () => void;
+  /**
+   * Called when the view entry is clicked. Only required when *not* `editable`.
+   *
+   * A callback rather than a self-contained preview, because "view the table"
+   * now means the same thing "edit the table" means: the table editor's own
+   * grid, opened over the note. The frame does not know how to open a dialog,
+   * and it must not learn — `editor/` importing this module is fine, this
+   * module importing `editor/` would be a cycle.
+   */
+  onView?: () => void;
   /** Whether computed cells get the ƒ marker and tint. */
   highlightFormulas: boolean;
 }
@@ -382,7 +275,9 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
      table is being worked on, so the entries are "edit" and "show source" — the
      pair the frame wore before the reading view got the diagram's download/view
      pair. In the reading view the table is being read, so the entries are
-     "download" and "view", matching the diagram's corner. */
+     "download" and "view". "View" is a callback rather than a preview painted
+     here: it opens the table editor over the note, so the reading view and the
+     editor show one grid with one implementation (see `onView`). */
   if (options.editable) {
     const edit = h("button", { cls: "mtk-embed-action mtk-embed-edit", attr: { type: "button" } });
     setIcon(edit, "square-pen");
@@ -417,14 +312,7 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
     applyTooltip(view, t("table.view"));
     view.addEventListener("click", (event: MouseEvent) => {
       event.stopPropagation();
-      openTableLightbox(
-        model,
-        results,
-        options.native,
-        options.app,
-        options.file,
-        options.highlightFormulas
-      );
+      options.onView?.();
     });
     box.appendChild(view);
   }
@@ -462,187 +350,4 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
       render();
     },
   };
-}
-
-/**
- * The formats the download entry offers, as a menu under the button — the same
- * shape as the diagram's export entry.
- *
- * One button rather than two squares for "CSV" and "Markdown": the corner is a
- * row of 26px squares, and two glyphs that both mean "download" are not two
- * things a reader can tell apart. The menu itself is Obsidian's own `Menu`, so
- * it inherits the theme, the flip-up placement near the window's bottom, Escape
- * to close and keyboard navigation for free — the toolbar's submenus already go
- * through `Menu` for exactly that reason.
- */
-export function openTableExportMenu(anchor: HTMLElement, app: App, file: TFile | null, model: TableModel): void {
-  const menu = new Menu();
-  menu.addItem((item) =>
-    item
-      .setTitle(t("table.exportCsv"))
-      .setIcon("file-spreadsheet")
-      .onClick(() => void writeTableFile(app, file, "csv", model))
-  );
-  menu.addItem((item) =>
-    item
-      .setTitle(t("table.exportMd"))
-      .setIcon("file-text")
-      .onClick(() => void writeTableFile(app, file, "md", model))
-  );
-  const rect = anchor.getBoundingClientRect();
-  menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
-}
-
-/**
- * Writes the table out beside the note it came from.
- *
- * Mirrors the diagram export's landing rule: a sibling of the note, never a
- * fixed folder, so the file keeps the one piece of context that says which note
- * it belongs to. Failures are reported rather than thrown — this runs from a
- * click handler on a button in a note, and a rejected promise there is an
- * unhandled rejection the user cannot act on.
- */
-async function writeTableFile(app: App, file: TFile | null, kind: "csv" | "md", model: TableModel): Promise<void> {
-  const path = freeTablePath(app.vault, file, kind);
-  const content = kind === "csv" ? serializeCsv(model) : serializeTable(model);
-  try {
-    await app.vault.create(path, content);
-    new Notice(t("notice.exported", { name: path }));
-  } catch (error) {
-    console.error("MarkdownEditorPlus: table export failed", error);
-    new Notice(t("notice.exportFailed"));
-  }
-}
-
-/**
- * `file`'s folder plus its basename, never taken twice.
- *
- * A note at the vault root has `parent.path === ""` (not `/`), so the two are
- * joined through `normalizePath` — otherwise a root note exports to `//note.csv`
- * and the confirmation reads like a typo. Exporting twice is a normal thing to
- * do, so a taken name is stepped past rather than overwritten: silently
- * replacing the previous file is data loss the user never asked for.
- */
-function freeTablePath(vault: Vault, file: TFile | null, kind: "csv" | "md"): string {
-  const folder = file?.parent?.path ?? "";
-  const base = file?.basename ?? "table";
-  const stem = normalizePath(`${folder}/${base}`);
-
-  let path = `${stem}.${kind}`;
-  let counter = 2;
-  while (vault.getAbstractFileByPath(path)) {
-    path = `${stem} ${counter}.${kind}`;
-    counter += 1;
-  }
-  return path;
-}
-
-/**
- * A full-screen, read-only copy of the table — the reading view's "view" entry.
- *
- * Built the same way the diagram's preview is: a fixed `role="dialog"` overlay
- * with the table painted fresh at the frame's size (not a clone of the block's
- * small canvas), so closing the note does not tear the preview down and the
- * theme palette is resolved against the overlay. The overlay already covers the
- * app, so "full screen" here means letting the *frame* fill it — keeping the
- * feature inside the preview instead of stealing the browser window from
- * Obsidian's own full-screen command. The download entry is the same one the
- * block wears, so a table exported from the preview matches one exported inline.
- */
-export function openTableLightbox(
-  model: TableModel,
-  results: CellResult[][],
-  native: HTMLElement,
-  app: App,
-  file: TFile | null,
-  highlightFormulas: boolean
-): void {
-  if (document.querySelector(".mtk-lightbox")) return;
-
-  const overlay = h("div", { cls: "mtk-lightbox" });
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-
-  const sheet = h("div", { cls: "mtk-lightbox-sheet" });
-  overlay.appendChild(sheet);
-
-  /* The table scrolls inside the sheet; the corner buttons are siblings of the
-     scroller, not children of it, so they stay pinned at the sheet's top-right
-     while a long table moves underneath — the same "buttons float over the
-     content" arrangement the diagram preview uses. */
-  const scroller = h("div", { cls: "mtk-lightbox-scroll" });
-  const body = h("div", { cls: "mtk-tbl-wrap" });
-  body.appendChild(paintTableSheet(model, results, colorsFromTable(native), highlightFormulas));
-  scroller.appendChild(body);
-  sheet.appendChild(scroller);
-
-  /**
-   * The two corner buttons. "Full screen" here means the frame filling the
-   * viewport (see the `.is-fullscreen` rules) — the overlay is already
-   * `fixed; inset: 0`, so that is the only reading available, and it keeps the
-   * feature inside the preview instead of taking the browser window away from
-   * Obsidian's own full-screen command.
-   */
-  let showingFull = false;
-  const fullButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-full" });
-  fullButton.type = "button";
-  setIcon(fullButton, "maximize");
-  applyTooltip(fullButton, t("embed.lightboxFull"));
-
-  const setFullscreen = (on: boolean): void => {
-    if (on === showingFull) return;
-    showingFull = on;
-    overlay.classList.toggle("is-fullscreen", on);
-    setIcon(fullButton, on ? "minimize" : "maximize");
-    applyTooltip(fullButton, on ? t("embed.lightboxRestore") : t("embed.lightboxFull"));
-  };
-
-  const close = (): void => {
-    document.removeEventListener("keydown", onKey);
-    overlay.remove();
-  };
-  const onKey = (event: KeyboardEvent): void => {
-    if (event.key !== "Escape") return;
-    /* Escape peels one layer at a time: out of full screen first, then out of
-       the preview. Closing in one step would make re-entering full screen the
-       only way back out of it. */
-    if (showingFull) setFullscreen(false);
-    else close();
-  };
-
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) close();
-  });
-  document.addEventListener("keydown", onKey);
-
-  /* The download entry, in the preview's own family of round buttons — the
-     table is the same one, so the action around it is the same. Added first so
-     the corner stacks left to right in the order the buttons were added. */
-  const downloadButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-export" });
-  downloadButton.type = "button";
-  setIcon(downloadButton, "download");
-  applyTooltip(downloadButton, t("table.download"));
-  downloadButton.addEventListener("click", (event: MouseEvent) => {
-    event.stopPropagation();
-    openTableExportMenu(downloadButton, app, file, model);
-  });
-  sheet.appendChild(downloadButton);
-
-  fullButton.addEventListener("click", (event: MouseEvent) => {
-    event.stopPropagation();
-    setFullscreen(!showingFull);
-  });
-  sheet.appendChild(fullButton);
-
-  const closeButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-close" });
-  closeButton.type = "button";
-  setIcon(closeButton, "x");
-  applyTooltip(closeButton, t("embed.lightboxClose"));
-  closeButton.addEventListener("click", (event: MouseEvent) => {
-    event.stopPropagation();
-    close();
-  });
-  sheet.appendChild(closeButton);
-
-  document.body.appendChild(overlay);
 }

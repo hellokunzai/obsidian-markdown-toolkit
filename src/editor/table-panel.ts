@@ -41,11 +41,12 @@
  * the one place the two can be told apart, and it is why typing in the bar is
  * never ambiguous.
  */
-import { Menu, Modal, Notice, setIcon, type App } from "obsidian";
+import { Menu, Modal, Notice, setIcon, type App, type TFile } from "obsidian";
 import { t } from "../i18n";
 import { h } from "../utils/dom";
-import { tagModalCloseButton } from "../utils/modal-fullscreen";
+import { buildFullscreenCornerButton, tagModalCloseButton } from "../utils/modal-fullscreen";
 import { applyTooltip } from "../utils/tooltip";
+import { openTableExportMenu } from "../ui/table-export";
 import {
   columnLetter,
   evaluateTable,
@@ -68,6 +69,22 @@ import { ColorPickerPanel, closeColorPicker, type ColorBand } from "../ui/color-
 export interface TableEditorRequest {
   app: App;
   model: TableModel;
+  /**
+   * Which chrome the panel wears.
+   *
+   * `"editor"` (default) is the dialog the editors open: header, toolbar,
+   * formula bar. `"view"` is the reading view's "view this table" entry — the
+   * same grid, the same interactions, but dressed as the preview frame it used
+   * to be, with three round buttons in the corner instead of a toolbar.
+   *
+   * The grid is not a variant of anything: both chromes mount one
+   * implementation, which is the whole point. A second, read-only renderer for
+   * the viewing case is what this replaces — it drifted (stretched columns, no
+   * zoom, no selection) the moment it existed.
+   */
+  chrome?: "editor" | "view";
+  /** The note the table came from; the view chrome's download entry lands in its folder. */
+  file?: TFile | null;
   /** Whether the panel writes the table back on a timer. */
   autoSave: boolean;
   /** Seconds between auto-saves, counted from the moment the table went dirty. */
@@ -197,6 +214,8 @@ type AnchorKind = "cell" | "col" | "row";
 
 class TablePanel extends Modal {
   private readonly request: TableEditorRequest;
+  /** Which chrome this dialog wears — see `TableEditorRequest.chrome`. */
+  private readonly viewing: boolean;
   /** A copy: cancelling must leave the note's table exactly as it was. */
   private model: TableModel;
   private results: CellResult[][];
@@ -284,6 +303,7 @@ class TablePanel extends Modal {
   constructor(request: TableEditorRequest) {
     super(request.app);
     this.request = request;
+    this.viewing = request.chrome === "view";
     this.model = {
       header: [...request.model.header],
       body: request.model.body.map((row) => [...row]),
@@ -294,13 +314,18 @@ class TablePanel extends Modal {
        table that has not changed since it last did — opening and staring at a
        table must not touch the note. */
     this.savedSnapshot = serializeTable(this.model);
-    this.autoSaveOn = request.autoSave;
+    /* The view chrome hides the toolbar, and the Save button lives in it, so
+       there it is the panel's job to land the edits rather than the user's.
+       Auto-save on regardless of the setting: an editable surface with no way
+       to save is not a preference, it is a way to lose work. */
+    this.autoSaveOn = this.viewing ? true : request.autoSave;
     this.autoSaveSeconds = request.autoSaveInterval;
   }
 
   onOpen(): void {
     const { contentEl, modalEl } = this;
     modalEl.addClass("mtk-modal-shell");
+    if (this.viewing) modalEl.addClass("mtk-modal-view");
     tagModalCloseButton(modalEl);
     contentEl.empty();
     this.teardown.length = 0;
@@ -375,6 +400,7 @@ class TablePanel extends Modal {
     contentEl.appendChild(editor);
 
     this.buildToolbar();
+    if (this.viewing) this.buildViewCorner(modalEl);
     this.wirePointer();
     this.wireKeyboard();
     this.renderGrid();
@@ -415,6 +441,14 @@ class TablePanel extends Modal {
   onClose(): void {
     closeColorPicker();
     this.brushBuffer = null;
+    /* The view chrome has no toolbar and therefore no Save button, so closing is
+       the last chance to land an edit the auto-save interval has not reached
+       yet. Silent (a toast on the way out is noise), un-awaited (`onClose`
+       cannot wait, and the write does not depend on this DOM), and skipped when
+       the table is clean so closing never touches the note by itself. */
+    if (this.viewing && !this.writing && serializeTable(this.model) !== this.savedSnapshot) {
+      void this.writeModel(true);
+    }
     /* Stop the auto-save heartbeat so a closed dialog cannot keep writing. */
     if (this.autoSaveTimer !== null) {
       window.clearInterval(this.autoSaveTimer);
@@ -423,6 +457,32 @@ class TablePanel extends Modal {
     for (const off of this.teardown) off();
     this.teardown.length = 0;
     this.contentEl.empty();
+  }
+
+  /**
+   * The view chrome's corner: download, full screen — and Obsidian's own `×`,
+   * which `tagModalCloseButton` already put in the round style and the last
+   * slot. The two slots are the ones the preview frame used, so the buttons have
+   * not moved; what changed is the grid behind them, which is now the editor's.
+   *
+   * The download entry is the same `Menu` the block in the note wears, and it
+   * exports the model the panel is holding — so a table downloaded from here
+   * includes whatever was just typed into it.
+   */
+  private buildViewCorner(modalEl: HTMLElement): void {
+    const download = h("button", {
+      cls: "mtk-view-action mtk-view-export",
+      attr: { type: "button" },
+    }) as HTMLButtonElement;
+    setIcon(download, "download");
+    applyTooltip(download, t("table.download"));
+    download.addEventListener("click", (event: MouseEvent) => {
+      event.stopPropagation();
+      openTableExportMenu(download, this.request.app, this.request.file ?? null, this.model);
+    });
+    modalEl.appendChild(download);
+
+    modalEl.appendChild(buildFullscreenCornerButton());
   }
 
   /** `addEventListener` that is undone on close. `Modal` is not a `Component`,
