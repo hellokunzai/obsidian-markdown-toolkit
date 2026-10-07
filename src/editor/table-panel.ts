@@ -49,6 +49,7 @@ import { applyTooltip } from "../utils/tooltip";
 import {
   columnLetter,
   evaluateTable,
+  serializeTable,
   type CellResult,
   type TableAlign,
   type TableModel,
@@ -69,6 +70,12 @@ export interface TableEditorRequest {
   app: App;
   model: TableModel;
   fillMode: TableFillMode;
+  /** Whether the panel writes the table back on a timer. */
+  autoSave: boolean;
+  /** Seconds between auto-saves, counted from the moment the table went dirty. */
+  autoSaveInterval: number;
+  /** Whether computed cells get the ƒ marker and tint inside the editor. */
+  highlightFormulas: boolean;
   /** Called with the edited model when the user saves. A caller that has to
       write to disk returns a promise, so the panel can acknowledge the save
       only once the write has landed. */
@@ -262,6 +269,20 @@ class TablePanel extends Modal {
   /** Unsubscribe callbacks for the document-level listeners, run on close. */
   private readonly teardown: Array<() => void> = [];
 
+  /* ---------------------------------------------------------- auto-save */
+  /** Whether the panel writes back on a timer. Read from the request at open. */
+  private autoSaveOn: boolean;
+  /** Seconds between auto-saves, counted from the moment the table went dirty. */
+  private autoSaveSeconds: number;
+  /** Seconds elapsed since the table became dirty; reset whenever it is clean. */
+  private autoSaveElapsed = 0;
+  /** A write in flight; the tick is spent rather than queued behind it. */
+  private writing = false;
+  /** The serialized table as last written, so a clean table is never re-saved. */
+  private savedSnapshot: string;
+  /** The one-second heartbeat. Cleared on close. */
+  private autoSaveTimer: number | null = null;
+
   constructor(request: TableEditorRequest) {
     super(request.app);
     this.request = request;
@@ -271,6 +292,12 @@ class TablePanel extends Modal {
       align: [...request.model.align],
     };
     this.results = evaluateTable(this.model);
+    /* Snapshot the unmodified table so the auto-save tick never writes back a
+       table that has not changed since it last did — opening and staring at a
+       table must not touch the note. */
+    this.savedSnapshot = serializeTable(this.model);
+    this.autoSaveOn = request.autoSave;
+    this.autoSaveSeconds = request.autoSaveInterval;
   }
 
   onOpen(): void {
@@ -377,11 +404,24 @@ class TablePanel extends Modal {
     };
     this.gridHost.addEventListener("wheel", onWheel, { passive: false });
     this.teardown.push(() => this.gridHost.removeEventListener("wheel", onWheel));
+
+    /* Auto-save heartbeat: one tick per second. Started here rather than in the
+       constructor so it only runs while the dialog is actually on screen. The
+       tick writes nothing until the table differs from the snapshot taken at
+       open, so merely opening a table never touches the note. */
+    if (this.autoSaveOn) {
+      this.autoSaveTimer = window.setInterval(() => void this.autoSaveTick(), 1000);
+    }
   }
 
   onClose(): void {
     closeColorPicker();
     this.brushBuffer = null;
+    /* Stop the auto-save heartbeat so a closed dialog cannot keep writing. */
+    if (this.autoSaveTimer !== null) {
+      window.clearInterval(this.autoSaveTimer);
+      this.autoSaveTimer = null;
+    }
     for (const off of this.teardown) off();
     this.teardown.length = 0;
     this.contentEl.empty();
@@ -553,10 +593,59 @@ class TablePanel extends Modal {
    * than what was requested; a caller that writes nothing (the live-preview
    * path returns synchronously) still gets an immediate acknowledgement.
    */
+  /**
+   * Writes the table back and **keeps the dialog open**.
+   *
+   * Closing on save is what a "commit and leave" dialog does, and it is not what
+   * this panel is: the mind-map and chart panels have always stayed open on
+   * save, and this panel grew out of the same shell. A table is also the one
+   * place where saving is a checkpoint rather than the end of the task — you
+   * save a formula, then keep typing rows. The notice is what the close used to
+   * say, minus the part that threw away the grid the user was working in.
+   *
+   * `silent` is set by the auto-save tick: the same write, minus the notice, so
+   * a background save does not pop a toast every interval. The snapshot is
+   * refreshed after every write — manual or automatic — so a clean table is
+   * never written twice.
+   */
+  private async writeModel(silent: boolean): Promise<void> {
+    if (this.writing) return;
+    this.writing = true;
+    try {
+      this.commitInput();
+      await this.request.onSave(this.model);
+      this.savedSnapshot = serializeTable(this.model);
+      this.autoSaveElapsed = 0;
+    } finally {
+      this.writing = false;
+    }
+    if (!silent) new Notice(t("notice.tableSaved"));
+  }
+
+  /** The manual save: writes and shows the "saved" notice. */
   private async saveModel(): Promise<void> {
-    this.commitInput();
-    await this.request.onSave(this.model);
-    new Notice(t("notice.tableSaved"));
+    await this.writeModel(false);
+  }
+
+  /**
+   * One second of the auto-save clock.
+   *
+   * Mirrors the diagram editor's rule: a clean table resets the count rather
+   * than advancing it, so the interval means "time since there was something to
+   * write" — an untouched table is not rewritten on a schedule. A write already
+   * in flight is left to land and its tick is spent, so the heartbeat never
+   * queues a second save behind the first.
+   */
+  private async autoSaveTick(): Promise<void> {
+    if (!this.autoSaveOn || this.writing) return;
+    if (serializeTable(this.model) === this.savedSnapshot) {
+      this.autoSaveElapsed = 0;
+      return;
+    }
+    this.autoSaveElapsed += 1;
+    if (this.autoSaveElapsed < this.autoSaveSeconds) return;
+    this.autoSaveElapsed = 0;
+    await this.writeModel(true);
   }
 
   private addRow(): void {
@@ -1170,7 +1259,7 @@ class TablePanel extends Modal {
 
         if (row > 0 && this.numericColumn(col)) cell.classList.add("is-num");
         if (result.error) cell.classList.add("is-err");
-        if (result.formula) {
+        if (result.formula && this.request.highlightFormulas) {
           cell.classList.add("is-fx");
           /* Inline `ƒ` marker in front of the value, matching the reading view
              and the lightbox preview so a computed cell reads as computed in all

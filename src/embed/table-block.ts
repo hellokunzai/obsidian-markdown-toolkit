@@ -199,6 +199,7 @@ export class TableBlock extends MarkdownRenderChild {
       app: this.host.app,
       file,
       editable: false,
+      highlightFormulas: this.host.settings.tableHighlightFormulas,
     });
     this.containerEl.appendChild(this.frame.el);
   }

@@ -262,11 +262,15 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
           app: host.app,
           file: host.app.workspace.getActiveFile(),
           editable: true,
+          highlightFormulas: host.settings.tableHighlightFormulas,
           onEdit: () => {
             openTableEditor({
               app: host.app,
               model,
               fillMode: host.settings.tableFillMode,
+              autoSave: host.settings.tableAutoSave,
+              autoSaveInterval: host.settings.tableAutoSaveInterval,
+              highlightFormulas: host.settings.tableHighlightFormulas,
               onSave: (next) => {
                 this.view.dispatch({
                   changes: { from: range.from, to: range.to, insert: serializeTable(next) },

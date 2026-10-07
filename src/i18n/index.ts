@@ -224,6 +224,17 @@ const en: Dict = {
   "settings.table.note":
     "Either way the table stays a plain Markdown table: a formula is written in the cell as =sum(B2:B4), and its result is only ever shown — never written back into the note.",
 
+  "settings.table.autoSave.name": "Auto-save the table",
+  "settings.table.autoSave.desc":
+    "Writes the table back on a timer while you edit, so closing the editor never loses a row you forgot to save.",
+  "settings.table.autoSaveInterval.name": "Auto-save the table every",
+  "settings.table.autoSaveInterval.desc":
+    "How many seconds between automatic table saves. This is the most work a crash can cost.",
+  "settings.table.autoSaveInterval.reset": "Back to the default ({{value}} seconds)",
+  "settings.table.highlightFormulas.name": "Highlight table formulas",
+  "settings.table.highlightFormulas.desc":
+    "Show the ƒ marker and tint on computed cells in the reading view, the editor, and the preview.",
+
   "table.badge": "{{rows}} rows · {{cols}} columns · {{formulas}} formulas",
   "table.badgePlain": "{{rows}} rows · {{cols}} columns",
   "table.edit": "Edit this table",
@@ -855,6 +866,14 @@ const zhCn: Dict = {
 
   "settings.table.note":
     "两种方式下表格都仍是原生 Markdown 表格：公式就写在单元格里（如 =sum(B2:B4)），算出的结果只用于显示，不会写回笔记。",
+
+  "settings.table.autoSave.name": "表格自动保存",
+  "settings.table.autoSave.desc": "编辑表格时按间隔自动写回，关闭编辑器也不会丢行。",
+  "settings.table.autoSaveInterval.name": "表格自动保存间隔",
+  "settings.table.autoSaveInterval.desc": "表格自动保存的时间间隔（秒）。",
+  "settings.table.autoSaveInterval.reset": "恢复默认值（{{value}} 秒）",
+  "settings.table.highlightFormulas.name": "高亮显示表格公式",
+  "settings.table.highlightFormulas.desc": "在阅读视图、编辑器、预览中对计算单元格显示 ƒ 标记与底色。",
 
   "table.badge": "{{rows}} 行 · {{cols}} 列 · {{formulas}} 个公式",
   "table.badgePlain": "{{rows}} 行 · {{cols}} 列",

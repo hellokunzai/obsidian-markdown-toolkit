@@ -210,6 +210,12 @@ export interface MarkdownEditorPlusSettings {
   tableRenderMode: TableRenderMode;
   /** How the table editor's grid fills its canvas. See `TableFillMode`. */
   tableFillMode: TableFillMode;
+  /** Whether the table editor writes its own changes back on a timer. */
+  tableAutoSave: boolean;
+  /** Seconds between table auto-saves, counted from the moment the table went dirty. */
+  tableAutoSaveInterval: number;
+  /** Whether computed cells get the `ƒ` marker and tint in every table context. */
+  tableHighlightFormulas: boolean;
 }
 
 export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
@@ -257,6 +263,13 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   tableRenderMode: "drawn",
   // The spreadsheet convention, so a column keeps its width as the table grows.
   tableFillMode: "pad",
+  // The table editor keeps the diagram editor's auto-save courtesy: a formula
+  // you are mid-edit is not something you want to lose to a stray Ctrl+W.
+  tableAutoSave: true,
+  tableAutoSaveInterval: 30,
+  // The `ƒ` marker is what makes a computed cell legible as computed; on by
+  // default so a freshly-framed table reads the same in all three contexts.
+  tableHighlightFormulas: true,
 };
 
 /**
@@ -500,6 +513,37 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         });
     });
 
+    // The table editor gets its own auto-save, separate from the diagram
+    // editor's: the two are different editors with different lifecycles, and
+    // folding them into one switch would force a table user to inherit the
+    // diagram's cadence. Built detached so the switch can disable the slider.
+    const tableIntervalRow = this.buildTableAutoSaveInterval();
+
+    new Setting(host)
+      .setName(t("settings.table.autoSave.name"))
+      .setDesc(t("settings.table.autoSave.desc"))
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.tableAutoSave).onChange(async (value) => {
+          this.plugin.settings.tableAutoSave = value;
+          tableIntervalRow.setEnabled(value);
+          await this.plugin.saveSettings();
+        })
+      );
+
+    tableIntervalRow.setEnabled(this.plugin.settings.tableAutoSave);
+    host.appendChild(tableIntervalRow.row.settingEl);
+
+    new Setting(host)
+      .setName(t("settings.table.highlightFormulas.name"))
+      .setDesc(t("settings.table.highlightFormulas.desc"))
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.tableHighlightFormulas).onChange(async (value) => {
+          this.plugin.settings.tableHighlightFormulas = value;
+          this.plugin.refreshTables();
+          await this.plugin.saveSettings();
+        })
+      );
+
     host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.table.note") }));
   }
 
@@ -586,6 +630,54 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     // whole row `is-disabled` and dim the name and description along with the
     // control, making the option itself look switched off. The reset button
     // stays live as well — resetting a dormant value is harmless.
+    const setEnabled = (on: boolean): void => {
+      slider?.setDisabled(!on);
+    };
+
+    return { row: setting, setEnabled };
+  }
+
+  /**
+   * The table auto-save interval row — a slider and a reset button, mirrored
+   * from `buildAutoSaveInterval` but reading and writing `tableAutoSaveInterval`.
+   *
+   * No live push to an open editor: the table editor is a transient modal that
+   * reads the interval when it opens, unlike the diagram editor's long-lived
+   * session. Built detached for the same "switch owns the reference" reason.
+   */
+  private buildTableAutoSaveInterval(): { row: Setting; setEnabled: (on: boolean) => void } {
+    const fallback = DEFAULT_SETTINGS.tableAutoSaveInterval;
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.table.autoSaveInterval.name"))
+      .setDesc(t("settings.table.autoSaveInterval.desc"));
+
+    let slider: SliderComponent | null = null;
+
+    const apply = async (value: number): Promise<void> => {
+      this.plugin.settings.tableAutoSaveInterval = value;
+      await this.plugin.saveSettings();
+    };
+
+    setting.addSlider((component) => {
+      slider = component;
+      component
+        .setLimits(MIN_AUTO_SAVE_SECONDS, MAX_AUTO_SAVE_SECONDS, AUTO_SAVE_STEP)
+        .setValue(this.plugin.settings.tableAutoSaveInterval)
+        .setDynamicTooltip()
+        .onChange((value) => void apply(value));
+    });
+
+    setting.addExtraButton((button) =>
+      button
+        .setIcon("rotate-ccw")
+        .setTooltip(t("settings.table.autoSaveInterval.reset", { value: String(fallback) }))
+        .onClick(() => {
+          // Move the handle as well as the setting, or the reset reads as dead.
+          slider?.setValue(fallback);
+          void apply(fallback);
+        })
+    );
+
     const setEnabled = (on: boolean): void => {
       slider?.setDisabled(!on);
     };

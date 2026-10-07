@@ -175,7 +175,8 @@ function numericColumn(results: CellResult[][], col: number): boolean {
 export function paintTable(
   model: TableModel,
   results: CellResult[][],
-  colors: CellColor[][]
+  colors: CellColor[][],
+  highlightFormulas: boolean
 ): HTMLElement {
   const wrap = h("div", { cls: "mtk-tbl-wrap" });
   const table = h("table", { cls: "mtk-tbl" });
@@ -205,7 +206,7 @@ export function paintTable(
       const td = h("td");
       if (numericColumn(results, col)) td.classList.add("is-num");
       if (cell.error) td.classList.add("is-err");
-      if (cell.formula) {
+      if (cell.formula && highlightFormulas) {
         td.classList.add("mtk-fx");
         /* The marker is an inline span rather than a `::after` pinned to the
            corner. At a table's density the corner sits on top of the number it
@@ -243,7 +244,8 @@ export function paintTable(
 export function paintTableSheet(
   model: TableModel,
   results: CellResult[][],
-  colors: CellColor[][]
+  colors: CellColor[][],
+  highlightFormulas: boolean
 ): HTMLElement {
   const MIN_COLS = 8;
   const MIN_ROWS = 16;
@@ -302,7 +304,7 @@ export function paintTableSheet(
       if (cell) {
         if (numericColumn(results, col)) td.classList.add("is-num");
         if (cell.error) td.classList.add("is-err");
-        if (cell.formula) {
+        if (cell.formula && highlightFormulas) {
           td.classList.add("mtk-fx");
           td.appendChild(h("span", { cls: "mtk-fx-mark", text: "ƒ" }));
           applyTooltip(td, cell.raw);
@@ -366,6 +368,8 @@ export interface TableFrameOptions {
   editable: boolean;
   /** Called when the edit entry is clicked. Only required when `editable`. */
   onEdit?: () => void;
+  /** Whether computed cells get the ƒ marker and tint. */
+  highlightFormulas: boolean;
 }
 
 export interface TableFrame {
@@ -467,7 +471,14 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
     applyTooltip(view, t("table.view"));
     view.addEventListener("click", (event: MouseEvent) => {
       event.stopPropagation();
-      openTableLightbox(model, results, options.native, options.app, options.file);
+      openTableLightbox(
+        model,
+        results,
+        options.native,
+        options.app,
+        options.file,
+        options.highlightFormulas
+      );
     });
     box.appendChild(view);
   }
@@ -503,7 +514,9 @@ export function buildTableFrame(options: TableFrameOptions): TableFrame {
       options.native.classList.add("mtk-cell-native");
       body.appendChild(options.native);
     } else {
-      body.appendChild(paintTable(model, results, colorsFromTable(options.native)));
+      body.appendChild(
+        paintTable(model, results, colorsFromTable(options.native), options.highlightFormulas)
+      );
     }
 
     /* The formula count is dropped rather than shown as zero: the badge is
@@ -620,7 +633,8 @@ export function openTableLightbox(
   results: CellResult[][],
   native: HTMLElement,
   app: App,
-  file: TFile | null
+  file: TFile | null,
+  highlightFormulas: boolean
 ): void {
   if (document.querySelector(".mtk-lightbox")) return;
 
@@ -637,7 +651,7 @@ export function openTableLightbox(
      content" arrangement the diagram preview uses. */
   const scroller = h("div", { cls: "mtk-lightbox-scroll" });
   const body = h("div", { cls: "mtk-tbl-wrap" });
-  body.appendChild(paintTableSheet(model, results, colorsFromTable(native)));
+  body.appendChild(paintTableSheet(model, results, colorsFromTable(native), highlightFormulas));
   scroller.appendChild(body);
   sheet.appendChild(scroller);
 

@@ -511,6 +511,23 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         saved?.tableFillMode === "pad" || saved?.tableFillMode === "stretch"
           ? saved.tableFillMode
           : DEFAULT_SETTINGS.tableFillMode,
+      tableAutoSave:
+        typeof saved?.tableAutoSave === "boolean"
+          ? saved.tableAutoSave
+          : DEFAULT_SETTINGS.tableAutoSave,
+      // Clamped like autoSaveInterval: this number becomes a timer at the other
+      // end, and a hand-edited data.json will not be stopped by the slider.
+      tableAutoSaveInterval:
+        typeof saved?.tableAutoSaveInterval === "number" && Number.isFinite(saved.tableAutoSaveInterval)
+          ? Math.min(
+              MAX_AUTO_SAVE_SECONDS,
+              Math.max(MIN_AUTO_SAVE_SECONDS, Math.round(saved.tableAutoSaveInterval))
+            )
+          : DEFAULT_SETTINGS.tableAutoSaveInterval,
+      tableHighlightFormulas:
+        typeof saved?.tableHighlightFormulas === "boolean"
+          ? saved.tableHighlightFormulas
+          : DEFAULT_SETTINGS.tableHighlightFormulas,
     };
 
     // Written back the moment it is converted, so the migration happens once
