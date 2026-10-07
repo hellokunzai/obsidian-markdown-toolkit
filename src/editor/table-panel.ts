@@ -749,13 +749,25 @@ class TablePanel extends Modal {
   }
 
   private deleteColumn(col: number): void {
-    if (this.model.header.length <= 1) return;
+    this.deleteColumns([col]);
+  }
+
+  private deleteColumns(cols: number[]): void {
+    const valid = [...new Set(cols)]
+      .filter((c) => c >= 0 && c < this.model.header.length)
+      .sort((a, b) => a - b);
+    /* A table with no columns is not a table: never delete them all. */
+    if (valid.length === 0 || valid.length >= this.model.header.length) return;
     this.commitInput();
-    this.model.header.splice(col, 1);
-    this.model.body.forEach((cells) => cells.splice(col, 1));
-    this.model.align.splice(col, 1);
+    /* Largest index first so each splice keeps the others valid. */
+    for (let i = valid.length - 1; i >= 0; i--) {
+      const c = valid[i];
+      this.model.header.splice(c, 1);
+      this.model.body.forEach((cells) => cells.splice(c, 1));
+      this.model.align.splice(c, 1);
+    }
     this.recompute();
-    this.selectCell(this.active.row, Math.min(col, this.model.header.length - 1));
+    this.selectCell(this.active.row, Math.min(valid[0], this.model.header.length - 1));
   }
 
   private appendColumn(): void {
@@ -779,11 +791,37 @@ class TablePanel extends Modal {
   }
 
   private deleteRow(row: number): void {
-    if (row === 0) return;
+    this.deleteRows([row]);
+  }
+
+  private deleteRows(rows: number[]): void {
+    /* Row 1 (index 0) is the Markdown header row, and the table does not
+       survive without it, so it is never part of a deletion. */
+    const valid = [...new Set(rows)]
+      .filter((r) => r > 0 && r <= this.model.body.length)
+      .sort((a, b) => a - b);
+    if (valid.length === 0) return;
     this.commitInput();
-    this.model.body.splice(row - 1, 1);
+    /* Largest index first so each splice keeps the others valid. */
+    for (let i = valid.length - 1; i >= 0; i--) {
+      this.model.body.splice(valid[i] - 1, 1);
+    }
     this.recompute();
-    this.selectCell(Math.max(1, Math.min(row, this.model.body.length)), this.active.col);
+    this.selectCell(Math.max(1, Math.min(valid[0], this.model.body.length)), this.active.col);
+  }
+
+  /** Column indices covered by the current column/row range. */
+  private rangeCols(): number[] {
+    const cols: number[] = [];
+    for (let c = this.range.c1; c <= this.range.c2; c++) cols.push(c);
+    return cols;
+  }
+
+  /** Row indices covered by the current column/row range. */
+  private rangeRows(): number[] {
+    const rows: number[] = [];
+    for (let r = this.range.r1; r <= this.range.r2; r++) rows.push(r);
+    return rows;
   }
 
   private appendRow(): void {
@@ -1652,23 +1690,36 @@ class TablePanel extends Modal {
     const index = head === "col" ? hit.col : hit.row;
     this.commitInput();
 
-    /* Excel's manners: take the whole column or row first, so which one the
-       menu is about is visible before anything in it is clicked. */
-    if (head === "col") {
-      this.anchor = { row: 1, col: index };
-      this.anchorKind = "col";
-      this.active = { row: 1, col: index };
-      this.range = { r1: 0, c1: index, r2: this.model.body.length, c2: index };
-    } else {
-      this.anchor = { row: index, col: 0 };
-      this.anchorKind = "row";
-      this.active = { row: index, col: 0 };
-      this.range = { r1: index, c1: 0, r2: index, c2: this.model.header.length - 1 };
+    /* Preserve an existing same-type multi-selection: if the right-clicked
+       head already sits inside the current column/row range, leave the
+       selection untouched so "delete these rows/columns" acts on all of them.
+       Otherwise fall back to Excel's behaviour of selecting just that head
+       first, so the menu always reflects what a click would target. */
+    const inSelection =
+      head === "col"
+        ? this.anchorKind === "col" && index >= this.range.c1 && index <= this.range.c2
+        : this.anchorKind === "row" && index >= this.range.r1 && index <= this.range.r2;
+    if (!inSelection) {
+      if (head === "col") {
+        this.anchor = { row: 1, col: index };
+        this.anchorKind = "col";
+        this.active = { row: 1, col: index };
+        this.range = { r1: 0, c1: index, r2: this.model.body.length, c2: index };
+      } else {
+        this.anchor = { row: index, col: 0 };
+        this.anchorKind = "row";
+        this.active = { row: index, col: 0 };
+        this.range = { r1: index, c1: 0, r2: index, c2: this.model.header.length - 1 };
+      }
+      this.refreshSelection();
     }
-    this.refreshSelection();
 
     const menu = new Menu();
     if (head === "col") {
+      const targets =
+        this.anchorKind === "col" && index >= this.range.c1 && index <= this.range.c2
+          ? this.rangeCols()
+          : [index];
       menu.addItem((item) =>
         item
           .setTitle(t("table.col.insertBefore"))
@@ -1676,12 +1727,11 @@ class TablePanel extends Modal {
           .onClick(() => this.insertColumnBefore(index))
       );
       menu.addItem((item) => {
-        item
-          .setTitle(t("table.col.delete"))
-          .setIcon("trash-2")
-          .onClick(() => this.deleteColumn(index));
-        /* A table with no columns is not a table. */
-        if (this.model.header.length <= 1) item.setDisabled(true);
+        const label =
+          targets.length > 1 ? `${t("table.col.delete")} (${targets.length})` : t("table.col.delete");
+        item.setTitle(label).setIcon("trash-2").onClick(() => this.deleteColumns(targets));
+        /* A table with no columns is not a table: never delete them all. */
+        if (targets.length >= this.model.header.length) item.setDisabled(true);
       });
       menu.addItem((item) =>
         item
@@ -1690,6 +1740,10 @@ class TablePanel extends Modal {
           .onClick(() => this.appendColumn())
       );
     } else {
+      const targets =
+        this.anchorKind === "row" && index >= this.range.r1 && index <= this.range.r2
+          ? this.rangeRows()
+          : [index];
       menu.addItem((item) =>
         item
           .setTitle(t("table.row.insertBefore"))
@@ -1697,13 +1751,12 @@ class TablePanel extends Modal {
           .onClick(() => this.insertRowBefore(index))
       );
       menu.addItem((item) => {
-        item
-          .setTitle(t("table.row.delete"))
-          .setIcon("trash-2")
-          .onClick(() => this.deleteRow(index));
+        const label =
+          targets.length > 1 ? `${t("table.row.delete")} (${targets.length})` : t("table.row.delete");
+        item.setTitle(label).setIcon("trash-2").onClick(() => this.deleteRows(targets));
         /* Row 1 is the Markdown header row, and the table does not survive
            without it. */
-        if (index === 0) item.setDisabled(true);
+        if (targets.includes(0)) item.setDisabled(true);
       });
       menu.addItem((item) =>
         item
