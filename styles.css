@@ -121,6 +121,27 @@
 }
 
 /*
+ * The view chrome is frozen (no typing, no clearing, no insert/delete), so the
+ * two affordances that would promise otherwise are retired rather than left to
+ * fail silently:
+ *
+ *  - the fill handle, whose entire purpose is to drag values into neighbouring
+ *    cells, and which `applyFill` refuses to act on here;
+ *  - the `cursor: cell` crosshair on data cells, which is the pointer's way of
+ *    saying "type here".
+ *
+ * Column letters, row numbers and the corner keep their `pointer`: they still
+ * select, and selection is reading, not writing.
+ */
+.mtk-modal-readonly .mtk-fill-handle {
+  display: none;
+}
+
+.mtk-modal-readonly .mtk-sheet-cell {
+  cursor: default;
+}
+
+/*
  * Dialog title row.
  *
  * The base `Modal` puts an empty `.modal-header > .modal-title` ahead of the

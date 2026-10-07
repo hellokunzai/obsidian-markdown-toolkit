@@ -216,6 +216,11 @@ export class TableBlock extends MarkdownRenderChild {
    *
    * The edits land through `applyEdit`, which rewrites the table's *section* of
    * the note — the same write the Live Preview editor does, reached the same way.
+   *
+   * That writer is wired but dormant: the view chrome is **frozen** (see
+   * `TableEditorRequest.chrome`), so the panel never calls it. It stays connected
+   * rather than replaced by a no-op, because a no-op would be the version of
+   * this that silently drops an edit if the freeze were ever lifted.
    */
   private openEditor(file: TFile | null): void {
     openTableEditor({

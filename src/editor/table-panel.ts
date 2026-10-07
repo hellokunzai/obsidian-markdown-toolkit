@@ -74,13 +74,18 @@ export interface TableEditorRequest {
    *
    * `"editor"` (default) is the dialog the editors open: header, toolbar,
    * formula bar. `"view"` is the reading view's "view this table" entry — the
-   * same grid, the same interactions, but dressed as the preview frame it used
-   * to be, with three round buttons in the corner instead of a toolbar.
+   * same grid, the same way of reading it, but dressed as the preview frame it
+   * used to be, with three round buttons in the corner instead of a toolbar.
    *
    * The grid is not a variant of anything: both chromes mount one
    * implementation, which is the whole point. A second, read-only renderer for
    * the viewing case is what this replaces — it drifted (stretched columns, no
    * zoom, no selection) the moment it existed.
+   *
+   * **The view chrome is frozen** — see `readOnly`. That is not a leftover of
+   * the read-only renderer: a note's table is not something to type into from
+   * the reader, and the view chrome has no Save button to say when the change
+   * would land.
    */
   chrome?: "editor" | "view";
   /** The note the table came from; the view chrome's download entry lands in its folder. */
@@ -216,6 +221,25 @@ class TablePanel extends Modal {
   private readonly request: TableEditorRequest;
   /** Which chrome this dialog wears — see `TableEditorRequest.chrome`. */
   private readonly viewing: boolean;
+  /**
+   * Whether the table is frozen: the view chrome is a viewer, not an editor.
+   *
+   * Derived from the chrome rather than passed in, because there is no second
+   * combination to serve: a frozen *editor* dialog is a dialog with a toolbar
+   * whose buttons do nothing, and an editable view shell is a shell with no
+   * Save button — a way to lose work. One chrome, one answer.
+   *
+   * What it drops is *data* — typing, clearing, filling, pasting, inserting,
+   * deleting, growing. What it keeps is *reading the grid*: scrolling, zoom,
+   * column and row sizes, and the whole selection model, none of which touch
+   * the note. A viewer you cannot size or select is a screenshot.
+   *
+   * The guards sit on the mutation choke points (`writeCell`, `extendTo`, the
+   * insert/delete pair) plus the four callers that exist only to change
+   * something, so a later caller cannot reach the model by a road nobody
+   * remembered to close.
+   */
+  private readonly readOnly: boolean;
   /** A copy: cancelling must leave the note's table exactly as it was. */
   private model: TableModel;
   private results: CellResult[][];
@@ -304,6 +328,7 @@ class TablePanel extends Modal {
     super(request.app);
     this.request = request;
     this.viewing = request.chrome === "view";
+    this.readOnly = this.viewing;
     this.model = {
       header: [...request.model.header],
       body: request.model.body.map((row) => [...row]),
@@ -314,11 +339,10 @@ class TablePanel extends Modal {
        table that has not changed since it last did — opening and staring at a
        table must not touch the note. */
     this.savedSnapshot = serializeTable(this.model);
-    /* The view chrome hides the toolbar, and the Save button lives in it, so
-       there it is the panel's job to land the edits rather than the user's.
-       Auto-save on regardless of the setting: an editable surface with no way
-       to save is not a preference, it is a way to lose work. */
-    this.autoSaveOn = this.viewing ? true : request.autoSave;
+    /* A frozen table has nothing to write, so the heartbeat stays off whatever
+       the setting says: read-only means this dialog has no road to the note at
+       all, and a timer is a road. */
+    this.autoSaveOn = this.readOnly ? false : request.autoSave;
     this.autoSaveSeconds = request.autoSaveInterval;
   }
 
@@ -326,6 +350,7 @@ class TablePanel extends Modal {
     const { contentEl, modalEl } = this;
     modalEl.addClass("mtk-modal-shell");
     if (this.viewing) modalEl.addClass("mtk-modal-view");
+    if (this.readOnly) modalEl.addClass("mtk-modal-readonly");
     tagModalCloseButton(modalEl);
     contentEl.empty();
     this.teardown.length = 0;
@@ -441,14 +466,10 @@ class TablePanel extends Modal {
   onClose(): void {
     closeColorPicker();
     this.brushBuffer = null;
-    /* The view chrome has no toolbar and therefore no Save button, so closing is
-       the last chance to land an edit the auto-save interval has not reached
-       yet. Silent (a toast on the way out is noise), un-awaited (`onClose`
-       cannot wait, and the write does not depend on this DOM), and skipped when
-       the table is clean so closing never touches the note by itself. */
-    if (this.viewing && !this.writing && serializeTable(this.model) !== this.savedSnapshot) {
-      void this.writeModel(true);
-    }
+    /* No "flush the last edit on the way out" here. The only chrome that lacks a
+       Save button is the view chrome, and that one is frozen — there is never an
+       edit to land — so a close-time write would be a second road to the note
+       guarding nothing. */
     /* Stop the auto-save heartbeat so a closed dialog cannot keep writing. */
     if (this.autoSaveTimer !== null) {
       window.clearInterval(this.autoSaveTimer);
@@ -707,12 +728,14 @@ class TablePanel extends Modal {
   }
 
   private addRow(): void {
+    if (this.readOnly) return;
     this.commitInput();
     this.model.body.push(this.model.header.map(() => ""));
     this.recompute();
   }
 
   private addColumn(): void {
+    if (this.readOnly) return;
     this.commitInput();
     this.model.header.push("");
     this.model.body.forEach((row) => row.push(""));
@@ -942,6 +965,7 @@ class TablePanel extends Modal {
   }
 
   private deleteRows(rows: number[]): void {
+    if (this.readOnly) return;
     /* Row 1 (index 0) is the Markdown header row, and the table does not
        survive without it, so it is never part of a deletion. */
     const valid = [...new Set(rows)]
@@ -1822,8 +1846,12 @@ class TablePanel extends Modal {
    * are already its business. A hand-drawn menu would have to re-derive all
    * three, and the layering one in particular is not something a prototype can
    * check.
+   *
+   * In the frozen view chrome it does not open: every item here changes the
+   * table, and a menu of rows that do nothing is a worse answer than no menu.
    */
   private onContextMenu(event: MouseEvent): void {
+    if (this.readOnly) return;
     const target = event.target as HTMLElement | null;
     if (!target) return;
     const hit = this.hit(target);
@@ -1992,7 +2020,16 @@ class TablePanel extends Modal {
     return this.model.body[row - 1]?.[col] ?? "";
   }
 
+  /**
+   * Writes one cell's raw text.
+   *
+   * The only place a value lands, which is why the freeze sits here rather than
+   * on each of the four gestures that reach it (clearing, pasting, filling, and
+   * the formula bar): a caller added later inherits the freeze instead of
+   * having to remember it.
+   */
   private writeCell(row: number, col: number, value: string): void {
+    if (this.readOnly) return;
     if (col < 0 || col >= this.model.header.length) return;
     if (row === 0) {
       this.model.header[col] = value;
@@ -2036,6 +2073,10 @@ class TablePanel extends Modal {
   }
 
   private startEdit(row: number, col: number, initial?: string): void {
+    /* The cell editor is the one gesture whose whole output is a change, so in
+       the frozen view chrome it does not open at all — an input box that cannot
+       commit is worse than no box. */
+    if (this.readOnly) return;
     this.commitInput();
     this.editing = { row, col };
     this.anchor = { row, col };
@@ -2072,6 +2113,7 @@ class TablePanel extends Modal {
   /* ----------------------------------------------------------- 批量操作 */
 
   private clearRange(): void {
+    if (this.readOnly) return;
     let changed = false;
     for (let row = this.range.r1; row <= this.range.r2; row += 1) {
       for (let col = this.range.c1; col <= this.range.c2; col += 1) {
@@ -2101,6 +2143,9 @@ class TablePanel extends Modal {
   }
 
   private async pasteClipboard(): Promise<void> {
+    /* Stopped before the clipboard is read: a paste that cannot land should not
+       ask the browser for permission either. */
+    if (this.readOnly) return;
     if (!navigator.clipboard) return;
     let text: string;
     try {
@@ -2147,6 +2192,7 @@ class TablePanel extends Modal {
   }
 
   private applyFill(target: Cell): void {
+    if (this.readOnly) return;
     if (!this.drag || this.drag.mode !== "fill") return;
     const from = this.drag.from;
     let step = 0;
@@ -2206,6 +2252,7 @@ class TablePanel extends Modal {
    *  clicked: the address the user is typing into has to exist before it can
    *  hold anything. */
   private extendTo(row: number, col: number): void {
+    if (this.readOnly) return;
     while (this.model.header.length <= col) {
       this.model.header.push("");
       this.model.body.forEach((cells) => cells.push(""));
