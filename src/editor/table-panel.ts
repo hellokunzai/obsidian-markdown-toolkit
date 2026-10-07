@@ -41,12 +41,11 @@
  * the one place the two can be told apart, and it is why typing in the bar is
  * never ambiguous.
  */
-import { Menu, Modal, Notice, setIcon, type App, type TFile } from "obsidian";
+import { Menu, Modal, Notice, setIcon, type App } from "obsidian";
 import { t } from "../i18n";
 import { h } from "../utils/dom";
-import { buildFullscreenCornerButton, tagModalCloseButton } from "../utils/modal-fullscreen";
+import { tagModalCloseButton } from "../utils/modal-fullscreen";
 import { applyTooltip } from "../utils/tooltip";
-import { openTableExportMenu } from "../ui/table-export";
 import {
   columnLetter,
   evaluateTable,
@@ -88,8 +87,6 @@ export interface TableEditorRequest {
    * would land.
    */
   chrome?: "editor" | "view";
-  /** The note the table came from; the view chrome's download entry lands in its folder. */
-  file?: TFile | null;
   /** Whether the panel writes the table back on a timer. */
   autoSave: boolean;
   /** Seconds between auto-saves, counted from the moment the table went dirty. */
@@ -425,7 +422,6 @@ class TablePanel extends Modal {
     contentEl.appendChild(editor);
 
     this.buildToolbar();
-    if (this.viewing) this.buildViewCorner(modalEl);
     this.wirePointer();
     this.wireKeyboard();
     this.renderGrid();
@@ -478,32 +474,6 @@ class TablePanel extends Modal {
     for (const off of this.teardown) off();
     this.teardown.length = 0;
     this.contentEl.empty();
-  }
-
-  /**
-   * The view chrome's corner: download, full screen — and Obsidian's own `×`,
-   * which `tagModalCloseButton` already put in the round style and the last
-   * slot. The two slots are the ones the preview frame used, so the buttons have
-   * not moved; what changed is the grid behind them, which is now the editor's.
-   *
-   * The download entry is the same `Menu` the block in the note wears, and it
-   * exports the model the panel is holding — so a table downloaded from here
-   * includes whatever was just typed into it.
-   */
-  private buildViewCorner(modalEl: HTMLElement): void {
-    const download = h("button", {
-      cls: "mtk-view-action mtk-view-export",
-      attr: { type: "button" },
-    }) as HTMLButtonElement;
-    setIcon(download, "download");
-    applyTooltip(download, t("table.download"));
-    download.addEventListener("click", (event: MouseEvent) => {
-      event.stopPropagation();
-      openTableExportMenu(download, this.request.app, this.request.file ?? null, this.model);
-    });
-    modalEl.appendChild(download);
-
-    modalEl.appendChild(buildFullscreenCornerButton());
   }
 
   /** `addEventListener` that is undone on close. `Modal` is not a `Component`,

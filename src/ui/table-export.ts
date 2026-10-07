@@ -1,12 +1,12 @@
 /**
  * Writing a table out beside the note it came from, as CSV or as Markdown.
  *
- * This lived inside `table-render.ts` while the reading view was the only place
- * with a download entry. It has three callers now — the reading view's frame,
- * and the editor panel's view chrome (the round ⬇ in the corner) — and one of
- * those is in `editor/`, which must not import the reading view's renderer. So
- * the menu, the path rule and the write move here, where both sides can reach
- * them without either one owning the other.
+ * The reading view's frame is the caller: its ⬇ opens the menu. This lived
+ * inside `table-render.ts` while that file was the only thing that needed it,
+ * moved out when the editor panel's view chrome grew its own download entry,
+ * and stayed here when that entry was removed — it is the export feature's
+ * implementation, and "what a framed table looks like" (the rest of
+ * `table-render.ts`) is a different job from writing a file.
  */
 import { Menu, Notice, normalizePath, type App, type TFile, type Vault } from "obsidian";
 import { t } from "../i18n";

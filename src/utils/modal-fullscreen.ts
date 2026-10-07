@@ -63,26 +63,8 @@ export function buildFullscreenToolbarButton(): HTMLButtonElement {
 }
 
 /**
- * The same toggle as a round corner button.
- *
- * The table's view chrome has no toolbar, so its fullscreen entry is one of the
- * three circles in the corner rather than a toolbar button. Same class, same
- * icons, same "find the dialog at click time" rule — only the appearance
- * differs (`.mtk-view-action`, the lightbox's corner family). Living here rather
- * than in the panel is what keeps the two chromes from drifting into two
- * different ideas of what "full screen" means.
+ * The one place "what fullscreen means here" is written down.
  */
-export function buildFullscreenCornerButton(): HTMLButtonElement {
-  const button = h("button", {
-    cls: "mtk-view-action mtk-view-full",
-    attr: { type: "button", "aria-label": t("modal.fullscreen") },
-  });
-  applyTooltip(button, t("modal.fullscreen"));
-  wireFullscreen(button, button);
-  return button;
-}
-
-/** The one place "what fullscreen means here" is written down. */
 function wireFullscreen(button: HTMLElement, iconTarget: HTMLElement): void {
   setIcon(iconTarget, ICON_ENTER);
   button.addEventListener("click", () => {

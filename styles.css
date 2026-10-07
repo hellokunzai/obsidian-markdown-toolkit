@@ -72,8 +72,14 @@
  * The same panel, the same grid, the same interactions as the editor dialog;
  * what changes is what surrounds it. There is no toolbar, because there is
  * nothing to configure here: this is the frame the entry has always opened
- * (the same 92vw x 86vh pane, the same `×` in the corner), with the editor's
- * grid running edge to edge inside it.
+ * (the same 92vw x 86vh pane), with the editor's grid running edge to edge
+ * inside it.
+ *
+ * The corner holds one control and only one: Obsidian's own `×`. The download
+ * and full-screen entries the preview frame used to wear are gone — this
+ * dialog exists to read the table, and both of those already live where the
+ * note is (the block's own ⬇) or nowhere (a frame whose whole size is its
+ * point).
  *
  * `padding: 0` (not just `padding-top`) is the difference from the editor
  * shell: the editor's grid is inset by the dialog's own padding, while this
@@ -92,32 +98,21 @@
   background-color: var(--background-primary);
 }
 
-/* The band the corner buttons float in. The grid starts below it, so a column
-   letter is never hidden under the buttons — the editor's own arrangement, a
-   toolbar row shorter. */
+/* The band the `×` floats in. The grid starts below it, so no column letter is
+   ever hidden under the button — the editor's own arrangement, a toolbar row
+   shorter. It stays even with the corner nearly empty: a control drawn on top
+   of the data reads as an accident, whichever control it is. */
 .mtk-modal-view .mtk-editor {
   padding-top: 52px;
 }
 
 /* The three things a toolbar would carry here are hidden rather than absent:
-   the panel's own code path stays single. `Save` has no button, so the panel
-   lands the edits itself (see `autoSaveOn` / `onClose`). */
+   the panel's own code path stays single. There is no Save button, and none is
+   needed — the view chrome is frozen (`readOnly` in the panel). */
 .mtk-modal-view .mtk-header,
 .mtk-modal-view .mtk-toolbar,
 .mtk-modal-view .mtk-fxbar {
   display: none;
-}
-
-/* The two corner slots, left of the `×` at 14px — the 32 + 8 rhythm the preview
-   frame and the block's own corner both use. */
-.mtk-modal-view .mtk-view-full {
-  top: 14px;
-  inset-inline-end: 54px;
-}
-
-.mtk-modal-view .mtk-view-export {
-  top: 14px;
-  inset-inline-end: 94px;
 }
 
 /*
@@ -176,9 +171,7 @@
  * The dialog close `×` wears the round, bordered, shadowed look of the preview
  * lightbox's corner buttons (`.mtk-lightbox-action`): every editor dialog and
  * each of its sub-dialogs tags it with `.mtk-modal-close-btn` via
- * `tagModalCloseButton`. The table's view chrome puts its own two corner
- * buttons in the same family (`.mtk-view-action`), so the declaration block
- * below is shared rather than copied.
+ * `tagModalCloseButton`.
  *
  * The `×` is tagged (not gated on `.mtk-modal-shell`) so the rule wins on
  * specificity over both Obsidian's `.clickable-icon` and
@@ -189,8 +182,7 @@
  * the lightbox uses (`top: 14px`, `inset-inline-end: 14px`, see below). Outside
  * the shell (the editor's sub-dialogs) it stays on Obsidian's own slot.
  */
-.modal .modal-close-button.mtk-modal-close-btn,
-.modal .mtk-view-action {
+.modal .modal-close-button.mtk-modal-close-btn {
   position: absolute;
   /* Round, bordered, shadowed — the lightbox `.mtk-lightbox-action` look. */
   display: inline-flex;
@@ -210,15 +202,13 @@
   opacity: 0.92;
 }
 
-.modal .modal-close-button.mtk-modal-close-btn:hover,
-.modal .mtk-view-action:hover {
+.modal .modal-close-button.mtk-modal-close-btn:hover {
   color: var(--text-on-accent);
   background-color: var(--interactive-accent);
   border-color: var(--interactive-accent);
 }
 
-.modal .modal-close-button.mtk-modal-close-btn .svg-icon,
-.modal .mtk-view-action .svg-icon {
+.modal .modal-close-button.mtk-modal-close-btn .svg-icon {
   width: 16px;
   height: 16px;
 }

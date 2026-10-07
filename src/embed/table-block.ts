@@ -198,7 +198,7 @@ export class TableBlock extends MarkdownRenderChild {
       app: this.host.app,
       file,
       editable: false,
-      onView: () => this.openEditor(file),
+      onView: () => this.openEditor(),
       highlightFormulas: this.host.settings.tableHighlightFormulas,
     });
     this.containerEl.appendChild(this.frame.el);
@@ -222,12 +222,11 @@ export class TableBlock extends MarkdownRenderChild {
    * rather than replaced by a no-op, because a no-op would be the version of
    * this that silently drops an edit if the freeze were ever lifted.
    */
-  private openEditor(file: TFile | null): void {
+  private openEditor(): void {
     openTableEditor({
       app: this.host.app,
       model: this.model,
       chrome: "view",
-      file,
       autoSave: this.host.settings.tableAutoSave,
       autoSaveInterval: this.host.settings.tableAutoSaveInterval,
       highlightFormulas: this.host.settings.tableHighlightFormulas,
