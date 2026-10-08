@@ -180,23 +180,21 @@
 }
 
 /*
- * The dialog close `×` wears the round, bordered, shadowed look of the preview
- * lightbox's corner buttons (`.mtk-lightbox-action`): every editor dialog and
- * each of its sub-dialogs tags it with `.mtk-modal-close-btn` via
- * `tagModalCloseButton`.
+ * The editor dialog close `×` uses a round, bordered, shadowed look
+ * (`.mtk-modal-close-btn`): every editor dialog and each of its sub-dialogs
+ * tags its native `×` with that class via `tagModalCloseButton`.
  *
  * The `×` is tagged (not gated on `.mtk-modal-shell`) so the rule wins on
  * specificity over both Obsidian's `.clickable-icon` and
  * `body.styled-scrollbars .modal-close-button`, and does not depend on the
  * dialog carrying that class.
  *
- * Position. Inside the shell the `×` sits on a fixed line — the same fixed slot
- * the lightbox uses (`top: 14px`, `inset-inline-end: 14px`, see below). Outside
- * the shell (the editor's sub-dialogs) it stays on Obsidian's own slot.
+ * Position. Inside the shell the `×` sits on a fixed line. Outside the shell
+ * (the editor's sub-dialogs) it stays on Obsidian's own slot.
  */
 .modal .modal-close-button.mtk-modal-close-btn {
   position: absolute;
-  /* Round, bordered, shadowed — the lightbox `.mtk-lightbox-action` look. */
+  /* Round, bordered, shadowed — custom look for the editor dialog close button. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1034,40 +1032,12 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 
    `top` is here rather than in the slots because the two are meant to sit on one
    line; only `right` differs. */
-.mtk-lightbox .mtk-lightbox-action {
-  position: absolute;
-  top: 14px;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  min-width: 0;
-  min-height: 0;
-  color: var(--text-normal);
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
-  box-shadow: var(--shadow-s);
-  cursor: pointer;
-  opacity: 0.92;
-}
-
-.mtk-lightbox .mtk-lightbox-action:hover {
-  color: var(--text-on-accent);
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-}
-
-.mtk-lightbox .mtk-lightbox-action .svg-icon {
-  width: 16px;
-  height: 16px;
-}
-
+/* The lightbox close button uses Obsidian's default `.modal-close-button`
+   styling; only its slot is custom — parked top-right of the canvas. */
 .mtk-lightbox .mtk-lightbox-close {
+  top: 14px;
   right: 14px;
+  z-index: 1;
 }
 
 .mtk-embed-error {

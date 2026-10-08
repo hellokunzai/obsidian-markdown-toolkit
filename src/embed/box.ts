@@ -351,7 +351,7 @@ export function openLightbox(
   });
   document.addEventListener("keydown", onKey);
 
-  const closeButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-close" });
+  const closeButton = h("button", { cls: "modal-close-button clickable-icon mtk-lightbox-close" });
   closeButton.type = "button";
   setIcon(closeButton, "x");
   applyTooltip(closeButton, t("embed.lightboxClose"));
