@@ -181,7 +181,7 @@ npm run dev      # watch and rebuild main.js
 npm run build    # type check, then a production build
 ```
 
-The build produces three files: `main.js`, `manifest.json` and `styles.css`. Sources live under `src/`, split into `core` (pure logic), `charts`, `editor`, `embed`, `features`, `ui` and `utils`. To publish, push a tag named like `v0.21.0` and GitHub Actions builds and creates the release.
+The build produces three files: `main.js`, `manifest.json` and `styles.css`. Sources live under `src/`, split into `core` (pure logic), `charts`, `editor`, `embed`, `features`, `ui` and `utils`. To publish, push a tag named like `0.21.0` — matching the manifest version exactly, with no `v` prefix — and GitHub Actions builds and creates the release.
 
 ---
 

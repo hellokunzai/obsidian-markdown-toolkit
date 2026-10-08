@@ -1,7 +1,14 @@
-# Builds the plugin from nothing and attaches the four files Obsidian reads off
-# a release page. The tag is the trigger and the source of truth for the version:
+# Builds the plugin from nothing and attaches the files Obsidian reads off a
+# release page. The tag is the trigger and the source of truth for the version:
 # `manifest.json` and `versions.json` are left to be bumped by hand in the commit
 # that tags, and this job only has to prove that the tree they describe builds.
+#
+# The tag is the bare version (`0.21.0`, no `v` prefix). That is not a style
+# choice: Obsidian builds its download URL as
+# `https://github.com/<repo>/releases/download/<manifest.version>/<file>`, with
+# no prefix mending, so a `v`-prefixed tag 404s and the plugin cannot be
+# installed. `v[0-9]+…` used to be the trigger here and every release it cut was
+# unusable — the `#v` strip below is all that is left of that tolerance.
 #
 # Why the checkout is shallow: the tag is already on the branch, so history adds
 # minutes of download without changing what gets built.
@@ -10,7 +17,7 @@ name: Release
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
 
 permissions:

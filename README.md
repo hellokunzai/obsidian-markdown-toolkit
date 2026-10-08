@@ -181,7 +181,7 @@ npm run dev      # 监听改动，输出 main.js
 npm run build    # 类型检查 + 生产构建
 ```
 
-构建产物是 `main.js`、`manifest.json` 和 `styles.css` 三个文件，源码在 `src/` 下按 `core`（纯逻辑）、`charts`、`editor`、`embed`、`features`、`ui`、`utils` 分了目录。发版时给提交打一个 `v0.21.0` 形式的 tag 推上去，GitHub Actions 会构建并创建 Release。
+构建产物是 `main.js`、`manifest.json` 和 `styles.css` 三个文件，源码在 `src/` 下按 `core`（纯逻辑）、`charts`、`editor`、`embed`、`features`、`ui`、`utils` 分了目录。发版时给提交打一个 `0.21.0` 形式的 tag（跟 manifest 的版本号一致，不带 `v` 前缀）推上去，GitHub Actions 会构建并创建 Release。
 
 ---
 
