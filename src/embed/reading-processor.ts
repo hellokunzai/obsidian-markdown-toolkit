@@ -175,12 +175,12 @@ export class DiagramBlock extends MarkdownRenderChild {
   private mount(inSource: boolean): void {
     // Both modes carry the export entry: the drawing is the same one, and a
     // block that can hand you the file in one mode but not the other is the
-    // drift this file exists to prevent. The preview gets the same callback, so
-    // the menu is reachable from inside it too.
+    // drift this file exists to prevent. The preview does not repeat it — its
+    // corner is the close button alone.
     const onExport = (kind: ExportKind): void => void this.exportDiagram(kind);
     const actions: DiagramBoxActions = inSource
       ? { onEdit: () => void this.requestEdit(), onExport }
-      : { onExport, onView: () => openLightbox(this.host, this.source, this.mode, onExport) };
+      : { onExport, onView: () => openLightbox(this.host, this.source, this.mode) };
     this.box = buildDiagramBox(this.host, this.source, this.mode, actions);
     this.containerEl.appendChild(this.box.el);
   }

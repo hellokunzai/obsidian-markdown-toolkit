@@ -317,8 +317,7 @@ export function buildDiagramBox(
 export function openLightbox(
   host: DiagramBoxHost,
   source: string,
-  mode: DiagramMode,
-  onExport?: (kind: ExportKind) => void
+  mode: DiagramMode
 ): void {
   if (document.querySelector(".mtk-lightbox")) return;
 
@@ -331,29 +330,10 @@ export function openLightbox(
 
   let viewport: PreviewViewport | null = null;
 
-  /* The two corner buttons. "Full screen" here means the frame filling the
-     viewport (see the `.is-fullscreen` rules) — the overlay is already
-     `fixed; inset: 0`, so that is the only reading available, and it keeps the
-     feature inside the preview instead of taking the browser window away from
-     Obsidian's own full screen command.
-
-     The resizing that follows is not wired up here: the frame changing size is
-     the whole of it, and `makePreviewViewport` already treats "the frame got a
-     new size" as a reason to re-frame the drawing — unless the user has taken
-     over the view, in which case it leaves their framing alone. */
-  const fullButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-full" });
-  fullButton.type = "button";
-  setIcon(fullButton, "maximize");
-  applyTooltip(fullButton, t("embed.lightboxFull"));
-
-  let showingFull = false;
-  const setFullscreen = (on: boolean): void => {
-    if (on === showingFull) return;
-    showingFull = on;
-    overlay.classList.toggle("is-fullscreen", on);
-    setIcon(fullButton, on ? "minimize" : "maximize");
-    applyTooltip(fullButton, on ? t("embed.lightboxRestore") : t("embed.lightboxFull"));
-  };
+  /* The one corner button. The preview carries no actions of its own beyond
+     closing: the block in the note already carries the export entry, and the
+     preview is already the largest the drawing gets — a "full screen" toggle
+     inside a fixed overlay would only shrink the frame. */
 
   const close = (): void => {
     document.removeEventListener("keydown", onKey);
@@ -363,33 +343,13 @@ export function openLightbox(
   };
   const onKey = (event: KeyboardEvent): void => {
     if (event.key !== "Escape") return;
-    /* Escape peels one layer at a time: out of full screen first, then out of
-       the preview. Closing in one step would make the way back into full screen
-       the only way out of it. */
-    if (showingFull) setFullscreen(false);
-    else close();
+    close();
   };
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) close();
   });
   document.addEventListener("keydown", onKey);
-
-  /* The block's export entry, in the preview's own family of round buttons: the
-     drawing is the same one, so the actions around it are the same set. Added
-     first so the corner stacks left to right in the order the buttons were
-     added, exactly as the block's does. */
-  if (onExport) {
-    const out = h("button", { cls: "mtk-lightbox-action mtk-lightbox-export" });
-    out.type = "button";
-    setIcon(out, "download");
-    applyTooltip(out, t("embed.export"));
-    out.addEventListener("click", () => openExportMenu(out, onExport));
-    canvas.appendChild(out);
-  }
-
-  fullButton.addEventListener("click", () => setFullscreen(!showingFull));
-  canvas.appendChild(fullButton);
 
   const closeButton = h("button", { cls: "mtk-lightbox-action mtk-lightbox-close" });
   closeButton.type = "button";

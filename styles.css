@@ -1070,37 +1070,6 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   right: 14px;
 }
 
-/* 32 wide + 8 of air + the close button's 14. */
-.mtk-lightbox .mtk-lightbox-full {
-  right: 54px;
-}
-
-/* 32 + 8 + 54: one slot further out again, so the export entry sits immediately
-   left of the full-screen one — the same rule the block's corner follows. */
-.mtk-lightbox .mtk-lightbox-export {
-  right: 94px;
-}
-
-/* Full screen.
-
-   The overlay is already `fixed; inset: 0`, so "full screen" in a lightbox can
-   only mean letting the frame fill it — hence padding 0 plus the frame at 100%.
-   Both live on the overlay rather than on the frame, because the overlay is what
-   owns the padding; splitting them would let the two drift apart.
-
-   The radius has to go with the padding. Once the frame reaches the viewport's
-   edge, a rounded corner is not a rounded corner any more — it is a notch cut
-   out of the screen. */
-.mtk-lightbox.is-fullscreen {
-  padding: 0;
-}
-
-.mtk-lightbox.is-fullscreen .mtk-lightbox-canvas {
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-}
-
 .mtk-embed-error {
   padding: 10px 12px;
 }
