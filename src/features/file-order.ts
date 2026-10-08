@@ -211,6 +211,14 @@ export class FileOrder {
    */
   private readonly reported = new Set<string>();
   private drag: DragState | null = null;
+  /**
+   * Whether the module is currently switched on. Driven from the 功能 tab via
+   * `setEnabled`; the registered listeners keep firing but bail at `attach`
+   * while off, so turning the module off is instant.
+   */
+  private active = false;
+  /** `enable` registers its listeners once; a second call is a no-op. */
+  private registered = false;
 
   constructor(plugin: MarkdownEditorPlusPlugin) {
     this.plugin = plugin;
@@ -237,7 +245,11 @@ export class FileOrder {
   enable(): void {
     /* Once per load, and before the first button is built. A name that is not
        registered is not an error — `setIcon` draws an empty `<svg>` for it —
-       so the button would simply come up blank. */
+       so the button would simply come up blank. Idempotent: the listeners are
+       registered at most once; the actual patching happens in `attach`, gated
+       by `active`. */
+    if (this.registered) return;
+    this.registered = true;
     registerOrderIcon();
 
     // Registered so Obsidian drops the listeners on plugin unload, avoiding
@@ -250,11 +262,13 @@ export class FileOrder {
     // data.json is only written when they say so.
     this.plugin.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
+        if (!this.active) return;
         if (this.store.onRename(file, oldPath)) void this.save();
       })
     );
     this.plugin.registerEvent(
       this.app.vault.on("delete", (file) => {
+        if (!this.active) return;
         if (this.store.onDelete(file)) void this.save();
       })
     );
@@ -268,6 +282,20 @@ export class FileOrder {
     });
 
     this.attach();
+  }
+
+  /**
+   * Flips the master switch. Driven by the 功能 tab; safe to call repeatedly.
+   *
+   * Turning on re-patches the explorer and re-decorates; turning off calls
+   * `stop`, which restores Obsidian's own sorter and removes every handle, so
+   * the module leaves nothing behind.
+   */
+  setEnabled(on: boolean): void {
+    if (on === this.active) return;
+    this.active = on;
+    if (on) this.attach();
+    else this.stop();
   }
 
   /**
@@ -341,6 +369,9 @@ export class FileOrder {
    * decorating a row that already has a handle does not touch the DOM.
    */
   private attach(): void {
+    // Master switch off: do nothing. The listeners keep firing but must not
+    // re-patch the explorer or re-decorate rows for a module switched off.
+    if (!this.active) return;
     this.ensurePatched();
     /* The button is offered only where it would do something. On a build whose
        sorter could not be reached, `ensurePatched` has just said so in a notice,

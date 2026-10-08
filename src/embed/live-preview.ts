@@ -155,6 +155,8 @@ function draw(state: EditorState, host: DiagramBlockHost): DecorationSet {
   // Source mode is plain text, and every fence should stay plain text there:
   // only Live Preview shows embeds.
   if (!state.field(editorLivePreviewField, false)) return Decoration.none;
+  /* 功能总开关：图表模块关掉时，实时预览里 mermaid 按 Obsidian 内置渲染。 */
+  if (!host.settings.features.diagram) return Decoration.none;
 
   const text = state.doc.toString();
   if (!MAYBE_OURS.test(text)) return Decoration.none;

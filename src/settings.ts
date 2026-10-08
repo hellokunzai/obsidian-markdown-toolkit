@@ -169,7 +169,34 @@ export interface MarkdownEditorPlusSettings {
   tableAutoSaveInterval: number;
   /** Whether computed cells get the `ƒ` marker and tint in every table context. */
   tableHighlightFormulas: boolean;
+
+  // ---- 功能总开关（0.21.0）----
+  /**
+   * Master switches for each major module, set from the 功能 tab.
+   *
+   * A module that is off has its settings tab hidden in the settings panel and
+   * its feature disabled in the editor — both at once, so turning something off
+   * is one decision rather than two. The 功能 tab itself is always present and
+   * cannot be switched off. See `main.ts` `applyFeatureToggles`.
+   */
+  features: {
+    /** Editor toolbar: the command bar pinned above Markdown editors. */
+    toolbar: boolean;
+    /** Table editor: framed tables with formula support. */
+    table: boolean;
+    /** Diagram editor: mermaid rendering and its visual editor. */
+    diagram: boolean;
+    /** Attachment handling: custom folder, plus rename/move and orphan sync. */
+    attachment: boolean;
+    /** File hiding in the explorer. */
+    hiding: boolean;
+    /** Manual file ordering in the explorer. */
+    order: boolean;
+  };
 }
+
+/** The six modules the 功能 tab switches on or off. */
+export type FeatureKey = "toolbar" | "table" | "diagram" | "attachment" | "hiding" | "order";
 
 export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   // On by default: autosave only ever writes back what the user typed into
@@ -214,6 +241,17 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   // The `ƒ` marker is what makes a computed cell legible as computed; on by
   // default so a freshly-framed table reads the same in all three contexts.
   tableHighlightFormulas: true,
+
+  // 功能总开关（0.21.0）。默认只开工具栏、表格、图表三类核心编辑能力；
+  // 附件处理、文件隐藏、文件排序默认关，需要时在「功能」标签页打开。
+  features: {
+    toolbar: true,
+    table: true,
+    diagram: true,
+    attachment: false,
+    hiding: false,
+    order: false,
+  },
 };
 
 /**
@@ -457,13 +495,20 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     overflowObserver.observe(tabBar);
     (tabBar as unknown as { __overflowObserver?: ResizeObserver }).__overflowObserver = overflowObserver;
 
-    const tabs: Array<{ id: string; label: string; render: (host: HTMLElement) => void }> = [
-      { id: "toolbar", label: t("settings.tab.toolbar"), render: (host) => this.renderToolbar(host) },
-      { id: "table", label: t("settings.tab.table"), render: (host) => this.renderTable(host) },
-      { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
-      { id: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
-      { id: "hiding", label: t("settings.tab.hiding"), render: (host) => this.renderFileHiding(host) },
-      { id: "order", label: t("settings.tab.order"), render: (host) => this.renderFileOrder(host) },
+    type ModuleTab = { id: string; feature: FeatureKey; label: string; render: (host: HTMLElement) => void };
+    const moduleTabs: ModuleTab[] = [
+      { id: "toolbar", feature: "toolbar", label: t("settings.tab.toolbar"), render: (host) => this.renderToolbar(host) },
+      { id: "table", feature: "table", label: t("settings.tab.table"), render: (host) => this.renderTable(host) },
+      { id: "general", feature: "diagram", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
+      { id: "attachment", feature: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
+      { id: "hiding", feature: "hiding", label: t("settings.tab.hiding"), render: (host) => this.renderFileHiding(host) },
+      { id: "order", feature: "order", label: t("settings.tab.order"), render: (host) => this.renderFileOrder(host) },
+    ];
+
+    /* 功能标签页固定最左、始终可见；其余标签页按功能总开关过滤。 */
+    const tabs: Array<{ id: string; feature?: FeatureKey; label: string; render: (host: HTMLElement) => void }> = [
+      { id: "features", label: t("settings.tab.features"), render: (host) => this.renderFeatures(host) },
+      ...moduleTabs.filter((tab) => this.plugin.settings.features[tab.feature]),
     ];
 
     let activeButton: HTMLElement | null = null;
@@ -497,6 +542,47 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     });
 
     select(0);
+  }
+
+  /* ------------------------------------------------------------- features */
+
+  /**
+   * The 功能 tab: one master switch per module.
+   *
+   * Each switch writes straight through to `settings.features`, then the panel
+   * re-renders from that same object — so the module's own settings tab appears
+   * or disappears in step, and `applyFeatureToggles` flips the editor feature to
+   * match. The 功能 tab itself is never one of the switchable modules.
+   */
+  private renderFeatures(host: HTMLElement): void {
+    new Setting(host)
+      .setName(t("settings.feature.header.name"))
+      .setDesc(t("settings.feature.header.desc"));
+
+    const defs: Array<{ key: FeatureKey; name: string; desc: string }> = [
+      { key: "toolbar", name: t("settings.feature.toolbar.name"), desc: t("settings.feature.toolbar.desc") },
+      { key: "table", name: t("settings.feature.table.name"), desc: t("settings.feature.table.desc") },
+      { key: "diagram", name: t("settings.feature.diagram.name"), desc: t("settings.feature.diagram.desc") },
+      { key: "attachment", name: t("settings.feature.attachment.name"), desc: t("settings.feature.attachment.desc") },
+      { key: "hiding", name: t("settings.feature.hiding.name"), desc: t("settings.feature.hiding.desc") },
+      { key: "order", name: t("settings.feature.order.name"), desc: t("settings.feature.order.desc") },
+    ];
+
+    for (const def of defs) {
+      new Setting(host)
+        .setName(def.name)
+        .setDesc(def.desc)
+        .addToggle((toggle) =>
+          toggle.setValue(this.plugin.settings.features[def.key]).onChange(async (value) => {
+            this.plugin.settings.features[def.key] = value;
+            await this.plugin.saveSettings();
+            this.plugin.applyFeatureToggles();
+            // 重新渲染标签栏：被关掉的标签页立即消失，新开的立即出现，
+            // 激活态自然回到最左的「功能」标签页。
+            this.display();
+          })
+        );
+    }
   }
 
   /* ---------------------------------------------------------------- table */

@@ -200,6 +200,24 @@ const en: Dict = {
   "settings.tab.order": "File order",
   "settings.tab.attachment": "Attachment path",
   "settings.tab.table": "Table settings",
+  "settings.tab.features": "Features",
+
+  "settings.feature.header.name": "Module switches",
+  "settings.feature.header.desc":
+    "Turn a module off to hide its settings tab and disable its feature in the editor at once. The Features tab itself is always present.",
+  "settings.feature.toolbar.name": "Editor toolbar",
+  "settings.feature.toolbar.desc": "The command bar pinned to the top of Markdown editors.",
+  "settings.feature.table.name": "Table editor",
+  "settings.feature.table.desc": "Framed tables with formula support in reading view and live preview.",
+  "settings.feature.diagram.name": "Diagram editor",
+  "settings.feature.diagram.desc": "Mermaid diagram rendering and its visual editor.",
+  "settings.feature.attachment.name": "Attachment handling",
+  "settings.feature.attachment.desc":
+    "Custom attachment folder, plus rename/move and orphan-cleanup sync.",
+  "settings.feature.hiding.name": "File hiding",
+  "settings.feature.hiding.desc": "Hide entries in the file explorer by rule.",
+  "settings.feature.order.name": "File order",
+  "settings.feature.order.desc": "Manual subfolder ordering in the file explorer.",
 
   "settings.table.autoSave.name": "Auto-save the table",
   "settings.table.autoSave.desc":
@@ -841,6 +859,23 @@ const zhCn: Dict = {
   "settings.tab.order": "文件排序",
   "settings.tab.attachment": "附件路径",
   "settings.tab.table": "表格设置",
+  "settings.tab.features": "功能",
+
+  "settings.feature.header.name": "功能模块开关",
+  "settings.feature.header.desc":
+    "关闭某模块会同时隐藏其设置标签页并停用编辑器中的对应功能。功能标签页本身始终存在，不可关闭。",
+  "settings.feature.toolbar.name": "编辑器工具栏",
+  "settings.feature.toolbar.desc": "固定在 Markdown 编辑器顶部的命令栏。",
+  "settings.feature.table.name": "表格编辑器",
+  "settings.feature.table.desc": "阅读视图与实时预览中带公式支持的表格渲染。",
+  "settings.feature.diagram.name": "图表编辑器",
+  "settings.feature.diagram.desc": "Mermaid 图表渲染与可视化编辑器。",
+  "settings.feature.attachment.name": "附件处理",
+  "settings.feature.attachment.desc": "自定义附件目录，以及重命名/移动与孤立清理同步。",
+  "settings.feature.hiding.name": "文件隐藏",
+  "settings.feature.hiding.desc": "按规则隐藏文件管理器中的条目。",
+  "settings.feature.order.name": "文件排序",
+  "settings.feature.order.desc": "文件管理器中手动排列子文件夹顺序。",
 
   "settings.table.autoSave.name": "表格自动保存",
   "settings.table.autoSave.desc": "编辑表格时按间隔自动写回，关闭编辑器也不会丢行。",

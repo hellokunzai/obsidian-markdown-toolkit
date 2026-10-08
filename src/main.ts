@@ -95,6 +95,10 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
   private readonly blocks = new Set<Repaintable>();
   private hideRules: HideRules | null = null;
   private editorToolbar: EditorToolbar | null = null;
+  /** Attachment handling (0.5.0), held so the 功能 tab can switch it on/off. */
+  private attachmentLocation: AttachmentLocation | null = null;
+  private attachmentDelete: AttachmentDeleteSync | null = null;
+  private attachmentRename: AttachmentRenameSync | null = null;
 
   /**
    * Manual ordering in the file explorer.
@@ -169,13 +173,22 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     // to belong to the window being made fullscreen.
     this.focusMode = new FocusMode();
 
-    // Attachment location override added in 0.5.0.
-    new AttachmentLocation(this).enable();
+    // Attachment location override added in 0.5.0. Held so the 功能 tab can
+    // switch it; `enable` registers the listeners, `applyFeatureToggles` flips
+    // the master switch to match the settings.
+    this.attachmentLocation = new AttachmentLocation(this);
+    this.attachmentLocation.enable();
 
     // Attachment housekeeping added in 0.5.1: settings-driven orphan cleanup
     // on note delete, plus attachment-folder sync when a note is renamed.
-    new AttachmentDeleteSync(this).enable();
-    new AttachmentRenameSync(this).enable();
+    this.attachmentDelete = new AttachmentDeleteSync(this);
+    this.attachmentDelete.enable();
+    this.attachmentRename = new AttachmentRenameSync(this);
+    this.attachmentRename.enable();
+
+    /* All feature instances exist now: apply the 功能 master switches once, so a
+       vault whose data.json turns a module off starts with that module dark. */
+    this.applyFeatureToggles();
 
     this.addCommand({
       id: "insert-mindmap",
@@ -364,6 +377,7 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
     // one mixed list per folder became one list per kind, and then the file list
     // was retired altogether — only subfolders are ordered now.
     const orders = migrateOrders(saved?.orderMap);
+
     /* The reorder switch was renamed in 0.20.0. It used to mean "manual sorting
        is on" — handles on every row, drags allowed — and it now means "the
        toolbar button is showing", with the button itself carrying the on/off of
@@ -512,6 +526,35 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
         typeof saved?.tableHighlightFormulas === "boolean"
           ? saved.tableHighlightFormulas
           : DEFAULT_SETTINGS.tableHighlightFormulas,
+
+      /* 功能总开关（0.21.0）。按字段迁移：旧 data.json 没有 `features` 时，
+         缺失字段回退到默认（工具栏/表格/图表开，其余关）。 */
+      features: {
+        toolbar:
+          typeof saved?.features?.toolbar === "boolean"
+            ? saved.features.toolbar
+            : DEFAULT_SETTINGS.features.toolbar,
+        table:
+          typeof saved?.features?.table === "boolean"
+            ? saved.features.table
+            : DEFAULT_SETTINGS.features.table,
+        diagram:
+          typeof saved?.features?.diagram === "boolean"
+            ? saved.features.diagram
+            : DEFAULT_SETTINGS.features.diagram,
+        attachment:
+          typeof saved?.features?.attachment === "boolean"
+            ? saved.features.attachment
+            : DEFAULT_SETTINGS.features.attachment,
+        hiding:
+          typeof saved?.features?.hiding === "boolean"
+            ? saved.features.hiding
+            : DEFAULT_SETTINGS.features.hiding,
+        order:
+          typeof saved?.features?.order === "boolean"
+            ? saved.features.order
+            : DEFAULT_SETTINGS.features.order,
+      },
     };
 
     // Written back the moment it is converted, so the migration happens once
@@ -522,6 +565,25 @@ export default class MarkdownEditorPlusPlugin extends Plugin implements DiagramB
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * Applies the 功能 master switches to the editor.
+   *
+   * Each module's editor feature is enabled or disabled to match
+   * `settings.features`, in step with its settings tab (which the 功能 tab
+   * hides when the module is off). Safe to call on load and on every settings
+   * save: the feature classes make their enable/disable idempotent, so calling
+   * it with the same state it already holds is a no-op.
+   */
+  applyFeatureToggles(): void {
+    const f = this.settings.features;
+    this.editorToolbar?.setEnabled(f.toolbar);
+    this.hideRules?.setEnabled(f.hiding);
+    this.fileOrder?.setEnabled(f.order);
+    this.attachmentLocation?.setEnabled(f.attachment);
+    this.attachmentDelete?.setEnabled(f.attachment);
+    this.attachmentRename?.setEnabled(f.attachment);
   }
 
   /**

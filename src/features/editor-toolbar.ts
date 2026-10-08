@@ -25,18 +25,45 @@ export class EditorToolbar {
   private readonly plugin: MarkdownEditorPlusPlugin;
   private readonly app: App;
   private observer: MutationObserver | null = null;
+  /**
+   * Whether the toolbar is currently meant to be showing. Set by `setEnabled`,
+   * which is driven from the 功能 tab's master switch. The listeners registered
+   * in `enable` stay attached for the plugin's life; they early-return here when
+   * this is false, so turning the module off is instant and leaves nothing
+   * behind.
+   */
+  private active = false;
+  /** `enable` registers its listeners once; a second call is a no-op. */
+  private registered = false;
 
   constructor(plugin: MarkdownEditorPlusPlugin) {
     this.plugin = plugin;
     this.app = plugin.app;
   }
 
+  /** Registers the leaf/layout listeners once. Does not itself show the bar. */
   enable(): void {
+    if (this.registered) return;
+    this.registered = true;
     this.plugin.registerEvent(this.app.workspace.on("active-leaf-change", () => this.sync()));
     this.plugin.registerEvent(this.app.workspace.on("layout-change", () => this.sync()));
     // The initial onload call often runs before the workspace leaves are ready,
     // so wait for layout ready before the first real pin attempt.
     this.app.workspace.onLayoutReady(() => this.sync());
+  }
+
+  /**
+   * Flips the master switch. Driven by the 功能 tab; safe to call repeatedly.
+   *
+   * Turning on shows the bar (if a Markdown editor is active); turning off
+   * takes it down. The listeners keep firing either way but bail out at `sync`
+   * while off, so no second bar is ever built.
+   */
+  setEnabled(on: boolean): void {
+    if (on === this.active) return;
+    this.active = on;
+    if (on) this.sync();
+    else this.remove();
   }
 
   /**
@@ -47,11 +74,19 @@ export class EditorToolbar {
    * next time the view re-renders — a plugin that is meant to be off.
    */
   unload(): void {
+    this.active = false;
     this.remove();
   }
 
   /** Re-applies the toolbar to the current active Markdown editor. */
   sync(): void {
+    // Master switch off: the bar is not wanted, so leave whatever is there
+    // down and do nothing. Listeners still call this, but they must not build
+    // a bar the user has switched the module off for.
+    if (!this.active) {
+      this.remove();
+      return;
+    }
     this.disconnectObserver();
 
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);

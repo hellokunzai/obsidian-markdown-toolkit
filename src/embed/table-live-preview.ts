@@ -134,6 +134,11 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
       }
 
       private sync(): void {
+        /* 功能总开关：表格模块关掉时，实时预览里表格按 Obsidian 默认渲染。 */
+        if (!host.settings.features.table) {
+          this.unframeAll();
+          return;
+        }
         if (!this.view.state.field(editorLivePreviewField, false)) {
           // Source mode: the note is its own Markdown there, which is exactly
           // the text the user is editing. Nothing to frame.

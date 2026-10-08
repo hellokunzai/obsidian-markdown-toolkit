@@ -117,14 +117,24 @@ export class HideRules {
   private readonly observers = new Map<HTMLElement, MutationObserver>();
   private ribbonIcon: HTMLElement | null = null;
   private statusBarItem: HTMLElement | null = null;
+  /**
+   * Whether the module is currently switched on. Driven from the 功能 tab via
+   * `setEnabled`; the registered listeners keep firing but bail at `attach`
+   * while off, so turning the module off is instant.
+   */
+  private active = false;
+  /** `enable` registers its listeners once; a second call is a no-op. */
+  private registered = false;
 
   constructor(plugin: MarkdownEditorPlusPlugin) {
     this.plugin = plugin;
     this.app = plugin.app;
   }
 
+  /** Registers the workspace/vault listeners once. Does not itself hide anything. */
   enable(): void {
-    this.ribbonIcon = this.settingsWantsRibbon() ? this.makeRibbonIcon() : null;
+    if (this.registered) return;
+    this.registered = true;
 
     // Registered so Obsidian drops the listener on plugin unload, avoiding
     // callbacks against a torn-down workspace.
@@ -141,13 +151,32 @@ export class HideRules {
     // has no rows yet. `layout-change` covers the rebuild, and this covers the
     // first paint, where the leaf exists but its tree is still being filled in.
     this.app.workspace.onLayoutReady(() => window.setTimeout(() => this.attach(), 100));
+  }
 
+  /**
+   * Flips the master switch. Driven by the 功能 tab; safe to call repeatedly.
+   *
+   * Turning on re-attaches the observers and re-hides; turning off tears
+   * everything down — observers disconnected, rows revealed, status bar and
+   * ribbon removed, and our entries pulled out of Obsidian's excluded-files
+   * list — so no trace of the feature lingers.
+   */
+  setEnabled(on: boolean): void {
+    if (on === this.active) return;
+    this.active = on;
+    if (on) this.start();
+    else this.stop();
+  }
+
+  /** (Re)starts the feature: ribbon, observers, excluded-list sync. */
+  private start(): void {
+    this.ribbonIcon = this.settingsWantsRibbon() ? this.makeRibbonIcon() : null;
     this.attach();
     this.syncIgnoreList();
   }
 
-  /** Stops watching the explorers. Called from the plugin's `onunload`. */
-  unload(): void {
+  /** Takes the feature fully down. Safe to call more than once. */
+  private stop(): void {
     for (const observer of this.observers.values()) observer.disconnect();
     this.observers.clear();
     // Hand the tree back the way it was found. Leaving the rows hidden after the
@@ -155,16 +184,29 @@ export class HideRules {
     for (const item of this.items()) this.setHidden(item, false);
     this.statusBarItem?.remove();
     this.statusBarItem = null;
+    this.ribbonIcon?.remove();
+    this.ribbonIcon = null;
+    // Pull our entries out of Obsidian's excluded-files list so a switched-off
+    // module leaves nothing behind there either.
+    this.syncIgnoreList();
+  }
+
+  /** Stops watching the explorers. Called from the plugin's `onunload`. */
+  unload(): void {
+    this.active = false;
+    this.stop();
   }
 
   /** Flips the master switch; the rules themselves are left untouched. */
   async toggle(): Promise<void> {
+    if (!this.active) return;
     this.plugin.settings.hiddenEnabled = !this.plugin.settings.hiddenEnabled;
     await this.plugin.refreshHideRules();
   }
 
   /** Re-reads the settings and re-applies everything they drive. */
   refresh(): void {
+    if (!this.active) return;
     this.syncRibbon();
     this.apply();
     this.syncIgnoreList();
@@ -203,6 +245,9 @@ export class HideRules {
 
   /** (Re)attach observers to every file-explorer leaf that exists now. */
   private attach(): void {
+    // Master switch off: do nothing. The listeners keep firing but must not
+    // rebuild observers or re-hide rows for a module the user has switched off.
+    if (!this.active) return;
     // Observers outlive the elements they watch: a rebuilt explorer leaves the
     // old one detached but still observed. Dropping those keeps the set equal to
     // the number of live explorers instead of growing with every layout change.
@@ -386,7 +431,9 @@ export class HideRules {
   syncIgnoreList(): void {
     const previous = this.plugin.settings.hiddenExcludeEntries;
     const wanted =
-      this.plugin.settings.hiddenExcludeList && this.plugin.settings.hiddenEnabled
+      this.active &&
+      this.plugin.settings.hiddenExcludeList &&
+      this.plugin.settings.hiddenEnabled
         ? this.ignoreListEntries()
         : [];
     this.plugin.settings.hiddenExcludeEntries = wanted;

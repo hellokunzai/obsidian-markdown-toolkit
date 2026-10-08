@@ -40,6 +40,11 @@ import {
 export class AttachmentRenameSync {
   private readonly plugin: MarkdownEditorPlusPlugin;
   private readonly app: App;
+  /**
+   * Master switch, driven from the 功能 tab. The vault listener stays
+   * registered but bails here while off, so turning the module off is instant.
+   */
+  private enabled = false;
 
   constructor(plugin: MarkdownEditorPlusPlugin) {
     this.plugin = plugin;
@@ -54,7 +59,13 @@ export class AttachmentRenameSync {
     );
   }
 
+  /** Flips the master switch. Driven by the 功能 tab; safe to call repeatedly. */
+  setEnabled(on: boolean): void {
+    this.enabled = on;
+  }
+
   private async onRename(file: TAbstractFile, oldPath: string): Promise<void> {
+    if (!this.enabled) return;
     if (!(file instanceof TFile) || file.extension !== "md") return;
 
     // `rename` covers both operations, so split the event into the two kinds of

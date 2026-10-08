@@ -73,6 +73,9 @@ export function refreshTableBlocks(): void {
  */
 export function registerTableBlocks(plugin: Plugin, host: TableBlockHost): void {
   plugin.registerMarkdownPostProcessor((el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
+    /* 功能总开关：表格模块关掉时，阅读视图里表格按 Obsidian 默认渲染，
+       插件不做任何框定/公式处理。 */
+    if (!host.settings.features.table) return;
     for (const table of Array.from(el.querySelectorAll("table"))) {
       const parent = table.parentElement;
       if (!parent) continue;

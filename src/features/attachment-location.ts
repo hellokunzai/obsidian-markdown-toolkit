@@ -48,6 +48,12 @@ const WINDOWS_FORBIDDEN = /[\\:*?"<>|]+/g;
 export class AttachmentLocation {
   private readonly plugin: MarkdownEditorPlusPlugin;
   private readonly app: App;
+  /**
+   * Master switch, driven from the 功能 tab. The paste/drop listeners stay
+   * registered for the plugin's life but bail here while off, so turning the
+   * module off is instant.
+   */
+  private enabled = false;
 
   constructor(plugin: MarkdownEditorPlusPlugin) {
     this.plugin = plugin;
@@ -67,11 +73,19 @@ export class AttachmentLocation {
     );
   }
 
+  /** Flips the master switch. Driven by the 功能 tab; safe to call repeatedly. */
+  setEnabled(on: boolean): void {
+    this.enabled = on;
+  }
+
   private intercept(
     evt: ClipboardEvent | DragEvent,
     editor: Editor,
     view: MarkdownView | MarkdownFileInfo
   ): boolean {
+    // Master switch off: let Obsidian handle the paste/drop as it would with
+    // the plugin absent.
+    if (!this.enabled) return false;
     const files = this.extractFiles(evt);
     // No files means a plain-text paste/drop — leave it for Obsidian.
     if (files.length === 0) return false;

@@ -53,6 +53,9 @@ export function registerDiagramBlocks(plugin: Plugin, host: DiagramBlockHost): v
   plugin.registerMarkdownCodeBlockProcessor(
     MERMAID_LANG,
     (source, el, ctx) => {
+      /* 功能总开关：图表模块关掉时，mermaid 代码块交给 Obsidian 内置渲染，
+         插件不接管、不提供可视化编辑器入口。 */
+      if (!host.settings.features.diagram) return;
       const kind = detectKind(source);
       if (kind) {
         ctx.addChild(new DiagramBlock(el, host, source, kind.mode, plugin.app, ctx));
