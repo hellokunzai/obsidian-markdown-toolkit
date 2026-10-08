@@ -5,8 +5,9 @@ import { applyViewport, type Viewport } from "../render/fit";
  *
  * The preview opens as a fixed, centred frame — a picture frame rather than a
  * window — and everything the pointer does happens *inside* it: drag to slide
- * the drawing under the glass, spin the wheel to zoom towards the cursor, and
- * double-click to drop it back where it started. The frame never moves and
+ * the drawing under the glass, spin the wheel to zoom towards the cursor,
+ * pinch two fingers to zoom towards their midpoint, and double-click to drop
+ * it back where it started. The frame never moves and
  * never changes size, which is the whole point: there is exactly one thing a
  * gesture can be about, so there is no mode to keep track of and no need to
  * guess whether a press is meant for the picture or for the frame around it.
@@ -47,6 +48,19 @@ interface Pan {
   ty: number;
 }
 
+/**
+ * The state of a two-finger pinch: the finger distance and midpoint as of the
+ * last move. Zoom is applied *incrementally* — each move multiplies by
+ * `distance / previous distance` around the current midpoint — so the same
+ * `zoomAt` clamp that bounds the wheel bounds the pinch, and a finger that
+ * jitters costs a frame instead of drifting the scale.
+ */
+interface Pinch {
+  distance: number;
+  midX: number;
+  midY: number;
+}
+
 export interface PreviewViewport {
   /** Frames the drawing again, as if the preview had just opened. */
   reset(): void;
@@ -76,6 +90,10 @@ export function makePreviewViewport(
   /** Whether the user has placed the drawing themselves. */
   let taken = false;
   let pan: Pan | null = null;
+  /** Every finger currently on the frame, by pointer id. */
+  const pointers = new Map<number, { x: number; y: number }>();
+  /** Non-null while two fingers are down. */
+  let pinch: Pinch | null = null;
 
   const paint = (): void => {
     if (view) applyViewport(layer, view);
@@ -116,6 +134,17 @@ export function makePreviewViewport(
     paint();
   };
 
+  /** Distance and midpoint of the two fingers down, in client coordinates. */
+  const pinchGeometry = (): Pinch | null => {
+    if (pointers.size !== 2) return null;
+    const [a, b] = [...pointers.values()];
+    return {
+      distance: Math.hypot(a.x - b.x, a.y - b.y),
+      midX: (a.x + b.x) / 2,
+      midY: (a.y + b.y) / 2,
+    };
+  };
+
   const onPointerDown = (event: PointerEvent): void => {
     if (event.button !== 0 || !view) return;
     // The close entry keeps its own gesture: pressing it is not picking the
@@ -123,15 +152,26 @@ export function makePreviewViewport(
     // obvious way to stop a drag from selecting the labels it passes over, but
     // it takes the compatibility mouse events down with it, and `dblclick` is
     // one of them. The selection is stopped in CSS instead, with
-    // `user-select: none` on the frame.
-    if ((event.target as Element | null)?.closest("button")) return;
-    pan = {
-      pointerId: event.pointerId,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      tx: view.tx,
-      ty: view.ty,
-    };
+    // `user-select: none` on the frame. The guard applies to the press that
+    // *starts* a gesture; a second finger landing anywhere is a pinch, not a
+    // button press.
+    if (pointers.size === 0 && (event.target as Element | null)?.closest("button")) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.size === 2) {
+      // Two fingers: the pan becomes a pinch. The baseline is re-read from the
+      // live positions, so it makes no difference what the first finger has
+      // already dragged.
+      pan = null;
+      pinch = pinchGeometry();
+    } else if (pointers.size === 1) {
+      pan = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        tx: view.tx,
+        ty: view.ty,
+      };
+    }
     panel.classList.add("is-panning");
     try {
       // Without capture the drag dies as soon as the cursor leaves the frame,
@@ -143,7 +183,30 @@ export function makePreviewViewport(
   };
 
   const onPointerMove = (event: PointerEvent): void => {
-    if (!pan || event.pointerId !== pan.pointerId || !view) return;
+    if (!view || !pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch && pointers.size === 2) {
+      const next = pinchGeometry();
+      if (!next) return;
+      if (pinch.distance > 0) {
+        // Zoom keeps the content under the midpoint anchored; the midpoint's
+        // own travel is then re-applied as a pan, so two fingers moving
+        // together slide the drawing instead of scaling it.
+        zoomAt(next.distance / pinch.distance, next.midX, next.midY);
+        if (view) {
+          view = {
+            k: view.k,
+            tx: view.tx + (next.midX - pinch.midX),
+            ty: view.ty + (next.midY - pinch.midY),
+          };
+          taken = true;
+          paint();
+        }
+      }
+      pinch = next;
+      return;
+    }
+    if (!pan || event.pointerId !== pan.pointerId) return;
     view = {
       k: view.k,
       tx: pan.tx + (event.clientX - pan.clientX),
@@ -154,9 +217,24 @@ export function makePreviewViewport(
   };
 
   const onPointerUp = (event: PointerEvent): void => {
-    if (!pan || event.pointerId !== pan.pointerId) return;
-    pan = null;
-    panel.classList.remove("is-panning");
+    pointers.delete(event.pointerId);
+    if (pinch && pointers.size === 2) {
+      // A third finger lifted: re-baseline rather than let the next move
+      // compute its ratio against the stale three-finger geometry.
+      pinch = pinchGeometry();
+    } else if (pinch && pointers.size < 2) {
+      pinch = null;
+      // One finger left on the glass: hand it a fresh pan baseline so the
+      // drawing does not jump back to where the pinch began.
+      const remaining = pointers.entries().next().value as
+        | [number, { x: number; y: number }]
+        | undefined;
+      if (remaining && view) {
+        pan = { pointerId: remaining[0], clientX: remaining[1].x, clientY: remaining[1].y, tx: view.tx, ty: view.ty };
+      }
+    }
+    if (pan && event.pointerId === pan.pointerId) pan = null;
+    if (!pan && !pinch) panel.classList.remove("is-panning");
   };
 
   const onWheel = (event: WheelEvent): void => {

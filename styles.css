@@ -2720,6 +2720,10 @@ body.mtk-format-brush-cursor .mtk-toolbar-btn.is-brush {
   inset: 0;
   overflow-y: scroll;
   overflow-x: auto;
+  /* 触屏单指留给原生滚动（与格子手势的合成鼠标事件），双指捏合交给
+     table-panel 的 Pointer Events 缩放 —— 不写这条，捏合会被浏览器当成
+     页面缩放吃掉（或在禁用了页面缩放的 webview 里什么都不发生）。 */
+  touch-action: pan-x pan-y;
 }
 
 /* `max-content` so the grid is as wide as its columns, `min-width: 100%` so it

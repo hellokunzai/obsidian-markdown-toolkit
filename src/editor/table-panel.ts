@@ -145,6 +145,15 @@ const ZOOM_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 /** 100% 在档位表里的下标，也是 `zoomReset` 的目标。 */
 const ZOOM_DEFAULT_INDEX = ZOOM_STEPS.indexOf(1);
 
+/** 捏合是连续比例，落到离它最近的一档 —— 缩放永远停在档位表里的值上。 */
+function nearestZoomStep(value: number): number {
+  let best = ZOOM_STEPS[0];
+  for (const step of ZOOM_STEPS) {
+    if (Math.abs(step - value) < Math.abs(best - value)) best = step;
+  }
+  return best;
+}
+
 const clamp = (value: number, low: number, high: number): number =>
   Math.round(Math.max(low, Math.min(high, value)));
 
@@ -303,6 +312,10 @@ class TablePanel extends Modal {
   private zoom = 1;
   /** 工具条上的百分比标签，点击复位 100%。 */
   private zoomPctEl: HTMLElement | null = null;
+  /** 触屏捏合：当前按在网格上的每根手指（按 pointerId 记）。 */
+  private readonly pinchPointers = new Map<number, { x: number; y: number }>();
+  /** 捏合起点：两指间距与那一刻的缩放。移动时按比例折算回档位表。 */
+  private pinchStart: { distance: number; zoom: number } | null = null;
 
   /** Unsubscribe callbacks for the document-level listeners, run on close. */
   private readonly teardown: Array<() => void> = [];
@@ -423,6 +436,7 @@ class TablePanel extends Modal {
 
     this.buildToolbar();
     this.wirePointer();
+    this.wirePinch();
     this.wireKeyboard();
     this.renderGrid();
 
@@ -1497,6 +1511,53 @@ class TablePanel extends Modal {
   }
 
   /* ------------------------------------------------------------- 指针 */
+
+  /**
+   * 触屏双指捏合缩放，与 Ctrl+滚轮同一条出口（`zoomTo` + 档位表）。
+   *
+   * 桌面端这套手势在 Chromium 里走 wheel + ctrlKey（见上面的 onWheel），移动端
+   * 没有等效事件，所以单列一条 Pointer Events 通道：单指仍是原生滚动与格子
+   * 手势（`.mtk-tbl-scroll` 的 `touch-action: pan-x pan-y` 留给它们），第二根
+   * 手指落下即进入捏合 —— 间距比例乘在起手时的缩放上，就近落档；跨过档位
+   * 边界才重排，与滚轮「一格一跳」是同一个手感。
+   */
+  private wirePinch(): void {
+    this.listen<PointerEvent>(this.gridHost, "pointerdown", (event) => {
+      if (event.pointerType === "mouse") return;
+      this.pinchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.pinchPointers.size === 2) {
+        const [a, b] = [...this.pinchPointers.values()];
+        this.pinchStart = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom: this.zoom };
+        /* 把两根手指都捕获到 gridHost 自己身上：跨档重排会重建格子树，而触摸的
+           隐式捕获落在按中的那个格子上 —— 格子一重建，手势就以 pointercancel
+           收场。捕获到常驻的容器，移动事件才活得过每一次重排。 */
+        for (const id of this.pinchPointers.keys()) {
+          try {
+            this.gridHost.setPointerCapture(id);
+          } catch {
+            /* 捕获是尽力而为；留在网格内的移动照样会到达。 */
+          }
+        }
+        /* 第一根手指可能已经开始了一次格选手势（合成鼠标事件），捏合接管它。 */
+        this.endDrag();
+      }
+    });
+    this.listen<PointerEvent>(this.gridHost, "pointermove", (event) => {
+      if (!this.pinchPointers.has(event.pointerId)) return;
+      this.pinchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (!this.pinchStart || this.pinchPointers.size !== 2 || this.pinchStart.distance <= 0) return;
+      const [a, b] = [...this.pinchPointers.values()];
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      const step = nearestZoomStep(this.pinchStart.zoom * (distance / this.pinchStart.distance));
+      if (step !== this.zoom) this.zoomTo(step);
+    });
+    const lift = (event: PointerEvent): void => {
+      this.pinchPointers.delete(event.pointerId);
+      if (this.pinchPointers.size < 2) this.pinchStart = null;
+    };
+    this.listen<PointerEvent>(this.gridHost, "pointerup", lift);
+    this.listen<PointerEvent>(this.gridHost, "pointercancel", lift);
+  }
 
   private wirePointer(): void {
     this.listen<MouseEvent>(this.gridHost, "mousedown", (event) => this.onPointerDown(event));
