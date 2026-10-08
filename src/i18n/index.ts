@@ -201,9 +201,6 @@ const en: Dict = {
   "settings.tab.attachment": "Attachment settings",
   "settings.tab.table": "Table settings",
 
-  "settings.table.note":
-    "Either way the table stays a plain Markdown table: a formula is written in the cell as =sum(B2:B4), and its result is only ever shown — never written back into the note.",
-
   "settings.table.autoSave.name": "Auto-save the table",
   "settings.table.autoSave.desc":
     "Writes the table back on a timer while you edit, so closing the editor never loses a row you forgot to save.",
@@ -214,6 +211,25 @@ const en: Dict = {
   "settings.table.highlightFormulas.name": "Highlight table formulas",
   "settings.table.highlightFormulas.desc":
     "Show the ƒ marker and tint on computed cells in the reading view, the editor, and the preview.",
+
+  "settings.formula.searchTitle": "Search formulas",
+  "settings.formula.searchDesc": "Filter the list below by name as you type.",
+  "settings.formula.searchPlaceholder": "Search by name or keyword…",
+  "settings.formula.searchEmpty": "No formula matches that search.",
+  "settings.formula.sum.name": "Sum",
+  "settings.formula.sum.scene":
+    "Adds up the numbers in a range — =sum(B2:B4). Rows past the end are clamped.",
+  "settings.formula.avg.name": "Average",
+  "settings.formula.avg.scene": "The mean of the numbers in a range, rounded to two decimals.",
+  "settings.formula.count.name": "Count",
+  "settings.formula.count.scene": "Counts the non-empty cells in a range, text included.",
+  "settings.formula.max.name": "Maximum",
+  "settings.formula.max.scene": "The largest number in a range.",
+  "settings.formula.min.name": "Minimum",
+  "settings.formula.min.scene": "The smallest number in a range.",
+  "settings.formula.arithmetic.name": "Arithmetic",
+  "settings.formula.arithmetic.scene":
+    "Cell references inside + - * /, parentheses and a minus sign — =B2-C2.",
 
   "table.badge": "{{rows}} rows · {{cols}} columns · {{formulas}} formulas",
   "table.badgePlain": "{{rows}} rows · {{cols}} columns",
@@ -826,9 +842,6 @@ const zhCn: Dict = {
   "settings.tab.attachment": "附件设置",
   "settings.tab.table": "表格设置",
 
-  "settings.table.note":
-    "两种方式下表格都仍是原生 Markdown 表格：公式就写在单元格里（如 =sum(B2:B4)），算出的结果只用于显示，不会写回笔记。",
-
   "settings.table.autoSave.name": "表格自动保存",
   "settings.table.autoSave.desc": "编辑表格时按间隔自动写回，关闭编辑器也不会丢行。",
   "settings.table.autoSaveInterval.name": "表格自动保存间隔",
@@ -836,6 +849,23 @@ const zhCn: Dict = {
   "settings.table.autoSaveInterval.reset": "恢复默认值（{{value}} 秒）",
   "settings.table.highlightFormulas.name": "高亮显示表格公式",
   "settings.table.highlightFormulas.desc": "在阅读视图、编辑器、预览中对计算单元格显示 ƒ 标记与底色。",
+
+  "settings.formula.searchTitle": "搜索公式",
+  "settings.formula.searchDesc": "输入时按名称过滤下列列表。",
+  "settings.formula.searchPlaceholder": "按名称或关键字搜索…",
+  "settings.formula.searchEmpty": "没有匹配该搜索的公式。",
+  "settings.formula.sum.name": "求和",
+  "settings.formula.sum.scene": "对区域内的数字求和 —— =sum(B2:B4)。超出末尾的行会被截断。",
+  "settings.formula.avg.name": "平均值",
+  "settings.formula.avg.scene": "区域内数字的平均值，保留两位小数。",
+  "settings.formula.count.name": "计数",
+  "settings.formula.count.scene": "统计区域内非空单元格的数量，包含文本。",
+  "settings.formula.max.name": "最大值",
+  "settings.formula.max.scene": "区域内最大的数字。",
+  "settings.formula.min.name": "最小值",
+  "settings.formula.min.scene": "区域内最小的数字。",
+  "settings.formula.arithmetic.name": "四则运算",
+  "settings.formula.arithmetic.scene": "单元格引用配合 + - * /、括号与负号 —— =B2-C2。",
 
   "table.badge": "{{rows}} 行 · {{cols}} 列 · {{formulas}} 个公式",
   "table.badgePlain": "{{rows}} 行 · {{cols}} 列",

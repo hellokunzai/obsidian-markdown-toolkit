@@ -275,6 +275,32 @@ function kindSearchText(row: HTMLElement): string {
   return parts.join(" ");
 }
 
+/**
+ * Every formula the table editor can evaluate, in the ƒ menu's order.
+ *
+ * Mirrors `AGGREGATES` in `core/table-formula.ts` — five aggregate functions,
+ * then the arithmetic path (cell references substituted into a `+ - * /`
+ * expression), which is not a named function but is a formula a user can
+ * write. Keys are spelled out in full rather than built by prefix so the i18n
+ * checker sees each one as a reference.
+ */
+const TABLE_FORMULAS: ReadonlyArray<{ keyword: string; nameKey: string; sceneKey: string }> = [
+  { keyword: "sum", nameKey: "settings.formula.sum.name", sceneKey: "settings.formula.sum.scene" },
+  { keyword: "avg", nameKey: "settings.formula.avg.name", sceneKey: "settings.formula.avg.scene" },
+  {
+    keyword: "count",
+    nameKey: "settings.formula.count.name",
+    sceneKey: "settings.formula.count.scene",
+  },
+  { keyword: "max", nameKey: "settings.formula.max.name", sceneKey: "settings.formula.max.scene" },
+  { keyword: "min", nameKey: "settings.formula.min.name", sceneKey: "settings.formula.min.scene" },
+  {
+    keyword: "=B2-C2",
+    nameKey: "settings.formula.arithmetic.name",
+    sceneKey: "settings.formula.arithmetic.scene",
+  },
+];
+
 export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
   private readonly plugin: MarkdownEditorPlusPlugin;
   /**
@@ -305,6 +331,16 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * a search for "gantt" here quietly narrowed the toolbar list too.
    */
   private kindQuery = "";
+
+  /**
+   * What is typed in the table-formula search box.
+   *
+   * Its own field for the same reason the three above are separate: the table
+   * tab filters a different list on a different tab, and one shared query would
+   * mean clearing a search for "sum" here quietly narrowing the diagram list
+   * one tab over.
+   */
+  private formulaQuery = "";
 
   /**
    * What is typed in the file-order tab's search box.
@@ -434,7 +470,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         })
       );
 
-    host.appendChild(h("p", { cls: "mtk-settings-note", text: t("settings.table.note") }));
+    host.appendChild(this.buildFormulaReference());
   }
 
   /* -------------------------------------------------------------- general */
@@ -678,7 +714,24 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
    * whatever the last search happened to leave behind.
    */
   private applyKindFilter(list: HTMLElement, noMatch: HTMLElement): void {
-    const needle = this.kindQuery.trim().toLowerCase();
+    this.applyListFilter(list, noMatch, this.kindQuery);
+  }
+
+  /**
+   * The one filter both reference lists share.
+   *
+   * Shows only the rows whose name, keyword or scene contains the query, so
+   * the diagram list and the formula list filter by the same three cells —
+   * they are drawn with the same row shape, and the formula rows carry the
+   * same classes, so `kindSearchText` reads them without knowing the
+   * difference.
+   *
+   * Every pass starts from scratch — the query and the row's own text, nothing
+   * carried over — so clearing the box restores the full list rather than
+   * whatever the last search happened to leave behind.
+   */
+  private applyListFilter(list: HTMLElement, noMatch: HTMLElement, query: string): void {
+    const needle = query.trim().toLowerCase();
     let visible = 0;
     for (const row of Array.from(list.children)) {
       if (!(row instanceof HTMLElement)) continue;
@@ -687,6 +740,80 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       if (shown) visible += 1;
     }
     noMatch.toggleAttribute("hidden", !(needle.length > 0 && visible === 0));
+  }
+
+  /**
+   * The list of every formula the table editor can evaluate.
+   *
+   * The table tab's own copy of the diagram tab's reference: the same card —
+   * the same `.mtk-kinds` classes, so the theme paints both lists with one set
+   * of rules and a fix to one row shape lands on both — with the formula table
+   * in place of the diagram kinds. Every row is supported, so the answer the
+   * row ends with is always the same word and carries no condition.
+   */
+  private buildFormulaReference(): HTMLElement {
+    const wrap = h("div", { cls: "mtk-kinds" });
+
+    const list = h("ul", { cls: "mtk-kinds-list" });
+    for (const formula of TABLE_FORMULAS) {
+      const row = h("li");
+      row.appendChild(h("span", { cls: "mtk-kind-name", text: t(formula.nameKey) }));
+      row.appendChild(h("span", { cls: "mtk-kind-can-edit", text: t("settings.kinds.yes") }));
+
+      /* The same two lookups share the row's second line: the keyword someone
+         writes in a cell arrives first, the sentence that explains it second. */
+      const sub = h("span", { cls: "mtk-kind-sub" });
+      sub.appendChild(h("span", { cls: "mtk-kind-keyword", text: formula.keyword }));
+      sub.appendChild(h("span", { cls: "mtk-kind-scene", text: t(formula.sceneKey) }));
+      row.appendChild(sub);
+
+      list.appendChild(row);
+    }
+
+    // The sentence about an empty result lands under the list rather than in
+    // place of it, the same way it does on the diagram tab: the rows the
+    // search took out keep their places in the list, so the box can be
+    // cleared and hand back exactly what was there.
+    const noMatch = h("p", {
+      cls: "mtk-kinds-search-empty",
+      text: t("settings.formula.searchEmpty"),
+      attr: { hidden: "hidden" },
+    });
+
+    wrap.appendChild(this.buildFormulaSearch(list, noMatch).settingEl);
+    wrap.appendChild(list);
+    wrap.appendChild(noMatch);
+
+    this.applyListFilter(list, noMatch, this.formulaQuery);
+    return wrap;
+  }
+
+  /**
+   * The search row that sits above the formula list.
+   *
+   * The reference is a fixed list, so the everyday job is finding one row in
+   * it — "which one was `count` again?" — and reading six of them for it is
+   * work the box can do. It filters in place rather than rebuilding the list
+   * (rows are only marked, so the caret stays across a keystroke) and refills
+   * from `formulaQuery`, so leaving the tab and coming back hands the user
+   * the same view they left.
+   */
+  private buildFormulaSearch(list: HTMLElement, noMatch: HTMLElement): Setting {
+    const setting = new Setting(document.createElement("div"))
+      .setName(t("settings.formula.searchTitle"))
+      .setDesc(t("settings.formula.searchDesc"));
+
+    setting.addText((text) =>
+      text
+        .setPlaceholder(t("settings.formula.searchPlaceholder"))
+        .setValue(this.formulaQuery)
+        .onChange((value) => {
+          this.formulaQuery = value;
+          this.applyListFilter(list, noMatch, this.formulaQuery);
+        })
+    );
+
+    return setting;
   }
 
   /* -------------------------------------------------------------- toolbar */
