@@ -457,7 +457,9 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       startScroll = tabBar.scrollLeft;
       pointerId = e.pointerId;
       tabBar.dataset.dragMoved = "";          // 新一次交互先清掉"刚拖过"标记
-      try { tabBar.setPointerCapture(e.pointerId); } catch (e) { /* 无 capture 的环境照常工作 */ }
+      // 注意：此处【不】调用 setPointerCapture。若在 pointerdown 就捕获，
+      // 合成 click 会被重定向到 tabBar 而非被点的按钮，按钮的 click 监听不触发，
+      // 表现就是"点不动其它标签页"。捕获改到下方真正进入拖动时再调用。
     });
 
     tabBar.addEventListener("pointermove", (e: PointerEvent) => {
@@ -466,6 +468,9 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       if (!moved && Math.abs(dx) > 4) {       // 4px 阈值：区分"点击"与"拖动"
         moved = true;
         tabBar.classList.add("is-dragging");
+        // 只有越过阈值、确认是拖动时才捕获指针：纯点击不经过捕获，
+        // 按钮 click 正常触发可切标签；拖动时捕获保证指针移出标签栏仍能跟手。
+        try { tabBar.setPointerCapture(e.pointerId); } catch (e) { /* 无 capture 的环境照常工作 */ }
       }
       if (!moved) return;
       tabBar.scrollLeft = startScroll - dx;
