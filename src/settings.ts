@@ -243,7 +243,7 @@ export const DEFAULT_SETTINGS: MarkdownEditorPlusSettings = {
   tableHighlightFormulas: true,
 
   // 功能总开关（0.21.0）。默认只开工具栏、表格、图表三类核心编辑能力；
-  // 附件处理、文件隐藏、文件排序默认关，需要时在「功能」标签页打开。
+  // 附件处理、文件隐藏、文件排序默认关，需要时在「功能模块」标签页打开。
   features: {
     toolbar: true,
     table: true,
@@ -510,7 +510,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       { id: "order", feature: "order", label: t("settings.tab.order"), render: (host) => this.renderFileOrder(host) },
     ];
 
-    /* 功能标签页固定最左、始终可见；其余标签页按功能总开关过滤。 */
+    /* 功能模块标签页固定最左、始终可见；其余标签页按功能总开关过滤。 */
     const tabs: Array<{ id: string; feature?: FeatureKey; label: string; render: (host: HTMLElement) => void }> = [
       { id: "features", label: t("settings.tab.features"), render: (host) => this.renderFeatures(host) },
       ...moduleTabs.filter((tab) => this.plugin.settings.features[tab.feature]),
@@ -583,7 +583,7 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             this.plugin.applyFeatureToggles();
             // 重新渲染标签栏：被关掉的标签页立即消失，新开的立即出现，
-            // 激活态自然回到最左的「功能」标签页。
+            // 激活态自然回到最左的「功能模块」标签页。
             this.display();
           })
         );

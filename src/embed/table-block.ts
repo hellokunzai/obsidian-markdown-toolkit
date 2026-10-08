@@ -1,6 +1,5 @@
 /**
- * A Markdown table with formulas in it, framed the way a diagram is framed —
- * reading view.
+ * A Markdown table, framed the way a diagram is framed — reading view.
  *
  * The rule this file exists to keep: **the table is still a table.** Nothing
  * here introduces a syntax, a marker or a container — the note keeps an
@@ -14,9 +13,12 @@
  *    handed elements, not text, so the model is rebuilt from the cells the
  *    renderer produced — which works precisely because a formula is plain cell
  *    text.
- * 2. **Only tables that actually compute something are touched.** A table with
- *    no formula in it is left exactly as Obsidian drew it, which is what keeps
- *    this from being a plugin that restyles every table you own.
+ * 2. **Every table is taken over, formula or not.** The post processor walks
+ *    every `table` it is handed and frames each one; a table with no formula in
+ *    it earns a frame and a zero-count badge like any other. The exception
+ *    lives in the Live Preview renderer, not here: it hands back the table the
+ *    caret is in, so the table being typed into stays the renderer's own — see
+ *    `table-live-preview.ts`.
  *
  * The frame, the corner buttons and the count badge are shared with the Live
  * Preview renderer — see `table-render.ts` for the part both need, and

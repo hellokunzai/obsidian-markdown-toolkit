@@ -165,9 +165,9 @@ export function tableLivePreviewExtension(host: TableBlockHost): Extension {
         for (const node of Array.from(this.view.dom.querySelectorAll("table"))) {
           const table = node as HTMLTableElement;
           /* A painted table lives inside a frame and would otherwise be a
-             candidate for framing itself. It holds no formulas, so it would be
-             skipped anyway — but relying on that is one cell of `#REF!` away
-             from recursive frames. */
+             candidate for framing itself. Every table is framed now, formula or
+             not, so this guard is the only thing standing between a framed
+             table and a frame around its own frame. */
           if (table.closest(".mtk-embed") !== null) continue;
           if (this.framed.has(table)) continue;
 

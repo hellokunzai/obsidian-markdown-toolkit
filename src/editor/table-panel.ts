@@ -1,5 +1,5 @@
 /**
- * The visual editor for a table that carries formulas.
+ * The visual editor for a Markdown table.
  *
  * The shell, the title row, the toolbar and the dotted canvas are the diagram
  * editor's, class for class (`.mtk-modal-shell`, `.mtk-editor`, `.mtk-toolbar`,
