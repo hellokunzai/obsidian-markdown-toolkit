@@ -1289,15 +1289,52 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
    `height: var(--input-height)`.
    ========================================================================== */
 
-/* ---- settings tabs ---- */
+/* ---- settings tabs ----
+   溢出处理：放不下时不再折行（flex-wrap:nowrap），超出部分隐藏并靠横向
+   拖动查看；滚动条隐藏。边缘渐隐提示直接把 mask 打在滚动容器上，无需包裹层。 */
 .mtk-tabs {
   display: flex;
   gap: 4px;
   border-bottom: 1px solid var(--background-modifier-border);
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;                 /* 原为 wrap：不再折行 */
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 1px;               /* 留出 1px，避免活动标签下划线被 overflow 裁掉 */
+  scrollbar-width: none;             /* Firefox / 新版 Chromium：隐藏滚动条 */
+  -ms-overflow-style: none;
+  touch-action: pan-x;               /* 触屏保留原生横向滑，鼠标走下面的拖动 */
+  overscroll-behavior-x: contain;
+  background: var(--background-primary);   /* 边缘渐隐 fade 到透明时，露出的是面板底色 */
+  cursor: grab;
+}
+.mtk-tabs::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+.mtk-tabs.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.mtk-tabs.is-dragging .mtk-tab {
+  pointer-events: none;              /* 拖动过程中不误触标签 */
+}
+/* 边缘渐隐：仅在确有溢出且未贴到那一端时显示该侧渐隐 */
+.mtk-tabs.hint-fade.is-overflow-start {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px);
+          mask-image: linear-gradient(to right, transparent 0, #000 16px);
+}
+.mtk-tabs.hint-fade.is-overflow-end {
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 16px), transparent 100%);
+}
+.mtk-tabs.hint-fade.is-overflow-start.is-overflow-end {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
 }
 .mtk-tab.settings-tab {
+  flex: 0 0 auto;                    /* 关键：不许收缩，否则永远溢出不了 */
   height: auto;
   min-height: 0;
   margin: 0 0 -1px 0;
@@ -1310,6 +1347,7 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
   border-radius: var(--radius-s) var(--radius-s) 0 0;
 }
 .mtk-tab.settings-tab:hover {

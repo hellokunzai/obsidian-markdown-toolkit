@@ -91,14 +91,16 @@ This plugin is **now on the Obsidian community store** — install it from Setti
 
 ## Settings
 
-The settings are split into four tabs:
+The settings are split into six tabs:
 
 | Tab | Contents |
 |---|---|
-| **Diagram settings** | Auto-save and its interval, the diagram-kind table (searchable, with keyword and visual-editor columns) |
 | **Toolbar** | Toolbar background colour (follow theme / transparent / eight presets / a typed colour), command search, add or remove commands and submenus, section headings, drag to reorder |
-| **File settings** | File hiding (entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator) and file order (show the reorder button, open a folder to see the order you gave its names and drag a row's handle to change it, search arranged folders by path, clear one custom order or all of them) |
-| **Attachment settings** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |
+| **Table settings** | Table auto-save and its interval, formula highlighting (the ƒ marker and tint in the reading view, the editor and the preview), a formula reference |
+| **Diagram settings** | Auto-save and its interval, the diagram-kind table (searchable, with keyword and visual-editor columns) |
+| **Attachment path** | Attachment folder & file-name templates, special-character handling, sync rename/move, duplicate separator, empty-folder policy, orphan cleanup |
+| **File hiding** | Entries to hide, ignore case, enable hiding, add to excluded-files list, status-bar indicator |
+| **File order** | Show the reorder button, open a folder to see the order you gave its names and drag a row's handle to change it, search arranged folders by path, clear one custom order or all of them |
 
 ---
 

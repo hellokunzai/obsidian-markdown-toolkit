@@ -388,18 +388,82 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
     closeColorPicker();
     containerEl.empty();
 
-    const tabBar = h("div", { cls: "mtk-tabs" });
+    const tabBar = h("div", { cls: "mtk-tabs hint-fade" });
     const panelHost = h("div", { cls: "mtk-tab-panels" });
     containerEl.appendChild(tabBar);
     containerEl.appendChild(panelHost);
 
+    /* ---- 溢出：放不下不再折行，改为隐藏 + 鼠标横向拖动查看（边缘渐隐提示）----
+       逻辑全部走类名切换（不写内联样式，符合 no-static-styles-assignment）；
+       边缘渐隐的 mask 直接打在 .mtk-tabs 上，无需额外包裹层。 */
+    const syncOverflow = (): void => {
+      const max = tabBar.scrollWidth - tabBar.clientWidth;
+      const over = max > 1;
+      const atStart = tabBar.scrollLeft <= 1;
+      const atEnd = tabBar.scrollLeft >= max - 1;
+      tabBar.classList.toggle("is-overflow-start", over && !atStart);
+      tabBar.classList.toggle("is-overflow-end", over && !atEnd);
+    };
+
+    let dragging = false;
+    let moved = false;
+    let startX = 0;
+    let startScroll = 0;
+    let pointerId: number | null = null;
+
+    tabBar.addEventListener("pointerdown", (e: PointerEvent) => {
+      if (e.button !== 0) return;            // 只处理左键
+      dragging = true;
+      moved = false;
+      startX = e.clientX;
+      startScroll = tabBar.scrollLeft;
+      pointerId = e.pointerId;
+      tabBar.dataset.dragMoved = "";          // 新一次交互先清掉"刚拖过"标记
+      try { tabBar.setPointerCapture(e.pointerId); } catch (e) { /* 无 capture 的环境照常工作 */ }
+    });
+
+    tabBar.addEventListener("pointermove", (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 4) {       // 4px 阈值：区分"点击"与"拖动"
+        moved = true;
+        tabBar.classList.add("is-dragging");
+      }
+      if (!moved) return;
+      tabBar.scrollLeft = startScroll - dx;
+      e.preventDefault();
+      syncOverflow();
+    });
+
+    const endDrag = (): void => {
+      if (!dragging) return;
+      dragging = false;
+      tabBar.classList.remove("is-dragging");
+      if (pointerId !== null) {
+        try { tabBar.releasePointerCapture(pointerId); } catch (e) { /* 同上 */ }
+      }
+      if (moved) tabBar.dataset.dragMoved = "1";   // 让紧随其后的 click 失效
+      moved = false;
+      syncOverflow();
+    };
+    tabBar.addEventListener("pointerup", endDrag);
+    tabBar.addEventListener("pointercancel", endDrag);
+    tabBar.addEventListener("dragstart", (e: Event) => e.preventDefault());
+    tabBar.addEventListener("scroll", syncOverflow);
+
+    /* 面板宽度变化（拖侧栏 / 窗口缩放）时重新计算提示。引用挂在元素上，
+       元素随设置页关闭被销毁即随 GC 回收，不会泄漏。 */
+    const overflowObserver = new ResizeObserver(() => syncOverflow());
+    overflowObserver.observe(tabBar);
+    (tabBar as unknown as { __overflowObserver?: ResizeObserver }).__overflowObserver = overflowObserver;
+
     const tabs: Array<{ id: string; label: string; render: (host: HTMLElement) => void }> = [
       { id: "toolbar", label: t("settings.tab.toolbar"), render: (host) => this.renderToolbar(host) },
+      { id: "table", label: t("settings.tab.table"), render: (host) => this.renderTable(host) },
+      { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
       { id: "attachment", label: t("settings.tab.attachment"), render: (host) => this.renderAttachment(host) },
       { id: "hiding", label: t("settings.tab.hiding"), render: (host) => this.renderFileHiding(host) },
       { id: "order", label: t("settings.tab.order"), render: (host) => this.renderFileOrder(host) },
-      { id: "table", label: t("settings.tab.table"), render: (host) => this.renderTable(host) },
-      { id: "general", label: t("settings.tab.general"), render: (host) => this.renderGeneral(host) },
     ];
 
     let activeButton: HTMLElement | null = null;
@@ -413,6 +477,10 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
       panelHost.empty();
       tabs[index].render(panelHost);
       activeButton = tabBar.children[index] as HTMLElement;
+      if (activeButton && activeButton.scrollIntoView) {
+        activeButton.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+      syncOverflow();
     };
 
     tabs.forEach((tab, index) => {
@@ -421,7 +489,10 @@ export class MarkdownEditorPlusSettingTab extends PluginSettingTab {
         text: tab.label,
         attr: { type: "button", role: "tab", "aria-selected": index === 0 ? "true" : "false" },
       });
-      btn.addEventListener("click", () => select(index));
+      btn.addEventListener("click", () => {
+        if (tabBar.dataset.dragMoved === "1") return;   // 拖动后抑制误触切换
+        select(index);
+      });
       tabBar.appendChild(btn);
     });
 

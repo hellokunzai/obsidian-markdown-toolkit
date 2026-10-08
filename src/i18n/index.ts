@@ -198,7 +198,7 @@ const en: Dict = {
   "settings.tab.toolbar": "Toolbar",
   "settings.tab.hiding": "File hiding",
   "settings.tab.order": "File order",
-  "settings.tab.attachment": "Attachment settings",
+  "settings.tab.attachment": "Attachment path",
   "settings.tab.table": "Table settings",
 
   "settings.table.autoSave.name": "Auto-save the table",
@@ -839,7 +839,7 @@ const zhCn: Dict = {
   "settings.tab.toolbar": "工具栏",
   "settings.tab.hiding": "文件隐藏",
   "settings.tab.order": "文件排序",
-  "settings.tab.attachment": "附件设置",
+  "settings.tab.attachment": "附件路径",
   "settings.tab.table": "表格设置",
 
   "settings.table.autoSave.name": "表格自动保存",
