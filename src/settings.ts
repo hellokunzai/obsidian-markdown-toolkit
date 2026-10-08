@@ -172,12 +172,12 @@ export interface MarkdownEditorPlusSettings {
 
   // ---- 功能总开关（0.21.0）----
   /**
-   * Master switches for each major module, set from the 功能 tab.
+   * Master switches for each major module, set from the 功能模块 tab.
    *
    * A module that is off has its settings tab hidden in the settings panel and
    * its feature disabled in the editor — both at once, so turning something off
-   * is one decision rather than two. The 功能 tab itself is always present and
-   * cannot be switched off. See `main.ts` `applyFeatureToggles`.
+   * is one decision rather than two. The 功能模块 tab itself is always present
+   * and cannot be switched off. See `main.ts` `applyFeatureToggles`.
    */
   features: {
     /** Editor toolbar: the command bar pinned above Markdown editors. */

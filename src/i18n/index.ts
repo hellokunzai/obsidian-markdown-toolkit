@@ -204,11 +204,11 @@ const en: Dict = {
 
   "settings.feature.header.name": "Module switches",
   "settings.feature.header.desc":
-    "Turn a module off to hide its settings tab and disable its feature in the editor at once. The Feature modules tab itself is always present.",
+    "Turn a module off to hide its settings tab and disable its feature in the editor at once.",
   "settings.feature.toolbar.name": "Editor toolbar",
   "settings.feature.toolbar.desc": "The command bar pinned to the top of Markdown editors.",
   "settings.feature.table.name": "Table editor",
-  "settings.feature.table.desc": "Framed tables with formula support in reading view and live preview.",
+  "settings.feature.table.desc": "Table rendering and its visual editor.",
   "settings.feature.diagram.name": "Diagram editor",
   "settings.feature.diagram.desc": "Mermaid diagram rendering and its visual editor.",
   "settings.feature.attachment.name": "Attachment handling",
@@ -863,11 +863,11 @@ const zhCn: Dict = {
 
   "settings.feature.header.name": "功能模块开关",
   "settings.feature.header.desc":
-    "关闭某模块会同时隐藏其设置标签页并停用编辑器中的对应功能。功能模块标签页本身始终存在，不可关闭。",
+    "关闭某模块会同时隐藏其设置标签页并停用编辑器中的对应功能。",
   "settings.feature.toolbar.name": "编辑器工具栏",
   "settings.feature.toolbar.desc": "固定在 Markdown 编辑器顶部的命令栏。",
   "settings.feature.table.name": "表格编辑器",
-  "settings.feature.table.desc": "阅读视图与实时预览中带公式支持的表格渲染。",
+  "settings.feature.table.desc": "表格渲染与可视化编辑器。",
   "settings.feature.diagram.name": "图表编辑器",
   "settings.feature.diagram.desc": "Mermaid 图表渲染与可视化编辑器。",
   "settings.feature.attachment.name": "附件处理",
