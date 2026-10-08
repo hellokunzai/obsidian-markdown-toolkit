@@ -81,11 +81,15 @@
  * note is (the block's own ⬇) or nowhere (a frame whose whole size is its
  * point).
  *
- * `padding: 0` (not just `padding-top`) is the difference from the editor
- * shell: the editor's grid is inset by the dialog's own padding, while this
- * one is flush with the frame on three sides — the arrangement the preview
- * was asked for. `overflow: hidden` keeps the grid's square corners inside the
- * radius instead of poking out of it.
+ * `padding: 0` is the difference from the editor shell: the editor's grid is
+ * inset by the dialog's own padding, while this one is flush with the frame on
+ * **all four sides** — the grid fills the pane it was given, the way the rows
+ * already filled it downwards. The `×` floats over the grid's top-right corner
+ * at the same 14px slot the block's own corner buttons use over a table in the
+ * note; there the columns it covers are the filler ones past the table's last
+ * column, which is the same trade the inline frame already makes.
+ * `overflow: hidden` keeps the grid's square corners inside the radius instead
+ * of poking out of it.
  */
 .modal.mtk-modal-view {
   width: min(92vw, 1100px);
@@ -98,12 +102,20 @@
   background-color: var(--background-primary);
 }
 
-/* The band the `×` floats in. The grid starts below it, so no column letter is
-   ever hidden under the button — the editor's own arrangement, a toolbar row
-   shorter. It stays even with the corner nearly empty: a control drawn on top
-   of the data reads as an accident, whichever control it is. */
-.mtk-modal-view .mtk-editor {
-  padding-top: 52px;
+/*
+ * The table's top inset is zero, and that is written down rather than left to
+ * the default.
+ *
+ * A band above the grid — 52px was tried, the height of the `×`'s slot — was
+ * asked for and then dropped: the grid fills upward to the frame's top edge and
+ * the `×` shares that edge with the column letters instead. Written here because
+ * "no rule" and "no inset" are not the same statement: the editor chrome gives
+ * its `.mtk-editor` a top row (header + toolbar + formula bar, hidden in this
+ * chrome), so a top inset is exactly the kind of value that could arrive from
+ * that side later. Three properties, one selector, so the decision survives.
+ */
+.modal.mtk-modal-view .mtk-editor {
+  padding-top: 0;
 }
 
 /* The three things a toolbar would carry here are hidden rather than absent:
