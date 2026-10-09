@@ -1032,12 +1032,52 @@ body.is-mobile .mtk-embed button.mtk-embed-action {
 
    `top` is here rather than in the slots because the two are meant to sit on one
    line; only `right` differs. */
-/* The lightbox close button uses Obsidian's default `.modal-close-button`
-   styling; only its slot is custom — parked top-right of the canvas. */
+/* The lightbox close button: a 36px circular chip of translucent light grey
+   with a dark ×, parked fully inside the top-right corner of the canvas (12px
+   inset). This is B3 of the prototype — "inner-embedded light grey". Keeping it
+   inside the canvas means the canvas's `overflow: hidden` clip never touches it,
+   so the button is mounted on the canvas exactly as before and no mount-point
+   change is needed. The 12px inset (rather than riding the corner) is the only
+   thing that separates it from the "ride-the-corner" B1 variant.
+
+   `clickable-icon` is kept (the recommended base for a self-drawn button) and
+   `.modal-close-button` is dropped: that class is the source of the large
+   default square, and everything it set is re-stated here. The selector's
+   specificity (0,2,0) beats both `button:not(.clickable-icon)` (0,1,1) and
+   `.clickable-icon` (0,1,0), so the chip wins without `!important`. */
 .mtk-lightbox .mtk-lightbox-close {
-  top: 14px;
-  right: 14px;
-  z-index: 1;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: #ffffff;
+  color: var(--text-normal);
+  opacity: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.mtk-lightbox .mtk-lightbox-close:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.mtk-lightbox .mtk-lightbox-close svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-normal);
+  opacity: 1;
 }
 
 .mtk-embed-error {
