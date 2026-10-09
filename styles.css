@@ -180,9 +180,10 @@
 }
 
 /*
- * The editor dialog close `×` uses a round, bordered, shadowed look
- * (`.mtk-modal-close-btn`): every editor dialog and each of its sub-dialogs
- * tags its native `×` with that class via `tagModalCloseButton`.
+ * The editor dialog close `×` uses the same white circular look as the chart
+ * lightbox (`.mtk-modal-close-btn`): every editor dialog and each of its
+ * sub-dialogs tags its native `×` with that class via `tagModalCloseButton`,
+ * so the table view popup and the chart lightbox read as one family.
  *
  * The `×` is tagged (not gated on `.mtk-modal-shell`) so the rule wins on
  * specificity over both Obsidian's `.clickable-icon` and
@@ -194,33 +195,33 @@
  */
 .modal .modal-close-button.mtk-modal-close-btn {
   position: absolute;
-  /* Round, bordered, shadowed — custom look for the editor dialog close button. */
+  /* White circular chip, matching the chart lightbox close button. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   min-width: 0;
   min-height: 0;
   color: var(--text-normal);
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
+  background-color: #ffffff;
+  border: none;
+  border-radius: 50%;
   box-shadow: var(--shadow-s);
   cursor: pointer;
-  opacity: 0.92;
+  opacity: 1;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .modal .modal-close-button.mtk-modal-close-btn:hover {
-  color: var(--text-on-accent);
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
+  background-color: rgba(0, 0, 0, 0.06);
 }
 
 .modal .modal-close-button.mtk-modal-close-btn .svg-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 /* Fixed, lightbox-matching slot inside the editor dialog for the close button.
@@ -229,8 +230,8 @@
    used to share this row as a corner button; it now lives in the toolbar, so
    only the close button is parked here. */
 .mtk-modal-shell .modal-close-button.mtk-modal-close-btn {
-  top: 14px;
-  inset-inline-end: 14px;
+  top: 12px;
+  inset-inline-end: 12px;
   z-index: 5;
 }
 
