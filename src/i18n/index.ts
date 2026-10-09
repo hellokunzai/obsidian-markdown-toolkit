@@ -351,8 +351,6 @@ const en: Dict = {
   "settings.order.button.stop": "Done rearranging",
   "settings.order.count": "Custom order is stored for {{count}} folders.",
   "settings.order.handleHint": "Drag to reorder",
-  "settings.order.unavailable":
-    "This build of Obsidian does not expose the file explorer's sorting, so manual order is unavailable.",
   "settings.order.reset.name": "Reset all custom order",
   "settings.order.reset.button": "Reset",
   "settings.order.resetDone": "Custom order cleared.",
@@ -1002,7 +1000,6 @@ const zhCn: Dict = {
   "settings.order.button.stop": "完成调整",
   "settings.order.count": "当前有 {{count}} 个文件夹保存了自定义顺序。",
   "settings.order.handleHint": "拖动调整顺序",
-  "settings.order.unavailable": "当前 Obsidian 没有暴露文件列表的排序，手动排序无法使用。",
   "settings.order.reset.name": "清除全部自定义顺序",
   "settings.order.reset.button": "清除",
   "settings.order.resetDone": "已清除自定义顺序。",

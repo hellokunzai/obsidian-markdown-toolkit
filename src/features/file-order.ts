@@ -51,7 +51,7 @@
  * silently half-way.
  */
 
-import { addIcon, Notice, setIcon, TFolder, type App } from "obsidian";
+import { addIcon, setIcon, TFolder, type App } from "obsidian";
 import { t } from "../i18n";
 import { h } from "../utils/dom";
 import { applyTooltip } from "../utils/tooltip";
@@ -190,15 +190,6 @@ export class FileOrder {
   private readonly decorated = new Set<HTMLElement>();
   /** Null until the explorer has been found and its prototype patched. */
   private patch: SortPatch | null = null;
-  /**
-   * Whether the "this build cannot be patched" notice has already been shown.
-   *
-   * `attach()` runs on every `layout-change`, which fires whenever a pane is
-   * split, resized or dragged — often several times a second while a divider is
-   * being moved. A build whose sorter is not where this expects it would
-   * otherwise put a toast on screen for each of those.
-   */
-  private warned = false;
   /**
    * Which silent failures have already been reported.
    *
@@ -374,10 +365,8 @@ export class FileOrder {
     if (!this.active) return;
     this.ensurePatched();
     /* The button is offered only where it would do something. On a build whose
-       sorter could not be reached, `ensurePatched` has just said so in a notice,
-       and a button beside it that does nothing would be the worse half of that
-       message — and would be the one way to get handles onto a tree with
-       nothing to apply them. */
+       sorter could not be reached, a button that does nothing would be the one
+       way to get handles onto a tree with nothing to apply them. */
     this.syncButtons(this.patch !== null);
 
     /* No patch, no handles — they exist to record an order that something will
@@ -570,9 +559,7 @@ export class FileOrder {
   private ensurePatched(): void {
     /* Nothing recorded and no button to drag with: leave Obsidian's sorter
        exactly as it was found. Most vaults never touch this feature, and this
-       is what keeps them from carrying a patch on the explorer's prototype —
-       and from being told about a build that cannot be patched, which is a
-       thing only someone using the feature needs to hear. */
+       is what keeps them from carrying a patch on the explorer's prototype. */
     if (!this.needsSorting()) {
       this.releasePatch();
       return;
@@ -586,16 +573,8 @@ export class FileOrder {
     this.patch = patchSorting(leaf.view, (folder, sorted) => this.store.apply(folder, sorted));
 
     if (this.patch) {
-      this.warned = false;
       /* Rows already on screen were laid out before the patch existed. */
       this.sortAll();
-    } else if (!this.warned) {
-      /* Without the patch a drag would record an order nothing ever applies,
-         and an order already recorded would never be drawn. Say so rather than
-         offering a button that cannot do anything — once, because this runs
-         again on every layout change. */
-      this.warned = true;
-      new Notice(t("settings.order.unavailable"));
     }
   }
 
