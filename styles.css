@@ -180,20 +180,35 @@
 }
 
 /*
- * The editor dialog close `×` uses the same white circular look as the chart
- * lightbox (`.mtk-modal-close-btn`): every editor dialog and each of its
- * sub-dialogs tags its native `×` with that class via `tagModalCloseButton`,
- * so the table view popup and the chart lightbox read as one family.
+ * White circular close `×`, matching the chart lightbox — the *view* chrome's
+ * button only, so the table view popup and the chart lightbox read as one family.
  *
- * The `×` is tagged (not gated on `.mtk-modal-shell`) so the rule wins on
- * specificity over both Obsidian's `.clickable-icon` and
- * `body.styled-scrollbars .modal-close-button`, and does not depend on the
- * dialog carrying that class.
+ * Gated on `.mtk-modal-view`, which `table-panel.ts` adds only for the read-only
+ * view popup. It is deliberately NOT `.mtk-modal-shell` (every editor dialog adds
+ * that, view *and* edit): the edit dialogs run a 38 px header row whose title and
+ * native `×` share one axis — Obsidian's own 26 px `×` at `top: var(--size-2-3)`
+ * is already centred there (see `.mtk-header`) — so a 36 px chip at `top: 12px`
+ * would leave that axis and overhang the toolbar below. Gating on the shell
+ * applied the chip to the edit dialogs too and did exactly that; the edit dialogs
+ * now keep the native button untouched.
  *
- * Position. Inside the shell the `×` sits on a fixed line. Outside the shell
- * (the editor's sub-dialogs) it stays on Obsidian's own slot.
+ * The view popup hides its own header row and toolbar (`.mtk-modal-view
+ * .mtk-header` / `.mtk-toolbar` / `.mtk-fxbar`), so nothing sits under the chip
+ * and the fixed top-right slot reads as a lightbox control.
+ *
+ * `modal-header-button` is the class current Obsidian builds give the native `×`;
+ * older builds used `modal-close-button`. Both are matched, so the rule lands
+ * whichever the running version created.
+ *
+ * A third selector used to be listed here — `.modal .modal-close-button.mtk-modal-close-btn`,
+ * the tag `tagModalCloseButton` puts on a dialog's `×`. It was dropped, and the
+ * tag function with it: on a build whose `×` is still `modal-close-button` the
+ * tag lands on *every* dialog, so the chip reached the editor dialogs as well —
+ * a phone, whose app still names the button that way, is where that showed. The
+ * chrome class is the single source of truth now.
  */
-.modal .modal-close-button.mtk-modal-close-btn {
+.modal.mtk-modal-view .modal-header-button,
+.modal.mtk-modal-view .modal-close-button {
   position: absolute;
   /* White circular chip, matching the chart lightbox close button. */
   display: inline-flex;
@@ -215,24 +230,83 @@
   line-height: 1;
 }
 
-.modal .modal-close-button.mtk-modal-close-btn:hover {
+.modal.mtk-modal-view .modal-header-button:hover,
+.modal.mtk-modal-view .modal-close-button:hover {
   background-color: rgba(0, 0, 0, 0.06);
 }
 
-.modal .modal-close-button.mtk-modal-close-btn .svg-icon {
+.modal.mtk-modal-view .modal-header-button .svg-icon,
+.modal.mtk-modal-view .modal-close-button .svg-icon {
   width: 18px;
   height: 18px;
 }
 
-/* Fixed, lightbox-matching slot inside the editor dialog for the close button.
-   The selector includes `.modal-close-button.mtk-modal-close-btn` so it
-   outranks `body.styled-scrollbars .modal-close-button`. The fullscreen toggle
-   used to share this row as a corner button; it now lives in the toolbar, so
-   only the close button is parked here. */
-.mtk-modal-shell .modal-close-button.mtk-modal-close-btn {
+/* Fixed, lightbox-matching slot — the view popup only. Outside the view chrome
+   (the editor's sub-dialogs) the `×` stays on Obsidian's own slot. */
+.modal.mtk-modal-view .modal-header-button,
+.modal.mtk-modal-view .modal-close-button {
   top: 12px;
   inset-inline-end: 12px;
   z-index: 5;
+}
+
+/*
+ * Mobile: give the editor dialogs the same desktop `×`.
+ *
+ * On phones Obsidian paints its dialog `×` as a raised circle:
+ * `.is-phone .modal-close-button { width/height: var(--touch-size-m) }` (44px),
+ * `.clickable-icon { border-radius: var(--clickable-icon-radius) }` where
+ * `--clickable-icon-radius` is `var(--touch-size-m)` again (so a full circle),
+ * and `.is-phone .mod-raised { background: var(--raised-background) }`. Checked
+ * against the running build: the button measures 44x44 and its background is
+ * `--background-primary`, not the chip's white.
+ *
+ * The editor dialogs run the plugin's own 38px header row, which that 44px chip
+ * is too tall for — it overhangs the toolbar below. Desktop has no such
+ * problem: Obsidian's `×` there is a 26px box at `top: var(--size-2-3)`, already
+ * centred in the row (see `.mtk-header`) — "nothing has to be overridden". This
+ * rule puts the phone on the same footing.
+ *
+ * A 38px square parked in the row's top-right corner centres the glyph at
+ * 19px from the top and 19px from the right — 6 + 13 = 19 = 38 / 2, the exact
+ * place the desktop 26px box puts it. So the title and the `×` share one axis
+ * on both platforms, and the larger box keeps a full-height touch target.
+ *
+ * Editor dialogs only (`.mtk-modal-shell`, `:not(.mtk-modal-view)`): the view
+ * popup keeps the white circular chip above, the chart lightbox has its own
+ * button, and the plugin's prompt-style sub-dialogs keep Obsidian's layout.
+ */
+body.is-mobile .modal.mtk-modal-shell:not(.mtk-modal-view) .modal-header-button,
+body.is-mobile .modal.mtk-modal-shell:not(.mtk-modal-view) .modal-close-button {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  width: var(--mtk-header-height, 38px);
+  height: var(--mtk-header-height, 38px);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Some builds paint the raised chip as a mask layer on a pseudo-element
+   (`.is-mobile.is-floating-nav .mod-raised::after`); hide it too, so no circle
+   survives the reset above. */
+body.is-mobile .modal.mtk-modal-shell:not(.mtk-modal-view) .mod-raised::after {
+  display: none;
+}
+
+body.is-mobile .modal.mtk-modal-shell:not(.mtk-modal-view) .modal-header-button .svg-icon,
+body.is-mobile .modal.mtk-modal-shell:not(.mtk-modal-view) .modal-close-button .svg-icon {
+  width: 18px;
+  height: 18px;
 }
 
 /*

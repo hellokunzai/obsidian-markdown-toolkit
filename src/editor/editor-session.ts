@@ -4,7 +4,6 @@ import { EditorPanel, type EditorPanelHost } from "./editor-panel";
 import { ChartPanel } from "./chart-panel";
 import { VIEW_TYPE_DIAGRAM } from "./view-type";
 import { writeBlock, type BlockTarget } from "../block/block-target";
-import { tagModalCloseButton } from "../utils/modal-fullscreen";
 import { isCanvasMode, type DiagramMode } from "../core/model";
 
 export interface SessionInit {
@@ -62,9 +61,8 @@ class DiagramModal extends Modal {
     // builds used by some app versions do not support.
     this.modalEl.classList.add("mtk-modal-shell");
     this.contentEl.classList.add("mtk-modal", "mtk-in-dialog");
-    // The fullscreen toggle now lives in the editor toolbar, not the corner;
-    // the dialog only keeps the round close button styling.
-    tagModalCloseButton(this.modalEl);
+    // The fullscreen toggle lives in the editor toolbar; the dialog's own `×`
+    // keeps Obsidian's default look, as in every non-view dialog.
     this.session.attachPanel(this.contentEl, false);
   }
 

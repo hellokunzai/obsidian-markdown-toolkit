@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我做了个 Obsidian 插件：图表写进纯文本，Git 能管、手机能看、换电脑不丢</title>
+<style>body{margin:0;padding:20px;background:#fff;font-family:Optima,'Microsoft YaHei',PingFang SC,serif;}#article{max-width:677px;margin:0 auto;box-sizing:border-box;}</style>
+</head>
+<body>
+<div id="article" style="padding:0 4px;">
+<div style="text-align:center;padding:36px 24px 28px;background:linear-gradient(135deg,#1e293b 0%,#334155 50%,#1e293b 100%);border-radius:12px;margin-bottom:24px;"><div style="font-size:13px;letter-spacing:3px;color:#94a3b8;margin-bottom:12px;">我的开源插件</div><h1 style="margin:0 0 14px;font-size:26px;line-height:1.5;color:#ffffff;font-weight:bold;">我做了个 Obsidian 插件：图表写进纯文本，Git 能管、手机能看、换电脑不丢</h1><div style="display:inline-block;padding:6px 16px;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.3);border-radius:20px;font-size:13px;color:#94a3b8">纯文本图表 · 离线 · 开源</div></div><h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">🔔 开篇导语</span></h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">事情是这样的。我在 Obsidian 里画图，最常用的两种方式：要么截图贴进笔记，要么导出 png 丢在 attachments 里。截图一时爽，回头想改一个节点名字，得重新画、重新导出、重新贴。图一多，笔记就慢慢变成一堆改不动的「图片坟墓」。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">后来我想，能不能让图和表继续活在 Markdown 里——还是那段文本，只是给它配个可视化编辑器？于是有了 Markdown Toolkit 这个插件。</p>
+<blockquote style="margin:18px 0;padding:14px 18px;background:rgba(100,116,139,0.08);border-left:4px solid #64748b;color:#64748b;font-style:italic;font-size:15px">📷 配图建议：左右对比图，左边是「截图流程图躺在 attachments 文件夹」，右边是「代码块里的 flowchart 文本 + 画布编辑器打开」，中间画个箭头</blockquote>
+<hr style="border:none;height:1px;background:#e5e5e5;margin:24px 0">
+<h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">📖 它是什么</span></h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">Markdown Toolkit 是一款 Obsidian 社区插件，当前版本 0.21.0，最低支持 Obsidian 1.4.16。桌面端和移动端都能用，不联网，不要账号，没有内购，MIT 协议开源。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">一句话说清楚：在笔记里可视化编辑图表、思维导图、流程图等 12 种图形，改完自动写回纯文本；同一套画布也能编辑带公式的 Markdown 表格。另外还顺手带了编辑器工具栏、文件浏览器增强和附件管理几块工具。</p>
+<blockquote style="margin:18px 0;padding:14px 18px;background:rgba(100,116,139,0.08);border-left:4px solid #64748b;color:#64748b;font-style:italic;font-size:15px">💡 核心前提：图表和表格继续以纯文本存在笔记里，编辑器只是给这份文本配的一层操作界面，不是另存一份副本。</blockquote>
+<hr style="border:none;height:1px;background:#e5e5e5;margin:24px 0">
+<h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">🚀 核心功能</span></h1>
+<h2 style="margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #64748b;line-height:1.4;font-size:20px;color:#334155">1. 图形可视化编辑器：12 种图，画完写回代码块</h2>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">在笔记里用代码块写图表，点一下就在画布上打开。拖动排版后，结果写回代码块源码。内置 12 种图形：思维导图、流程图、时序图、类图、状态图、实体关系图、甘特图、饼图、Git 图、时间线、鱼骨图、柱状图。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">几个我自己在用的点：</p>
+<ul style="padding-left:24px;margin:16px 0"><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">自研 SVG 渲染加 dagre 自动布局，不依赖外部 CDN，也不用联网。</li><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">节点位置记进代码块里的一行注释，下次打开还是你摆好的样子，别的渲染器读到这行会跳过。</li><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">渲染失败不会整块变空白，而是把源码显示出来并说明是哪种图形出的问题。</li><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">画布上能拖节点、改名字、加子节点和兄弟节点、撤销重做、缩放，五种节点形状（矩形、圆角、圆形、菱形、六边形）。</li></ul>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">相关命令：<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">插入思维导图代码块</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">插入流程图代码块</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">把选中的大纲转成思维导图</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">编辑光标处的图形</code>。</p>
+<blockquote style="margin:18px 0;padding:14px 18px;background:rgba(100,116,139,0.08);border-left:4px solid #64748b;color:#64748b;font-style:italic;font-size:15px">📷 配图建议：思维导图代码块 + 打开后的画布编辑器截图，红框标出「写回源码」那行注释</blockquote>
+<h2 style="margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #64748b;line-height:1.4;font-size:20px;color:#334155">2. 表格编辑器：Markdown 表也能算公式</h2>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">阅读视图和实时预览里，插件会接管 Markdown 表格，给每张表套上画框。在格子里写 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">=sum(B2:B4)</code> 就会算出结果，格子里显示值，源码里留公式。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">公式支持 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">sum</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">avg</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">count</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">max</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">min</code>，也支持 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">B2:B4</code> 这样的区域引用和 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">+ - * /</code> 括号算式。写错了显示成 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">#REF!</code> 这类值，不会把整张表渲染崩。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">编辑器是电子表格式的：字母列标加数字行号、滚动吸顶、拖拽选范围、方向键和 Tab 移动、双击输入、拖填充柄续填序列。画框角上能一键导出 CSV 或 Markdown。</p>
+<h2 style="margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #64748b;line-height:1.4;font-size:20px;color:#334155">3. 编辑器工具栏：40+ 按钮，还能自己排</h2>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">一条可自定义的格式化工具栏，默认 40 多个按钮。我平时用得最多的是三块：</p>
+<ul style="padding-left:24px;margin:16px 0"><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">格式刷：把一段文字的格式套到另一段。</li><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">文本批处理：15 个工具，去空行、去重、加前后缀、加行号、表格和列表互转等。</li><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">双色板：字体色和背景色各一支取色面板，面板里能用吸管取屏幕上的颜色。</li></ul>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">另外还有全屏专注模式、对齐（左中右两端）、图表子菜单、分组标题。手机上它会自动隐藏 Obsidian 自带的那条键盘工具条，只留插件这一条——装上就生效，不用设置。</p>
+<h2 style="margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid #64748b;line-height:1.4;font-size:20px;color:#334155">4. 文件浏览器增强（默认关）和附件管理（默认关）</h2>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">这两个模块默认关，在「功能模块」页签打开才生效：</p>
+<ul style="padding-left:24px;margin:16px 0"><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">文件浏览器增强：按名称、前缀或后缀隐藏条目，比如藏起 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">attachments</code> 或 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">.obsidian</code>；还能给文件夹手动定顺序。</li><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">附件管理：附件落在哪、叫什么名都能用变量模板定；重命名或移动笔记时，附件文件夹跟着搬，链接自动更新；删笔记时把孤儿附件送进回收站，还能恢复。</li></ul>
+<hr style="border:none;height:1px;background:#e5e5e5;margin:24px 0">
+<h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">🛠 技术上是怎么做的（简单说一点）</span></h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">图表这块最麻烦的是「改完怎么回到纯文本」。我的做法：编辑器改的就是代码块里的源码，永远只有这一份，没有第二副本，也不存在需要导出的中间格式。位置信息塞进代码块的一行注释里，既不影响别的 Markdown 工具读取，也不污染正文。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">渲染和排版全在本地完成。布局用 dagre，SVG 是自己画的，所以离线、无 CDN 依赖。</p>
+<hr style="border:none;height:1px;background:#e5e5e5;margin:24px 0">
+<h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">如何安装 / 更新</span></h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">新用户：在 Obsidian「设置 → 第三方插件」里搜 Markdown Toolkit，直接装。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">老用户或者想装 Beta：</p>
+<ul style="padding-left:24px;margin:16px 0"><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">手动装：去 <a href="https://github.com/hellokunzai/obsidian-markdown-toolkit/releases" style="color:#64748b;text-decoration:none">Releases</a> 下载 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">main.js</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">manifest.json</code>、<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">styles.css</code> 三个文件，放进 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">&lt;仓库&gt;/.obsidian/plugins/markdown-toolkit/</code>，文件夹名要跟插件 id <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">markdown-toolkit</code> 完全一致。</li><li style="margin:8px 0;color:#334155;font-size:16px;line-height:1.85">走 BRAT：装 <a href="https://github.com/TfTHacker/obsidian42-brat" style="color:#64748b;text-decoration:none">BRAT</a> 后填仓库 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">hellokunzai/obsidian-markdown-toolkit</code>，以后更新交给它。</li></ul>
+<blockquote style="margin:18px 0;padding:14px 18px;background:rgba(100,116,139,0.08);border-left:4px solid #64748b;color:#64748b;font-style:italic;font-size:15px">⚠️ 文件夹名必须和插件 id 同名，这点我踩过坑，配不对就一直读不到设置。</blockquote>
+<hr style="border:none;height:1px;background:#e5e5e5;margin:24px 0">
+<h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">❓ 常见问题</span></h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">Q：手机能用吗？<br>A：能。插件标了 <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:14px;color:#64748b">isDesktopOnly: false</code>，iOS 和 Android 都跑得起来，画布和表格都支持双指捏合缩放。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">Q：需要联网吗？<br>A：不需要。所有计算本地完成，不发起任何网络请求。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">Q：会不会跟我现有的图表渲染冲突？<br>A：代码块里那行位置注释，别的渲染器读到会直接跳过，不影响它们渲染。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">Q：功能太多会不会卡？<br>A：五个模块在「功能模块」页签都能单独开关，只开你要的就行。</p>
+<hr style="border:none;height:1px;background:#e5e5e5;margin:24px 0">
+<h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">📋 全文总结</span></h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">做这个插件的出发点其实很朴素：图不该是笔记的终点，截图贴进去就改不动了；它应该是笔记的一部分，跟着正文一起进 Git、一起跨平台、一起被检索。</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">我反复坚持两条底线：一是数据始终以纯文本存在，控制权在用户手里；二是同步不该是个黑盒，不联网、不依赖外部服务。</p>
+<h1 style="margin:28px 0 14px;padding-bottom:10px;border-bottom:3px solid #64748b;line-height:1.4"><span style="font-size:24px;color:#334155;font-weight:bold">💬 互动结尾</span></h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">你平时在 Obsidian 里画图、做表，是截图派还是代码派？用过哪些插件觉得好用、哪些踩了坑？</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#334155">评论区聊聊。如果它帮你少截了几张图，欢迎去 GitHub 点个 star，或者直接回来告诉我哪里还不够好用。</p>
+</div>
+</body>
+</html>

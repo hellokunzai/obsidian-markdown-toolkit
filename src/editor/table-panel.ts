@@ -44,7 +44,6 @@
 import { Menu, Modal, Notice, setIcon, type App } from "obsidian";
 import { t } from "../i18n";
 import { h } from "../utils/dom";
-import { tagModalCloseButton } from "../utils/modal-fullscreen";
 import { applyTooltip } from "../utils/tooltip";
 import {
   columnLetter,
@@ -361,7 +360,6 @@ class TablePanel extends Modal {
     modalEl.addClass("mtk-modal-shell");
     if (this.viewing) modalEl.addClass("mtk-modal-view");
     if (this.readOnly) modalEl.addClass("mtk-modal-readonly");
-    tagModalCloseButton(modalEl);
     contentEl.empty();
     this.teardown.length = 0;
 

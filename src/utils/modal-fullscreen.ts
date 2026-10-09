@@ -1,6 +1,5 @@
 /**
- * The fullscreen toggle the editor panels carry in their toolbar, and the round
- * close-button styling every editor dialog uses.
+ * The fullscreen toggle the editor panels carry in their toolbar.
  *
  * The mode the toggle drives is maximization rather than browser fullscreen: it
  * stretches the dialog over the whole app window via one class, and comes back
@@ -25,21 +24,6 @@ const FULLSCREEN_CLASS = "mtk-modal-fullscreen";
 const ICON_ENTER = "maximize";
 /** Matches the preview lightbox, which toggles `maximize` / `minimize`. */
 const ICON_EXIT = "minimize";
-
-/** Obsidian's own class for the dialog's `×`. */
-const CLOSE_SELECTOR = ".modal-close-button";
-
-/**
- * Gives the native `×` the round, lightbox styling the editor dialogs use.
- *
- * Every editor dialog calls this from `onOpen` — the main canvas window and each
- * of its sub-dialogs — so their close buttons read the same. The appearance
- * itself lives in `styles.css` under `.modal-close-button.mtk-modal-close-btn`.
- */
-export function tagModalCloseButton(modalEl: HTMLElement): void {
-  const closeButton = modalEl.querySelector<HTMLElement>(CLOSE_SELECTOR);
-  if (closeButton) closeButton.classList.add("mtk-modal-close-btn");
-}
 
 /**
  * Builds the fullscreen toggle for the editor panels' toolbar.

@@ -14,7 +14,7 @@ import { paintChart } from "../charts/paint";
 import { createSurface, readPalette, type DiagramSurface } from "../render/svg";
 import { fitBounds } from "../render/fit";
 import { h } from "../utils/dom";
-import { buildFullscreenToolbarButton, tagModalCloseButton } from "../utils/modal-fullscreen";
+import { buildFullscreenToolbarButton } from "../utils/modal-fullscreen";
 import { applyTooltip } from "../utils/tooltip";
 import { TextToolModal } from "../ui/text-tool-modal";
 import type { EditorPanelHost } from "./editor-panel";
@@ -2537,7 +2537,6 @@ class MessageDialog extends Modal {
   }
 
   onOpen(): void {
-    tagModalCloseButton(this.modalEl);
     const { contentEl } = this;
     contentEl.empty();
     contentEl.appendChild(h("h3", { text: t("chart.seq.editMessage") }));
@@ -2634,7 +2633,6 @@ class ClassMemberDialog extends Modal {
   }
 
   onOpen(): void {
-    tagModalCloseButton(this.modalEl);
     const { contentEl } = this;
     contentEl.empty();
     contentEl.appendChild(h("h3", { text: this.title }));
@@ -2691,7 +2689,6 @@ class RelationDialog extends Modal {
   }
 
   onOpen(): void {
-    tagModalCloseButton(this.modalEl);
     const { contentEl } = this;
     contentEl.empty();
     contentEl.appendChild(h("h3", { text: t("chart.class.relTitle") }));
@@ -2778,7 +2775,6 @@ class ErRelationDialog extends Modal {
   }
 
   onOpen(): void {
-    tagModalCloseButton(this.modalEl);
     const { contentEl } = this;
     contentEl.empty();
     contentEl.appendChild(h("h3", { text: t("chart.er.editRelation") }));
